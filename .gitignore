@@ -141,3 +141,10 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Misc
+.DS_Store
+TODO.md
+demos/*
+.docs
+.specstory/*

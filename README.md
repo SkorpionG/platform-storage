@@ -1,1 +1,1 @@
-# use-platform-storage
+# platform-storage
