@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  # Required for npm provenance, which links each published tarball to the workflow run and commit that produced it.
+  id-token: write
+
+jobs:
+  # Publishing is off until an `NPM_TOKEN` secret exists. The check lives in its own job because the `secrets` context cannot be read from a job-level `if`, and this way the release job below is skipped outright rather than starting and bailing.
+  check-token:
+    name: Check publish token
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - name: Look for a publish token
+        id: check
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Releases are off: no \`NPM_TOKEN\` secret is set." >> "$GITHUB_STEP_SUMMARY"
+            echo "Add one in Settings → Secrets and variables → Actions to turn publishing on." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  release:
+    name: Release
+    needs: check-token
+    if: needs.check-token.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Opens (or updates) a version pull request while changesets are pending, and publishes once that pull request lands.
+      - name: Version or publish
+        uses: changesets/action@v1
+        with:
+          version: pnpm version-packages
+          publish: pnpm release
+          commit: "chore: version packages"
+          title: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"

@@ -1,0 +1,29 @@
+{
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "rules": {
+    "typescript/consistent-type-definitions": ["error", "interface"],
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/explicit-function-return-type": "error",
+    "typescript/array-type": ["error", { "default": "generic" }],
+    "unicorn/prefer-node-protocol": "error",
+    "import/no-cycle": "error",
+    "no-console": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/tests/**"],
+      "rules": {
+        "typescript/explicit-function-return-type": "off",
+        "typescript/no-non-null-assertion": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["dist/**", "node_modules/**", ".cache/**"]
+}

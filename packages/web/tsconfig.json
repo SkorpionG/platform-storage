@@ -1,0 +1,7 @@
+{
+  "extends": "@tooling/typescript-config/library-dom.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["src", "tests", "tsdown.config.ts", "vitest.config.ts"]
+}

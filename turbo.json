@@ -1,0 +1,37 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "ui": "tui",
+  "tasks": {
+    // Deliberately matches no script in any package. It exists so that `typecheck`, `lint` and the test tasks depend on their dependencies' *sources* without waiting for their builds: `dependsOn: ["^typecheck"]` would serialize the graph, and no `dependsOn` at all would let a package replay a cached success after a dependency changed underneath it. That second case is not hypothetical here, because in-repo `exports` point at `src`, so `tsc` in a platform package reads core's source directly.
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["transit"],
+      "outputs": [".cache/tsbuildinfo.json"]
+    },
+    "lint": {
+      "dependsOn": ["transit"],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["transit"],
+      "outputs": []
+    },
+    "check-package": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
+    "clean": {
+      "cache": false
+    },
+    "test:coverage": {
+      "dependsOn": ["transit"],
+      "outputs": ["coverage/**"]
+    }
+  }
+}

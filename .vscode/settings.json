@@ -1,6 +1,46 @@
 {
-  "cSpell.words": ["vite"],
+  "cSpell.words": [
+    "arethetypeswrong",
+    "arktype",
+    "attw",
+    "changesets",
+    "lefthook",
+    "oxfmt",
+    "oxlint",
+    "publint",
+    "rolldown",
+    "skorpiong",
+    "tsbuildinfo",
+    "tsdown",
+    "turborepo",
+    "valibot",
+    "vite",
+    "vitest",
+    "webext",
+    "webextension"
+  ],
   "specstory.helpUsImprove": false,
   "specstory.autoSave.enabled": true,
-  "specstory.cloudSync.enabled": "always"
+  "specstory.cloudSync.enabled": "always",
+  "json.schemaDownload.trustedDomains": {
+    "https://turborepo.dev/schema.json": true,
+    "https://unpkg.com/@changesets/config@3.1.1/schema.json": true
+  },
+  // Mapped here rather than with a `$schema` inside each file. A relative `$schema` is resolved against the document's own URI, so opening one of these from git history looks for the schema under `git:` and fails; these paths are resolved against the workspace root instead. Reading the installed copy also means the rules validated against are always the ones oxlint enforces, with no version to keep in step.
+  "json.schemas": [
+    {
+      "fileMatch": ["**/.oxlintrc.json", "**/tooling/oxlint/base.json"],
+      "url": "./node_modules/oxlint/configuration_schema.json"
+    },
+    {
+      "fileMatch": ["**/.oxfmtrc.json"],
+      "url": "./node_modules/oxfmt/configuration_schema.json"
+    }
+  ],
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "editor.formatOnSave": true,
+  "[typescript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[javascript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[json]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[jsonc]": { "editor.defaultFormatter": "oxc.oxc-vscode" }
 }

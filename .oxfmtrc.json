@@ -1,0 +1,17 @@
+{
+  "printWidth": 100,
+  "singleQuote": false,
+  "semi": true,
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "endOfLine": "lf",
+  "ignorePatterns": [
+    "**/dist/**",
+    "pnpm-lock.yaml",
+    // Vendored agent skills. Committed, but authored elsewhere: reformatting
+    // them would put this repository's style into someone else's files and make
+    // every upstream update conflict.
+    ".agents/**",
+    ".claude/**"
+  ]
+}

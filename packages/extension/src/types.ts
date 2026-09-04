@@ -1,0 +1,31 @@
+/** The storage areas an extension can address. */
+export const EXTENSION_STORAGE_AREA = {
+  Local: "local",
+  Sync: "sync",
+  Session: "session",
+} as const;
+
+export type ExtensionStorageAreaName =
+  (typeof EXTENSION_STORAGE_AREA)[keyof typeof EXTENSION_STORAGE_AREA];
+
+/**
+ * The part of a WebExtension storage area this package uses.
+ *
+ * Declared structurally rather than imported from a browser type package, so none of them reaches a consumer's type graph. It is the common denominator of the promise-based API as Chrome, Firefox and the WebExtension polyfill each declare it, and conformance tests check it against all of them.
+ *
+ * The array form is `Array<string>` rather than `ReadonlyArray<string>` because that is what every one of those declarations accepts; a readonly array would make the real APIs stop satisfying this interface.
+ */
+export interface ExtensionStorageArea {
+  get(keys: string | Array<string>): Promise<Record<string, unknown>>;
+  set(items: Record<string, unknown>): Promise<void>;
+  remove(keys: string | Array<string>): Promise<void>;
+}
+
+/**
+ * The `storage` namespace. `session` is optional because Manifest V2 and older browser versions do not have it.
+ */
+export interface ExtensionStorageNamespace {
+  readonly local: ExtensionStorageArea;
+  readonly sync: ExtensionStorageArea;
+  readonly session?: ExtensionStorageArea;
+}

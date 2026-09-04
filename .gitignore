@@ -148,3 +148,9 @@ TODO.md
 demos/*
 .docs
 .specstory/*
+
+# Turborepo
+.turbo
+
+# Incremental TypeScript build info and packed tarballs from check-package
+.cache

@@ -1,0 +1,11 @@
+{
+  "extends": "@tooling/typescript-config/library-dom.json",
+  "compilerOptions": {
+    // The browser type packages are here for the conformance tests that prove
+    // this package's own minimal storage-area interface still matches every
+    // real API. `src` imports none of them, which is what keeps them out of
+    // consumers' type graphs.
+    "types": ["node", "chrome", "firefox-webext-browser"]
+  },
+  "include": ["src", "tests", "tsdown.config.ts", "vitest.config.ts"]
+}

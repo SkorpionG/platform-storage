@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # `turbo --affected` compares against the base branch, so it needs more than the default shallow clone.
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Two passes, because they own different things: oxfmt formats code and leaves comment interiors and Markdown prose alone, and `format:comments` owns exactly those.
+      - name: Format
+        run: pnpm format:check
+
+      # Pull requests check only what they touched; pushes to main check everything, so nothing reaches the release branch unverified.
+      - name: Build, typecheck, lint, test, package
+        run: >-
+          pnpm exec turbo run build typecheck lint test check-package
+          ${{ github.event_name == 'pull_request' && '--affected' || '' }}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": ["@changesets/changelog-github", { "repo": "SkorpionG/platform-storage" }],
+  "commit": false,
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "linked": [],
+  "fixed": [["@platform-storage/*"]],
+  "ignore": [],
+  "privatePackages": { "version": false, "tag": false }
+}

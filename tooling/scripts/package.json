@@ -1,0 +1,13 @@
+{
+  "name": "@tooling/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "bin": {
+    "format-comments": "./src/format-comments.js"
+  },
+  "type": "module",
+  "scripts": {
+    "lint": "oxlint"
+  }
+}

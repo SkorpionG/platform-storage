@@ -1,0 +1,20 @@
+{
+  "name": "@tooling/vitest-config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "files": [
+    "base.js",
+    "base.d.ts"
+  ],
+  "type": "module",
+  "exports": {
+    "./base": "./base.js"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "vitest": "catalog:"
+  }
+}

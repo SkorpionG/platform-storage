@@ -1,0 +1,26 @@
+pre-commit:
+  parallel: true
+  jobs:
+    # The three that rewrite files run one after another: their globs overlap on `.ts`, and run concurrently the later one would clobber what the others had just fixed, then `stage_fixed` would commit that.
+    - name: fixers
+      group:
+        piped: true
+        jobs:
+          - name: lint
+            glob: "*.{js,mjs,cjs,ts,mts,cts}"
+            run: pnpm exec oxlint --fix --no-error-on-unmatched-pattern {staged_files}
+            stage_fixed: true
+          - name: format
+            glob: "*.{js,mjs,cjs,ts,mts,cts,json,jsonc,md,yml,yaml}"
+            run: pnpm exec oxfmt --no-error-on-unmatched-pattern {staged_files}
+            stage_fixed: true
+          # The other half of what oxfmt does: it leaves comment interiors and Markdown prose as it finds them, and this owns those.
+          - name: comments
+            glob: "*.{js,mjs,cjs,ts,mts,cts,tsx,jsx,jsonc,md,mdx,yml,yaml}"
+            run: node tooling/scripts/src/format-comments.js {staged_files}
+            stage_fixed: true
+    # Both read the whole workspace rather than the staged paths, so they take no `{staged_files}` — turbo's cache makes the repeat runs cheap.
+    - name: typecheck
+      run: pnpm typecheck
+    - name: test
+      run: pnpm test
