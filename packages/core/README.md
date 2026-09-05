@@ -95,6 +95,8 @@ Prefer `isPlatformStorageError` and `isStorageValidationError` to `instanceof`: 
 
 Implement `StorageAdapter<Wire>`, or `defineSyncAdapter` when the backend answers immediately and you want the asynchronous half derived for you. The adapter owns its serializer, because backends disagree about what they can hold: strings for web storage, JSON values for an extension storage area.
 
+`requireBackend(source, context)` resolves a backend that may not be there. Call it on every operation rather than once at construction, since a storage is usually built while a module is loading: it takes a function, and reports `StorageUnavailableError` when calling that function throws or when it answers with `null` or `undefined`.
+
 `withFallback(primary, fallback)` builds one adapter that uses the first backend where it exists and the second where it does not.
 
 ## License

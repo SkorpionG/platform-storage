@@ -4,11 +4,10 @@ What is deliberately not in the first release, and what each item needs when it 
 
 ## v0.1 — the current target
 
-Built: schema definition, typed keys and values, runtime validation on read and write, automatic serialization, typed errors, the layered invalid-data policy, an asynchronous API with a typed synchronous extension for synchronous adapters, the memory adapter, and `withFallback`.
+Built: schema definition, typed keys and values, runtime validation on read and write, automatic serialization, typed errors, the layered invalid-data policy, an asynchronous API with a typed synchronous extension for synchronous adapters, the memory adapter, `withFallback`, and `@platform-storage/web`: `localStorage` and `sessionStorage`, over a `Storage` reached through a function so the access itself stays guarded.
 
 Still to build, each with a convenience factory over `createStorage`:
 
-- **`@platform-storage/web`** — `localStorage` and `sessionStorage`, over a `Storage` reached through a function so the access itself stays guarded.
 - **`@platform-storage/extension`** — the `local`, `sync` and `session` areas, resolved from `browser` or `chrome`, storing JSON values natively rather than as text.
 - **`@platform-storage/react-native`** — AsyncStorage, with the instance supplied by the application so the package never imports a native module.
 

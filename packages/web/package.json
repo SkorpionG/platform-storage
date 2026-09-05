@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Schema-first, type-safe localStorage and sessionStorage: define your storage once, get validation and TypeScript inference on every read and write.",
   "keywords": [
+    "electron",
     "localstorage",
     "schema",
     "sessionstorage",
@@ -10,6 +11,7 @@
     "type-safe",
     "typescript",
     "validation",
+    "web-storage",
     "zod"
   ],
   "homepage": "https://github.com/SkorpionG/platform-storage/tree/main/packages/web#readme",

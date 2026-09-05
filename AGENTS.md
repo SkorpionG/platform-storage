@@ -10,15 +10,15 @@ The repository is a pnpm + Turborepo monorepo. Adapters are thin; nearly all of 
 
 ## Package map
 
-| Package                          | Holds                                                                        |
-| -------------------------------- | ---------------------------------------------------------------------------- |
-| `@platform-storage/core`         | Schema definition, type inference, validation, serialization, engine, errors |
-| `@platform-storage/web`          | A usability probe for web storage                                            |
-| `@platform-storage/extension`    | The WebExtension storage area and namespace shapes                           |
-| `@platform-storage/react-native` | The AsyncStorage shape                                                       |
-| `tooling/*`                      | Private, shared TypeScript, oxlint, vitest and formatting configuration      |
+| Package                          | Holds                                                                             |
+| -------------------------------- | --------------------------------------------------------------------------------- |
+| `@platform-storage/core`         | Schema definition, type inference, validation, serialization, engine, errors      |
+| `@platform-storage/web`          | The `localStorage` and `sessionStorage` adapters, and storage factories over them |
+| `@platform-storage/extension`    | The WebExtension storage area and namespace shapes                                |
+| `@platform-storage/react-native` | The AsyncStorage shape                                                            |
+| `tooling/*`                      | Private, shared TypeScript, oxlint, vitest and formatting configuration           |
 
-Every platform package depends only on core and re-exports it, so an application installs one package. Platform packages never depend on each other, and none of them has its adapter yet: what each is to hold is in `ROADMAP.md`.
+Every platform package depends only on core and re-exports it, so an application installs one package. Platform packages never depend on each other. The extension and React Native packages do not have their adapters yet; what each is to hold is in `ROADMAP.md`.
 
 ## Commands
 

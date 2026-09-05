@@ -64,14 +64,14 @@ A value that fails validation on the way out does not break the read: by default
 
 ## Packages
 
-| Package                          | Holds                                                                |
-| -------------------------------- | -------------------------------------------------------------------- |
-| `@platform-storage/core`         | The schema API, the storage engine, the adapter contract, the errors |
-| `@platform-storage/web`          | Re-exports core, and reports whether a web storage is usable         |
-| `@platform-storage/extension`    | Re-exports core, and declares the WebExtension storage area shape    |
-| `@platform-storage/react-native` | Re-exports core, and declares the AsyncStorage shape                 |
+| Package                          | Holds                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| `@platform-storage/core`         | The schema API, the storage engine, the adapter contract, the errors       |
+| `@platform-storage/web`          | Re-exports core, and adds the `localStorage` and `sessionStorage` adapters |
+| `@platform-storage/extension`    | Re-exports core, and declares the WebExtension storage area shape          |
+| `@platform-storage/react-native` | Re-exports core, and declares the AsyncStorage shape                       |
 
-Every platform package re-exports the whole core API, so an application installs one package.
+Every platform package re-exports the whole core API, so an application installs one package. The web package serves anything with the Web Storage API, an Electron renderer process included.
 
 ## Validation library
 

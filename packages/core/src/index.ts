@@ -7,6 +7,8 @@ export type {
 } from "./adapter/adapter";
 export { memoryAdapter } from "./adapter/memory-adapter";
 export type { MemoryAdapterOptions, MemoryStorageAdapter } from "./adapter/memory-adapter";
+export { requireBackend } from "./adapter/require-backend";
+export type { BackendContext, BackendSource } from "./adapter/require-backend";
 export { withFallback } from "./adapter/with-fallback";
 
 export { ERROR_BRAND, STORAGE_ERROR_CODE, STORAGE_OPERATION } from "./errors/codes";

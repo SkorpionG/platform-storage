@@ -4,7 +4,7 @@ import type { StorageAdapter, SyncStorageAdapter } from "./adapter";
 /**
  * Uses the first backend where it exists, and the second where it does not.
  *
- * The pattern this exists for is server rendering: `withFallback(localStorageAdapter(), memoryAdapter())` builds one storage that works in a browser and on a server, so application code never branches on which it is running in.
+ * The pattern this exists for is server rendering: pairing a platform adapter with `memoryAdapter()` builds one storage that works where the real backend exists and where it does not, so application code never branches on which it is running in.
  *
  * The choice is made on first use rather than at construction, because a storage is often built while a module is loading and long before anything reads from it. It is then kept, so every operation reaches the same backend and a value cannot be written to one and read from the other.
  *

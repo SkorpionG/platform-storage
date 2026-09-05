@@ -102,7 +102,7 @@ interface StorageIo {
  * The result exposes the synchronous methods too when the adapter can answer immediately, so application code can be written once and still read without waiting where the platform allows it.
  *
  * ```ts
- * const storage = createStorage({ schema, adapter: localStorageAdapter() });
+ * const storage = createStorage({ schema, adapter: memoryAdapter() });
  *
  * await storage.set("theme", "dark");
  * const theme = await storage.get("theme");
