@@ -4,14 +4,17 @@ What is deliberately not in the first release, and what each item needs when it 
 
 ## v0.1 — the current target
 
-Built: schema definition, typed keys and values, runtime validation on read and write, automatic serialization, typed errors, the layered invalid-data policy, an asynchronous API with a typed synchronous extension for synchronous adapters, the memory adapter, `withFallback`, and `@platform-storage/web`: `localStorage` and `sessionStorage`, over a `Storage` reached through a function so the access itself stays guarded.
+Built: schema definition, typed keys and values, runtime validation on read and write, automatic serialization, typed errors, the layered invalid-data policy, an asynchronous API with a typed synchronous extension for synchronous adapters, the memory adapter, `withFallback`, `@platform-storage/web` over `localStorage` and `sessionStorage`, and `@platform-storage/extension` over the `local`, `sync` and `session` areas.
 
-Still to build, each with a convenience factory over `createStorage`:
+Still to build, with a convenience factory over `createStorage`:
 
-- **`@platform-storage/extension`** — the `local`, `sync` and `session` areas, resolved from `browser` or `chrome`, storing JSON values natively rather than as text.
 - **`@platform-storage/react-native`** — AsyncStorage, with the instance supplied by the application so the package never imports a native module.
 
 ## Next
+
+### A memory adapter over JSON values
+
+`memoryAdapter` transports strings, so it cannot be the fallback half of `withFallback` for an extension area, whose wire is a JSON value. A memory adapter over JSON values, or a wire-type parameter on the existing one, would let a popup opened as a plain page during development fall back the way a web page does.
 
 ### Change subscription
 

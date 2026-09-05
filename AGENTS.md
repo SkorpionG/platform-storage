@@ -14,11 +14,11 @@ The repository is a pnpm + Turborepo monorepo. Adapters are thin; nearly all of 
 | -------------------------------- | --------------------------------------------------------------------------------- |
 | `@platform-storage/core`         | Schema definition, type inference, validation, serialization, engine, errors      |
 | `@platform-storage/web`          | The `localStorage` and `sessionStorage` adapters, and storage factories over them |
-| `@platform-storage/extension`    | The WebExtension storage area and namespace shapes                                |
+| `@platform-storage/extension`    | The `local`, `sync` and `session` area adapters, and a storage factory over them  |
 | `@platform-storage/react-native` | The AsyncStorage shape                                                            |
 | `tooling/*`                      | Private, shared TypeScript, oxlint, vitest and formatting configuration           |
 
-Every platform package depends only on core and re-exports it, so an application installs one package. Platform packages never depend on each other. The extension and React Native packages do not have their adapters yet; what each is to hold is in `ROADMAP.md`.
+Every platform package depends only on core and re-exports it, so an application installs one package. Platform packages never depend on each other. The React Native package does not have its adapter yet; what it is to hold is in `ROADMAP.md`.
 
 ## Commands
 

@@ -13,7 +13,7 @@ export type ExtensionStorageAreaName =
  *
  * Declared structurally rather than imported from a browser type package, so none of them reaches a consumer's type graph. It is the common denominator of the promise-based API as Chrome, Firefox and the WebExtension polyfill each declare it, and conformance tests check it against all of them.
  *
- * The array form is `Array<string>` rather than `ReadonlyArray<string>` because that is what every one of those declarations accepts; a readonly array would make the real APIs stop satisfying this interface.
+ * Values are `unknown` rather than JSON values because the polyfill declares them that way, and narrowing here would stop it conforming. The array form is `Array<string>` rather than `ReadonlyArray<string>` for the same reason: it is what every one of those declarations accepts.
  */
 export interface ExtensionStorageArea {
   get(keys: string | Array<string>): Promise<Record<string, unknown>>;
