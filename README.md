@@ -4,53 +4,32 @@
 
 **Schema-first, type-safe storage for every JavaScript platform.**
 
-Define your storage once. Get validation, TypeScript inference and serialization from that one definition.
+Declare what your app stores, once. Every read and write is then validated at runtime and typed at compile time, whether the values live in `localStorage`, a browser extension's storage area, or React Native's AsyncStorage.
 
-> These packages are not published to npm. `ROADMAP.md` records what is out of scope for the first release.
+## Install
 
-## The problem
+One package per platform. Each re-exports the whole core API, so it is the only one you need.
 
-Key-value storage APIs have no idea what you intend to keep in them. Every project ends up rebuilding the same scaffolding around them:
-
-```ts
-// Which keys are valid? What shape is this? Who else writes here?
-const raw = localStorage.getItem("theme");
-const theme = raw ? (JSON.parse(raw) as Theme) : "light";
+```sh
+npm install @platform-storage/web            # localStorage, sessionStorage, Electron renderers
+npm install @platform-storage/extension      # browser extensions: local, sync, session
+npm install @platform-storage/react-native   # React Native and Expo, via AsyncStorage
 ```
 
-That cast is a lie. The value may have been written by an older version of the app, edited by hand, synced from another device, or written by a different app on the same origin. TypeScript cannot see any of it, so the failure surfaces somewhere else entirely.
-
-Then the same code is written again for the browser extension, and again for the mobile app, against three different APIs.
-
-## The approach
-
-One schema, one API, one adapter per platform.
-
-```text
-Application code
-      ↓  typed get / set / remove
-  createStorage(schema, adapter)
-      ↓  physical key, wire value
-  StorageAdapter
-```
-
-- **One source of truth.** A schema maps each logical key to its validation schema, its physical storage key, and its default.
-- **Typed keys and values.** Both come from the schema. Your editor completes the keys; a wrong value is a compile error.
-- **Validated at the boundary.** Data is checked on the way in and on the way out, because persisted data outlives the code that wrote it.
-- **Honest about platforms.** An adapter exposes what its backend can actually do, rather than pretending every backend is the same.
+Add a [Standard Schema](https://standardschema.dev) validation library such as Zod alongside it.
 
 ## Example
 
 ```ts
 import * as z from "zod";
-import { createStorage, defineStorageSchema, memoryAdapter } from "@platform-storage/core";
+import { createLocalStorage, defineStorageSchema } from "@platform-storage/web";
 
 const schema = defineStorageSchema({
   theme: { schema: z.enum(["light", "dark"]), default: "light" },
   user: { schema: z.object({ id: z.string(), name: z.string() }), key: "app:user" },
 });
 
-const storage = createStorage({ schema, adapter: memoryAdapter() });
+const storage = createLocalStorage({ schema });
 
 await storage.set("theme", "dark");
 
@@ -60,18 +39,47 @@ const user = await storage.get("user"); // { id: string; name: string } | undefi
 
 `theme` has no `undefined` in its type because the key declares a default. `user` does, because nothing answers for it when the backend holds nothing.
 
-A value that fails validation on the way out does not break the read: by default it falls back to the key's default, and the `onError` observer sees the failure. Pass `onInvalid: "throw"` per call, per key, or per storage to get the strict behaviour instead.
+Switching platform means switching the import. The schema does not change:
+
+```ts
+import { createExtensionStorage } from "@platform-storage/extension";
+
+const storage = createExtensionStorage({ schema, area: "sync" });
+```
+
+## Why
+
+Key-value storage APIs have no idea what you intend to keep in them, so every project rebuilds the same scaffolding:
+
+```ts
+// Which keys are valid? What shape is this? Who else writes here?
+const raw = localStorage.getItem("theme");
+const theme = raw ? (JSON.parse(raw) as Theme) : "light";
+```
+
+That cast is a lie. The value may have been written by an older version of the app, edited by hand, synced from another device, or written by different code on the same origin. TypeScript cannot see any of it, so the failure surfaces somewhere else entirely.
+
+Then the same code gets written again for the browser extension, and again for the mobile app, against three different APIs.
+
+## What you get
+
+- **One source of truth.** A schema maps each logical key to its validation schema, the key its backend stores under, and its default. Keys and value types are both inferred from it.
+- **Validated at the boundary.** Data is checked on the way in and on the way out, because persisted data outlives the code that wrote it.
+- **A read that survives bad data.** A value that no longer matches its schema falls back to the key's default instead of breaking the read, and an `onError` observer sees every failure. Choose `"throw"` per call, per key, or per storage when you would rather know loudly.
+- **Synchronous reads where the platform allows.** Web storage answers immediately, so those storages also expose `getSync` and friends, typed so they are simply absent elsewhere.
+- **Honest about platforms.** An adapter exposes what its backend can actually do, rather than pretending every backend is the same. A missing backend is reported, never a crash.
+- **`clear()` that only clears yours.** It removes the keys your schema declares and nothing else on the origin.
 
 ## Packages
 
-| Package                          | Holds                                                                      |
-| -------------------------------- | -------------------------------------------------------------------------- |
-| `@platform-storage/core`         | The schema API, the storage engine, the adapter contract, the errors       |
-| `@platform-storage/web`          | Re-exports core, and adds the `localStorage` and `sessionStorage` adapters |
-| `@platform-storage/extension`    | Re-exports core, and adds the `local`, `sync` and `session` area adapters  |
-| `@platform-storage/react-native` | Re-exports core, and declares the AsyncStorage shape                       |
+| Package                                                   | Holds                                                                |
+| --------------------------------------------------------- | -------------------------------------------------------------------- |
+| [`@platform-storage/core`](packages/core)                 | The schema API, the storage engine, the adapter contract, the errors |
+| [`@platform-storage/web`](packages/web)                   | The `localStorage` and `sessionStorage` adapters                     |
+| [`@platform-storage/extension`](packages/extension)       | The `local`, `sync` and `session` area adapters                      |
+| [`@platform-storage/react-native`](packages/react-native) | The AsyncStorage adapter                                             |
 
-Every platform package re-exports the whole core API, so an application installs one package. The web package serves anything with the Web Storage API, an Electron renderer process included.
+Install core directly only when you are writing your own adapter. Each package's README documents what it adds; [`packages/core`](packages/core) documents the API they all share.
 
 ## Validation library
 
@@ -89,7 +97,7 @@ pnpm format
 pnpm check-package # publint and Are The Types Wrong, on the packed tarballs
 ```
 
-Conventions, boundaries and the settled design decisions are in [AGENTS.md](AGENTS.md).
+Conventions, boundaries, the settled design decisions and the traps worth knowing are in [AGENTS.md](AGENTS.md). The release process is in [RELEASING.md](RELEASING.md).
 
 ## License
 

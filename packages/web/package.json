@@ -4,8 +4,12 @@
   "description": "Schema-first, type-safe localStorage and sessionStorage: define your storage once, get validation and TypeScript inference on every read and write.",
   "keywords": [
     "electron",
+    "local-storage",
+    "localStorage",
     "localstorage",
     "schema",
+    "session-storage",
+    "sessionStorage",
     "sessionstorage",
     "storage",
     "type-safe",
@@ -51,8 +55,7 @@
       },
       "./package.json": "./package.json"
     },
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "scripts": {
     "build": "tsdown",

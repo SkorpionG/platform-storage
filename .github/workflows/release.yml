@@ -1,8 +1,8 @@
 name: Release
 
+# Releases are published by hand following `RELEASING.md`. This workflow is the optional alternative: it is the only way to publish with npm provenance, which the registry can only issue to a cloud CI run. It never fires on its own, so adding an `NPM_TOKEN` secret does not start publishing anything.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 jobs:
-  # Publishing is off until an `NPM_TOKEN` secret exists. The check lives in its own job because the `secrets` context cannot be read from a job-level `if`, and this way the release job below is skipped outright rather than starting and bailing.
+  # Publishing needs an `NPM_TOKEN` secret. The check lives in its own job because the `secrets` context cannot be read from a job-level `if`, and this way the release job below is skipped outright rather than starting and bailing.
   check-token:
     name: Check publish token
     runs-on: ubuntu-latest
@@ -30,8 +30,8 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Releases are off: no \`NPM_TOKEN\` secret is set." >> "$GITHUB_STEP_SUMMARY"
-            echo "Add one in Settings → Secrets and variables → Actions to turn publishing on." >> "$GITHUB_STEP_SUMMARY"
+            echo "This run cannot publish: no \`NPM_TOKEN\` secret is set." >> "$GITHUB_STEP_SUMMARY"
+            echo "Add one in Settings → Secrets and variables → Actions, then run this workflow again." >> "$GITHUB_STEP_SUMMARY"
           fi
 
   release:
@@ -58,7 +58,7 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # Opens (or updates) a version pull request while changesets are pending, and publishes once that pull request lands.
+      # Which of the two this does depends on the state of `main` when the workflow is dispatched: with changesets still pending it opens or updates a version pull request, and with none pending it publishes whatever version `main` already carries. Releasing through here therefore means dispatching once to raise the version pull request, merging it, and dispatching again to publish.
       - name: Version or publish
         uses: changesets/action@v1
         with:

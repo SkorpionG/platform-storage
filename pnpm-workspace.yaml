@@ -11,6 +11,8 @@ catalog:
   "@arethetypeswrong/cli": ^0.18.5
   "@changesets/changelog-github": ^1.0.0
   "@changesets/cli": ^3.0.1
+  # Used only by the React Native package's conformance test, which proves its structural `AsyncStorageLike` is satisfied by the real AsyncStorage. `src` never imports it.
+  "@react-native-async-storage/async-storage": ^3.1.1
   "@standard-schema/spec": ^1.1.0
   "@types/chrome": ^0.2.8
   # Declares the ambient `browser` global. Used only by the extension package's conformance tests, which prove its structural storage-area interface is satisfied by every browser's real declarations.
@@ -32,3 +34,8 @@ catalog:
 
 minimumReleaseAgeExclude:
   - happy-dom@20.13.2
+
+# AsyncStorage is a development dependency only so that a type test can check `AsyncStorageLike` against its real declaration. Its peers are React and the whole React Native toolchain, which nothing in this repository runs, so they are removed from the graph rather than installed. Scoped to that one parent, so a package that genuinely depends on React is unaffected.
+overrides:
+  "@react-native-async-storage/async-storage>react": "-"
+  "@react-native-async-storage/async-storage>react-native": "-"

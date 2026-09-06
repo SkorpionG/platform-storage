@@ -144,7 +144,11 @@ vite.config.ts.timestamp-*
 
 # Misc
 .DS_Store
+
+# Local-only working notes and reference material, never committed.
 TODO.md
+PLAN.md
+IMPORTANT.md
 demos/*
 .docs
 .specstory/*

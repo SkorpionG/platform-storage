@@ -1,14 +1,10 @@
 # Roadmap
 
-What is deliberately not in the first release, and what each item needs when it lands. Nothing here is a promise of a date; the list exists so that scope cut from v0.1 is recorded rather than remembered.
+What is deliberately out of scope, and what each item needs when it lands. Nothing here is a promise of a date; the list exists so that cut scope is recorded rather than remembered.
 
 ## v0.1 — the current target
 
-Built: schema definition, typed keys and values, runtime validation on read and write, automatic serialization, typed errors, the layered invalid-data policy, an asynchronous API with a typed synchronous extension for synchronous adapters, the memory adapter, `withFallback`, `@platform-storage/web` over `localStorage` and `sessionStorage`, and `@platform-storage/extension` over the `local`, `sync` and `session` areas.
-
-Still to build, with a convenience factory over `createStorage`:
-
-- **`@platform-storage/react-native`** — AsyncStorage, with the instance supplied by the application so the package never imports a native module.
+Schema definition, typed keys and values, runtime validation on read and write, automatic serialization, typed errors, the layered invalid-data policy, an asynchronous API with a typed synchronous extension for synchronous adapters, the memory adapter, `withFallback`, and one adapter package per platform: `@platform-storage/web` over `localStorage` and `sessionStorage`, `@platform-storage/extension` over the `local`, `sync` and `session` areas, and `@platform-storage/react-native` over AsyncStorage.
 
 ## Next
 
@@ -64,10 +60,6 @@ A serializer boundary is the natural seam. Needs care around key management, so 
 Inspecting what is stored, against which schema, and what failed to validate.
 
 ## Tooling
-
-### Publishing
-
-Nothing has been published. The release workflow runs but skips itself until an `NPM_TOKEN` secret exists; adding one turns publishing on.
 
 ### Type-aware linting
 

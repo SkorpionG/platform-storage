@@ -3,9 +3,12 @@
   "version": "0.0.0",
   "description": "Schema-first, type-safe React Native storage: define your storage once, get validation and TypeScript inference on every read and write.",
   "keywords": [
+    "async-storage",
+    "asyncStorage",
     "asyncstorage",
     "expo",
     "react-native",
+    "react-native-async-storage",
     "schema",
     "storage",
     "type-safe",
@@ -50,8 +53,7 @@
       },
       "./package.json": "./package.json"
     },
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "scripts": {
     "build": "tsdown",
@@ -68,6 +70,7 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "catalog:",
+    "@react-native-async-storage/async-storage": "catalog:",
     "@tooling/oxlint-config": "workspace:*",
     "@tooling/typescript-config": "workspace:*",
     "@tooling/vitest-config": "workspace:*",
@@ -78,6 +81,14 @@
     "typescript": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@react-native-async-storage/async-storage": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@react-native-async-storage/async-storage": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20"

@@ -4,8 +4,6 @@
 
 Schema-first, type-safe `localStorage` and `sessionStorage`. The browser half of [platform-storage](https://github.com/SkorpionG/platform-storage).
 
-> This package is not published to npm.
-
 ## Installation
 
 ```sh

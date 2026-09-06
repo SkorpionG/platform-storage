@@ -4,8 +4,6 @@
 
 The engine behind [platform-storage](https://github.com/SkorpionG/platform-storage): schema definition, type inference, runtime validation, serialization, the storage engine, the adapter contract, and the error hierarchy.
 
-> This package is not published to npm.
-
 ## Installation
 
 Install the package for your platform instead where one exists, since each re-exports everything here. Install core directly when you are writing your own adapter.

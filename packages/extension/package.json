@@ -51,8 +51,7 @@
       },
       "./package.json": "./package.json"
     },
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "scripts": {
     "build": "tsdown",

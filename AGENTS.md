@@ -15,10 +15,10 @@ The repository is a pnpm + Turborepo monorepo. Adapters are thin; nearly all of 
 | `@platform-storage/core`         | Schema definition, type inference, validation, serialization, engine, errors      |
 | `@platform-storage/web`          | The `localStorage` and `sessionStorage` adapters, and storage factories over them |
 | `@platform-storage/extension`    | The `local`, `sync` and `session` area adapters, and a storage factory over them  |
-| `@platform-storage/react-native` | The AsyncStorage shape                                                            |
+| `@platform-storage/react-native` | The AsyncStorage adapter, and a storage factory over it                           |
 | `tooling/*`                      | Private, shared TypeScript, oxlint, vitest and formatting configuration           |
 
-Every platform package depends only on core and re-exports it, so an application installs one package. Platform packages never depend on each other. The React Native package does not have its adapter yet; what it is to hold is in `ROADMAP.md`.
+Every platform package depends only on core and re-exports it, so an application installs one package. Platform packages never depend on each other.
 
 ## Commands
 
@@ -36,6 +36,8 @@ Every platform package depends only on core and re-exports it, so an application
 | One package       | `pnpm --filter @platform-storage/core test`         |
 | Watch one package | `pnpm --filter @platform-storage/core test:watch`   |
 | Record a change   | `pnpm changeset`                                    |
+| Version the set   | `pnpm version-packages`                             |
+| Publish           | `pnpm release`                                      |
 
 Root scripts only delegate to `turbo run`. Task logic belongs in the package that owns it, which is what lets turbo parallelize and cache per package.
 
@@ -72,13 +74,13 @@ A comment says **why**, never what the code already says. State the rule, not th
 
 ### Changes
 
-Every user-facing change needs a changeset: `pnpm changeset`. All four published packages share one version, so a changeset on any of them versions the set.
+Every user-facing change needs a changeset: `pnpm changeset`. All four published packages share one version, so a changeset on any of them versions the set. `RELEASING.md` covers when one is needed, what to write in it, and how to choose the bump.
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org): a `type: subject` line in the imperative mood, and a body of bullet points where the change is worth explaining. The subject says what the commit does; each bullet says what changed and, where it is not obvious, why. Prose is not hard-wrapped here either, so a bullet stays on one line however long it runs.
 
 ## Boundaries
 
-- **Never let a browser type package reach a consumer.** `@types/chrome`, `@types/firefox-webext-browser` and `@types/webextension-polyfill` are development dependencies used only by conformance tests. `src` declares the browser APIs it uses structurally. If a conformance test starts failing, the structural declaration has drifted from a real API and needs widening to the common denominator of all of them, not narrowing to one.
+- **Never let a platform's own package reach a consumer.** `@types/chrome`, `@types/firefox-webext-browser`, `@types/webextension-polyfill` and `@react-native-async-storage/async-storage` are development dependencies used only by conformance tests. `src` declares the platform APIs it uses structurally. If a conformance test starts failing, the structural declaration has drifted from a real API and needs widening to the common denominator of all of them, not narrowing to one.
 - **Core knows nothing about any platform.** It depends on the adapter contract and on Standard Schema, and imports no browser, Node or React Native API.
 - **Core never imports a validation library at runtime.** Schemas are consumed through Standard Schema, so Zod, Valibot and ArkType all work and none is a dependency.
 - **`demos/`, `.docs/` and `.specstory/` are local-only.** They are ignored by git and hold reference material and working notes. Never cite, name or copy from them in source, comments, documentation or commit messages.
@@ -97,8 +99,56 @@ These were settled deliberately. Reopen them with the maintainer rather than in 
 
 ## Releasing
 
-Nothing has been published. `.github/workflows/release.yml` runs on every push to `main`, and its first job checks for an `NPM_TOKEN` secret: without one the release job is skipped and the run reports why. Adding that secret is the single switch that turns publishing on, so the workflow needs no edit to stay off.
+Releases are published by hand from a maintainer's machine, and `RELEASING.md` is the procedure.
+
+All four packages share one version through the `fixed` group in `.changeset/config.json`, so a changeset on any one of them versions and publishes the set. That is what keeps the `workspace:*` dependency between them resolvable at every version.
+
+No package sets `publishConfig.provenance`, because npm issues a provenance statement only to a build running on a cloud CI provider: asking for one from a laptop fails the publish rather than skipping it. `.github/workflows/release.yml` is the optional path for a release that wants provenance, and it is manual-trigger only, so nothing publishes on its own.
 
 ## Deferred work
 
 `ROADMAP.md` records what was cut from v0.1 and what each item needs. When scope is cut, add it there rather than leaving it in a conversation.
+
+## Traps
+
+Read the relevant one before changing something here that looks arbitrary, and add to the list when something proves expensive to work out.
+
+### Types
+
+- **A default type argument switches off contextual typing for that parameter.** Giving `defineKey` a default such as `const Options extends KeyOptions<Schema> = Record<never, never>` silently stops the options argument from being checked against the schema. There is a comment on the function saying so; it has no default, and it must not gain one.
+- **A callback written inline in `defineStorageSchema` cannot be type-checked.** The object is inferred and then constrained against a type derived from itself, so the callback gets no expectation to meet and its literal return widens to `string`. `defineKey(schema, options)` is the checked form, because taking the schema as its own argument means it is known before the options are read. Splitting `onInvalid` into two fields does not help; nor does dropping `const`.
+- **A constraint that inspects its own type parameter is rejected outright** as a circular constraint. `defineStorageSchema` gets away with it only because its conditional tests `Definition[Key]` rather than `Definition`.
+- **Zod's `.catch()` takes the value type as its input, not `unknown`.** A catch schema therefore does not drop `undefined` from a read: it governs invalid data, not absent data. Pair it with a `default` to cover both.
+- **`exactOptionalPropertyTypes` rejects assigning `undefined` to an optional property**, which is why public option types spell `| undefined` explicitly.
+- TypeScript is pinned to the 6.x line. `latest` on npm is the Go-native 7.x port, which the declaration-emit and typecheck tooling here is not validated against.
+
+### Platforms
+
+- **Widen a structural declaration to the common denominator; narrow at the adapter instead.** The extension storage area's values stay `unknown` because the WebExtension polyfill declares them that way, and narrowing them to JSON values stops it conforming even though Chrome and Firefox still would. The one narrowing lives at the adapter's read boundary, where the schema validates the value straight afterwards.
+- **`Reflect.get(globalThis, name)` reads a global as `unknown`** whatever type packages the compilation includes. That is what lets the extension resolver stay structural inside a package whose tests load `@types/chrome` and the Firefox declarations globally.
+- **The web adapters read the storage off `window`, never `globalThis`.** Node exposes a `localStorage` of its own, and a server has to look unavailable so `withFallback` moves on rather than writing somewhere no browser will ever read.
+- **Resolve a backend on every operation, never once at construction.** A storage is usually built while a module loads, long before anything reads from it, and in a context that may not have the backend yet. `requireBackend` is the shared way to do it.
+
+### Dependencies
+
+- **Shared runtime code goes in core, never in a private package.** `tsdown` keeps dependencies external, so a platform bundle imports what it depends on rather than inlining it. A private `@tooling/*` package would be unresolvable for a consumer at install time, and bundling it instead would put a second copy inside every platform package. Core is already a dependency of all three platform packages and is re-exported by each.
+- **Check a backend's own export names before naming a factory after it.** AsyncStorage exports a `createAsyncStorage` of its own, which is why the factory here is `createReactNativeStorage`, named for the platform the way `createExtensionStorage` is.
+- **A development dependency drags its peers in.** pnpm installs missing peers automatically, and AsyncStorage's are React and the whole React Native toolchain, all for one type assertion. A scoped override in `pnpm-workspace.yaml`, of the form `"<package>>react": "-"`, drops them from that one parent's graph and leaves every other package's peers alone.
+
+### Packaging
+
+- **In-repo `exports` point at `src`; `publishConfig` swaps them for `dist` on publish.** That is what lets the editor, `tsc` and vitest resolve workspace packages to source while consumers get the build. It works only through `pnpm pack` and `pnpm publish`, never `npm pack`, because npm does not apply `publishConfig`.
+- **Declaration maps are off deliberately.** They point at `src`, which `files` does not publish, so shipping them would hand every consumer a map to nothing. JavaScript source maps stay on.
+- **Errors are identified by `code` and by brand, never by `instanceof`.** An application that resolves two copies of a package holds two copies of each class, and `instanceof` silently stops matching across them.
+
+### Writing tests
+
+- **Prove a new type assertion actually bites** by temporarily breaking the thing it guards. A `@ts-expect-error` case passes just as happily when it fails for a reason nobody intended.
+- `expectTypeOf(fn).parameter(0)` resolves to `never` for a generic method. Assert against the schema type instead.
+- `expect(fn).toThrow(expect.objectContaining({ ... }))` checks an error's own fields, so asserting on a synchronous throw needs no capture helper and no `expect.assertions` count.
+- A `// @vitest-environment node` docblock at the top of one suite runs it without a DOM inside a package whose config is happy-dom. That is how the web package proves its server behavior without a second config.
+- **A fake backend must be held in a variable, not built inside the source function.** Returning a fresh fake on every call sends a write and the following read to different backends, because the source really is called per operation.
+
+### Editor tooling
+
+- **A `$schema` path inside a config file resolves against that file's own URI.** Opening one from git history therefore looks for the schema under `git:` and fails. The mapping lives in `.vscode/settings.json` under `json.schemas` instead, whose paths resolve against the workspace root, and points at the copy in `node_modules` so there is no version to keep in step.

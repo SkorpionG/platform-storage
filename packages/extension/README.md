@@ -4,8 +4,6 @@
 
 Schema-first, type-safe storage for browser extensions: one schema shared across your background service worker, content scripts, popup and options page. The extension half of [platform-storage](https://github.com/SkorpionG/platform-storage).
 
-> This package is not published to npm.
-
 ## Installation
 
 ```sh
