@@ -1,0 +1,9 @@
+{
+  "extends": ["./base.json"],
+  "plugins": ["typescript", "unicorn", "oxc", "import", "react", "jsx-a11y"],
+  "rules": {
+    "typescript/explicit-function-return-type": "off",
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+    "import/default": "off"
+  }
+}

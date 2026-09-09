@@ -1,6 +1,8 @@
 packages:
   - packages/*
   - tooling/*
+  # Demonstrations of the published packages. Every one is private, so none is ever versioned or published.
+  - examples/*
 
 # lefthook's postinstall links the platform binary the git hooks run.
 allowBuilds:
@@ -14,26 +16,40 @@ catalog:
   # Used only by the React Native package's conformance test, which proves its structural `AsyncStorageLike` is satisfied by the real AsyncStorage. `src` never imports it.
   "@react-native-async-storage/async-storage": ^3.1.1
   "@standard-schema/spec": ^1.1.0
+  # Tailwind and its Vite plugin are released together and have to move together.
+  "@tailwindcss/vite": ^4.3.3
   "@types/chrome": ^0.2.8
   # Declares the ambient `browser` global. Used only by the extension package's conformance tests, which prove its structural storage-area interface is satisfied by every browser's real declarations.
   "@types/firefox-webext-browser": ^143.0.0
   "@types/node": ^24.13.3
+  "@types/react": ^19.3.0
+  "@types/react-dom": ^19.3.0
   "@types/webextension-polyfill": ^0.12.6
+  "@vitejs/plugin-react": ^6.1.1
   "@vitest/coverage-v8": ^4.1.11
   happy-dom: ^20.13.2
   lefthook: ^2.1.12
   oxfmt: ^0.66.0
   oxlint: ^1.81.0
   publint: ^0.3.24
+  react: ^19.3.0
+  react-dom: ^19.3.0
+  tailwindcss: ^4.3.3
   tsdown: ^0.22.14
   turbo: ^2.10.12
   # The classic TypeScript line. `latest` on npm is now the Go-native 7.x port, which the declaration-emit and typecheck tooling here is not validated against; revisit once tsdown and vitest publish support for it.
   typescript: ^6.0.3
+  vite: ^8.2.2
   vitest: ^4.1.11
   zod: ^4.5.4
 
 minimumReleaseAgeExclude:
   - happy-dom@20.13.2
+  - "@types/react@19.3.0"
+  - react@19.3.0
+  - "@types/react-dom@19.3.0"
+  - react-dom@19.3.0
+  - scheduler@0.28.0
 
 # AsyncStorage is a development dependency only so that a type test can check `AsyncStorageLike` against its real declaration. Its peers are React and the whole React Native toolchain, which nothing in this repository runs, so they are removed from the graph rather than installed. Scoped to that one parent, so a package that genuinely depends on React is unaffected.
 overrides:

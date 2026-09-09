@@ -14,7 +14,8 @@
     "typescript/array-type": ["error", { "default": "generic" }],
     "unicorn/prefer-node-protocol": "error",
     "import/no-cycle": "error",
-    "no-console": "error"
+    "no-console": "error",
+    "react/react-in-jsx-scope": "off"
   },
   "overrides": [
     {

@@ -10,6 +10,11 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    // A dev server never finishes and never produces an output worth keeping.
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
     "typecheck": {
       "dependsOn": ["transit"],
       "outputs": [".cache/tsbuildinfo.json"]

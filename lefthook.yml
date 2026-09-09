@@ -7,11 +7,11 @@ pre-commit:
         piped: true
         jobs:
           - name: lint
-            glob: "*.{js,mjs,cjs,ts,mts,cts}"
+            glob: "*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"
             run: pnpm exec oxlint --fix --no-error-on-unmatched-pattern {staged_files}
             stage_fixed: true
           - name: format
-            glob: "*.{js,mjs,cjs,ts,mts,cts,json,jsonc,md,yml,yaml}"
+            glob: "*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,json,jsonc,md,yml,yaml}"
             run: pnpm exec oxfmt --no-error-on-unmatched-pattern {staged_files}
             stage_fixed: true
           # The other half of what oxfmt does: it leaves comment interiors and Markdown prose as it finds them, and this owns those.

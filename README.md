@@ -83,7 +83,15 @@ Install core directly only when you are writing your own adapter. Each package's
 
 ## Validation library
 
-Schemas are consumed through [Standard Schema](https://standardschema.dev), so Zod, Valibot, ArkType and anything else implementing the specification all work. None of them is a dependency of this project, and core imports no validation library at runtime.
+> [!NOTE]
+> You may use any [Standard Schema](https://github.com/standard-schema/standard-schema) compliant validator of your choice.
+
+Schemas are consumed through the specification rather than through any one library, so [every validator that implements the spec](https://github.com/standard-schema/standard-schema?tab=readme-ov-file#what-schema-libraries-implement-the-spec) works here, Zod, Valibot and ArkType among them. None of them is a dependency of this project, and core imports no validation library at runtime: the one you already use is the one that runs.
+
+Your validator's own features carry through without being restated. `z.number().default(0)` answers for a key that holds nothing, and `z.enum(["light", "dark"]).catch("light")` absorbs a value that no longer matches, both directly from the schema.
+
+> [!IMPORTANT]
+> A schema has to accept its own output as input, because storage is a loop: what a write validates and stores is what the next read validates again. Nearly every schema qualifies. `z.string()`, `z.enum()` and `z.object()` each return what they took, and `z.coerce.number()` accepts anything at all. A one-way transform does not: `z.string().transform(Number)` produces a number that its own schema would reject. Since `set` is typed to the value a key holds, passing that number is exactly what the types ask for, and validation then refuses it with `StorageValidationError`. Reach for `z.coerce.number()`, which accepts both sides; [`ROADMAP.md`](ROADMAP.md) tracks the per-key serializers that would lift the restriction.
 
 ## Development
 

@@ -6,7 +6,7 @@
 
   Why this exists: a paragraph split across lines makes a search miss any phrase that straddles the break, and every small edit rewraps the rest of the paragraph into diff noise. oxfmt does not format comment interiors and leaves Markdown prose as it finds it, so this pass owns them.
 
-  What it never touches: fenced code, tables, headings, front matter, indented code, link definitions, directive comments, and any line ending in a deliberate Markdown hard break. Inside a comment, a line indented past the paragraph margin is preformatted and is left exactly as written.
+  What it never touches: fenced code, tables, headings, front matter, indented code, link definitions, alert markers, directive comments, and any line ending in a deliberate Markdown hard break. Inside a comment, a line indented past the paragraph margin is preformatted and is left exactly as written.
 
   ```
   node tooling/scripts/src/format-comments.js            # rewrite files in place
@@ -49,6 +49,11 @@ const EXCLUDED_PREFIXES = [
 */
 const DIRECTIVE =
   /^(@|#region\b|#endregion\b|eslint-|oxlint-|ts-|prettier-|biome-|c8 |v8 |istanbul |TODO\b|FIXME\b|NOTE\b|HACK\b|XXX\b)/;
+
+/*
+  The first line of a GitHub alert, such as `> [!NOTE]`. The marker has to stand alone for the block to render as an alert, so joining the body onto it turns the alert back into an ordinary quote.
+*/
+const ALERT_MARKER = /^\s{0,3}>\s*\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/i;
 
 const LIST_ITEM = /^\s*([-*+]|\d+[.)])\s/;
 const TABLE_ROW = /^\s*\|/;
@@ -118,7 +123,7 @@ function formatMarkdown(lines) {
       continue;
     }
 
-    if (!isMarkdownProse(line)) {
+    if (!isMarkdownProse(line) || ALERT_MARKER.test(line)) {
       output.push(line);
       continue;
     }
@@ -141,6 +146,7 @@ function formatMarkdown(lines) {
       const next = lines[index + 1] ?? "";
       if (!isMarkdownProse(next)) break;
       if (LIST_ITEM.test(next)) break;
+      if (ALERT_MARKER.test(next)) break;
       /* A blockquote continuation only joins another blockquote line. */
       if (joined.trimStart().startsWith(">") !== next.trimStart().startsWith(">")) break;
 

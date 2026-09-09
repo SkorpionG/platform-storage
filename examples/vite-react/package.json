@@ -1,0 +1,38 @@
+{
+  "name": "@examples/vite-react",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A browser playground for @platform-storage/web.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "clean": "rm -rf dist .cache .turbo node_modules"
+  },
+  "dependencies": {
+    "@examples/schema": "workspace:*",
+    "@examples/ui": "workspace:*",
+    "@platform-storage/web": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@tooling/oxlint-config": "workspace:*",
+    "@tooling/typescript-config": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  }
+}

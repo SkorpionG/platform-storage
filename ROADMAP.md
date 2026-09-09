@@ -8,9 +8,9 @@ Schema definition, typed keys and values, runtime validation on read and write, 
 
 ## Next
 
-### A memory adapter over JSON values
+### A wire type on the memory adapter
 
-`memoryAdapter` transports strings, so it cannot be the fallback half of `withFallback` for an extension area, whose wire is a JSON value. A memory adapter over JSON values, or a wire-type parameter on the existing one, would let a popup opened as a plain page during development fall back the way a web page does.
+`memoryAdapter` declares its wire as `string`. Pairing it with an adapter that transports JSON values, such as an extension area, does work: `withFallback` hands both halves the primary's serializer, so values reach memory unencoded and read back unchanged. What does not hold is the typing around it. `entries` is declared `ReadonlyMap<string, string>` while holding objects, so a test asserting against it is typed wrong, and `initial` is documented as already-serialized text when in that pairing it is not text at all. A wire-type parameter, `memoryAdapter<Wire>()`, would make both honest without changing the default.
 
 ### Change subscription
 
@@ -30,7 +30,7 @@ Schema definition, typed keys and values, runtime validation on read and write, 
 
 ### Per-key serializers
 
-A `serializer` on the key definition, overriding the adapter's. Two motivations: storing a bare enum string so other code can read the key without this library, and making non-idempotent transforms work (a schema like `z.string().transform(Number)` currently breaks, because the stored output is re-validated as if it were input on the next read).
+A `serializer` on the key definition, overriding the adapter's. Two motivations: storing a bare enum string so other code can read the key without this library, and lifting the requirement that a schema accept its own output as input. A schema like `z.string().transform(Number)` cannot be used today, because `set` is typed to the value the key holds and validation then rejects that value as input. Separating the stored form from the validated form is what would make one-way transforms work.
 
 ### Versioning and migrations
 

@@ -149,6 +149,7 @@ vite.config.ts.timestamp-*
 TODO.md
 PLAN.md
 IMPORTANT.md
+FOLLOW_UP.md
 demos/*
 .docs
 .specstory/*

@@ -17,8 +17,23 @@ The repository is a pnpm + Turborepo monorepo. Adapters are thin; nearly all of 
 | `@platform-storage/extension`    | The `local`, `sync` and `session` area adapters, and a storage factory over them  |
 | `@platform-storage/react-native` | The AsyncStorage adapter, and a storage factory over it                           |
 | `tooling/*`                      | Private, shared TypeScript, oxlint, vitest and formatting configuration           |
+| `examples/*`                     | Demonstrations of the published packages. Every one is private and never released |
 
 Every platform package depends only on core and re-exports it, so an application installs one package. Platform packages never depend on each other.
+
+The examples share what is genuinely shared: `@examples/schema` holds one schema definition with no platform imports, and `@examples/ui` holds presentational components the browser-based demos have in common. Panels stay inside each app, because what they demonstrate differs by platform.
+
+They also need tooling a published API does not, which is what `tooling/typescript/react.json` and `tooling/oxlint/react.json` exist for. The first adds `jsx` and reaches past `ES2022`, because a browser demo can rely on more of the language than a library shipped to unknown runtimes. The second relaxes three rules, each because the code it governs is an application rather than a contract:
+
+- `explicit-function-return-type`, which is right on a published API and would otherwise be demanded of every component and every handler inside it.
+- `import/no-unassigned-import`, so a stylesheet can be imported for its side effect.
+- `import/default`, because a bundler query such as `?raw` names a module the resolver cannot follow. TypeScript still checks those imports, so nothing is lost.
+
+Neither file carries comments, because nothing under `tooling/` does and an editor reads a plain `.json` as strict JSON.
+
+**Tailwind does not see a sibling package unless it is told to.** Content detection scans outward from the file holding the CSS and stops at the package boundary, so classes used in `@examples/ui` never reach the build and its components render unstyled with no error anywhere. The app's stylesheet names it with `@source`, and any further shared package needs the same line.
+
+`react-in-jsx-scope` is turned off in `tooling/oxlint/base.json` rather than in the React config, even though only the examples write JSX. The command line resolves the nearest `.oxlintrc.json` per file, but an editor extension generally loads the root one, so a rule left on in the base config is reported against every `.tsx` file no matter what the package beside it says. The rule describes the classic JSX runtime, which nothing here uses.
 
 ## Commands
 
@@ -35,6 +50,7 @@ Every platform package depends only on core and re-exports it, so an application
 | Packaging checks  | `pnpm check-package`                                |
 | One package       | `pnpm --filter @platform-storage/core test`         |
 | Watch one package | `pnpm --filter @platform-storage/core test:watch`   |
+| Run an example    | `pnpm --filter @examples/vite-react dev`            |
 | Record a change   | `pnpm changeset`                                    |
 | Version the set   | `pnpm version-packages`                             |
 | Publish           | `pnpm release`                                      |
