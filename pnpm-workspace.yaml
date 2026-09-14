@@ -16,7 +16,8 @@ catalog:
   # Used only by the React Native package's conformance test, which proves its structural `AsyncStorageLike` is satisfied by the real AsyncStorage. `src` never imports it.
   "@react-native-async-storage/async-storage": ^3.1.1
   "@standard-schema/spec": ^1.1.0
-  # Tailwind and its Vite plugin are released together and have to move together.
+  # Tailwind and its bundler plugins are released together and have to move together.
+  "@tailwindcss/postcss": ^4.3.3
   "@tailwindcss/vite": ^4.3.3
   "@types/chrome": ^0.2.8
   # Declares the ambient `browser` global. Used only by the extension package's conformance tests, which prove its structural storage-area interface is satisfied by every browser's real declarations.
@@ -29,8 +30,11 @@ catalog:
   "@vitest/coverage-v8": ^4.1.11
   happy-dom: ^20.13.2
   lefthook: ^2.1.12
+  next: ^16.3.5
   oxfmt: ^0.66.0
   oxlint: ^1.81.0
+  # Renders the schema module with syntax highlighting in the browser demos. Small, and themed through the same tokens as everything else.
+  prism-react-renderer: ^2.4.1
   publint: ^0.3.24
   react: ^19.3.0
   react-dom: ^19.3.0

@@ -61,6 +61,8 @@ const storage = createStorage({
 
 The choice is made on first use and then kept, so a value is never written to one backend and read from the other.
 
+That is half of what a server-rendered app needs; the other half is React's. A synchronous read during render answers with the declared defaults on a server and with the stored values in a browser, so the first client render has to be handed the server's answer or hydration fails. Give `useSyncExternalStore` a `getServerSnapshot` backed by an empty backend and React prints the server's markup once, then swaps in what is stored. `examples/next` in the repository is a working demonstration, beside `examples/vite-react` running the identical panels client-side.
+
 ## Why the storage is passed as a function
 
 Reaching for `window.localStorage` can throw on its own, not just on write. Safari in private browsing and sandboxed iframes both fail at the property access, and so does a page whose origin the browser does not treat as a normal scheme, host and port, such as one loaded over `file:`. The adapters here take a function and call it inside a guard on every operation, so a storage that becomes unavailable is reported rather than crashing the page.

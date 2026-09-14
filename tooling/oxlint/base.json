@@ -26,5 +26,5 @@
       }
     }
   ],
-  "ignorePatterns": ["dist/**", "node_modules/**", ".cache/**"]
+  "ignorePatterns": ["dist/**", ".next/**", "node_modules/**", ".cache/**"]
 }

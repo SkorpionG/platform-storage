@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    // Next writes its build here rather than to `dist`. The cache is a cache of a cache, and `dev` holds the development server's own output.
+    "build": {
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
+    },
+    // `next typegen` runs ahead of `tsc` and writes both of these, so they are outputs of the typecheck rather than of the build.
+    "typecheck": {
+      "outputs": [".cache/tsbuildinfo.json", ".next/types/**", "next-env.d.ts"]
+    }
+  }
+}

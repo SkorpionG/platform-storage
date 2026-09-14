@@ -1,7 +1,9 @@
+"use client";
+
 import { Button, Card, Field, TextField, Value } from "@examples/ui";
 
-import { local, session } from "../storage";
-import { useStoredValue, useWrite } from "../use-storage";
+import { local, session } from "../store/storage";
+import { useStoredValue, useWrite } from "../hooks/use-storage";
 
 export function SessionPanel() {
   const write = useWrite();

@@ -85,7 +85,7 @@ function toValidateResult(result: StandardSchemaV1.Result<unknown>): ValidateRes
 /**
  * Runs a value through its schema.
  *
- * Standard Schema permits a validator to answer asynchronously. On the synchronous path that cannot be honoured, and returning the promise as though it were the value would be far worse than refusing, so it is refused with an error naming the cause.
+ * Standard Schema permits a validator to answer asynchronously. On the synchronous path that cannot be honored, and returning the promise as though it were the value would be far worse than refusing, so it is refused with an error naming the cause.
  */
 export function validateValue(
   schema: StandardSchemaV1,

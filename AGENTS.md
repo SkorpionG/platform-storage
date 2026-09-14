@@ -21,7 +21,9 @@ The repository is a pnpm + Turborepo monorepo. Adapters are thin; nearly all of 
 
 Every platform package depends only on core and re-exports it, so an application installs one package. Platform packages never depend on each other.
 
-The examples share what is genuinely shared: `@examples/schema` holds one schema definition with no platform imports, and `@examples/ui` holds presentational components the browser-based demos have in common. Panels stay inside each app, because what they demonstrate differs by platform.
+The examples share in three layers: `@examples/schema` holds one schema definition with no platform imports, `@examples/ui` holds presentational components that know nothing about storage, and `@examples/web` holds the panels, hooks and storages demonstrating `@platform-storage/web` — note the name, one character from the published package it demonstrates.
+
+Panels are shared _within_ a platform and split _across_ platforms: two browser apps demonstrate the same package and differ only in how they render it, while an extension or a React Native app shares nothing below the schema. Each app is then a shell, supplying its own copy and whichever panels its platform alone can show.
 
 They also need tooling a published API does not, which is what `tooling/typescript/react.json` and `tooling/oxlint/react.json` exist for. The first adds `jsx` and reaches past `ES2022`, because a browser demo can rely on more of the language than a library shipped to unknown runtimes. The second relaxes three rules, each because the code it governs is an application rather than a contract:
 
@@ -31,7 +33,7 @@ They also need tooling a published API does not, which is what `tooling/typescri
 
 Neither file carries comments, because nothing under `tooling/` does and an editor reads a plain `.json` as strict JSON.
 
-**Tailwind does not see a sibling package unless it is told to.** Content detection scans outward from the file holding the CSS and stops at the package boundary, so classes used in `@examples/ui` never reach the build and its components render unstyled with no error anywhere. The app's stylesheet names it with `@source`, and any further shared package needs the same line.
+**Tailwind does not see a sibling package unless it is told to.** Content detection scans outward from the file holding the CSS and stops at the package boundary, so classes used in `@examples/ui` or `@examples/web` never reach the build and their components render unstyled with no error anywhere. The app's stylesheet names each one with `@source`, and every further shared package needs its own line. The design tokens travel the other way: they live in `@examples/ui/src/theme.css` and each app `@import`s them by relative path, so a palette is defined once rather than per app.
 
 `react-in-jsx-scope` is turned off in `tooling/oxlint/base.json` rather than in the React config, even though only the examples write JSX. The command line resolves the nearest `.oxlintrc.json` per file, but an editor extension generally loads the root one, so a rule left on in the base config is reported against every `.tsx` file no matter what the package beside it says. The rule describes the classic JSX runtime, which nothing here uses.
 
@@ -51,6 +53,7 @@ Neither file carries comments, because nothing under `tooling/` does and an edit
 | One package       | `pnpm --filter @platform-storage/core test`         |
 | Watch one package | `pnpm --filter @platform-storage/core test:watch`   |
 | Run an example    | `pnpm --filter @examples/vite-react dev`            |
+| Run the Next demo | `pnpm --filter @examples/next dev`                  |
 | Record a change   | `pnpm changeset`                                    |
 | Version the set   | `pnpm version-packages`                             |
 | Publish           | `pnpm release`                                      |
@@ -73,6 +76,10 @@ Root scripts only delegate to `turbo run`. Task logic belongs in the package tha
 In Markdown and in code comments, keep each paragraph and each list item on a single line. No line breaks inside a sentence or a paragraph. Wrapping is the editor's job, and a hard-wrapped paragraph makes a search miss any phrase split across two lines, while every small edit rewraps the rest of it into diff noise. This applies to commit messages too. Tables and fenced code blocks are unaffected, as is anything indented past the paragraph margin inside a comment.
 
 `pnpm format:comments` reports every paragraph that wraps and `pnpm format:comments:fix` joins them. oxfmt does not format comment interiors and leaves Markdown prose as it finds it, so this pass owns them; `pnpm format` runs both.
+
+### Spelling is American
+
+`color`, `behavior`, `serialize`, `normalize`, `labeled`, `canceled`. Not `colour`, `behaviour`, `serialise`, `normalise`, `labelled`, `cancelled`. In prose, comments and identifiers alike, since the platform APIs this library wraps are spelled American themselves. No tool checks it; it is on review, the same way the ban on `enum` is.
 
 ### Comments
 
@@ -144,6 +151,10 @@ Read the relevant one before changing something here that looks arbitrary, and a
 - **`Reflect.get(globalThis, name)` reads a global as `unknown`** whatever type packages the compilation includes. That is what lets the extension resolver stay structural inside a package whose tests load `@types/chrome` and the Firefox declarations globally.
 - **The web adapters read the storage off `window`, never `globalThis`.** Node exposes a `localStorage` of its own, and a server has to look unavailable so `withFallback` moves on rather than writing somewhere no browser will ever read.
 - **Resolve a backend on every operation, never once at construction.** A storage is usually built while a module loads, long before anything reads from it, and in a context that may not have the backend yet. `requireBackend` is the shared way to do it.
+- **A module importing a client-only React hook needs `"use client"`, even in a package no server ever renders.** Under the `react-server` condition `react` does not export `useState`, `useEffect` or `useSyncExternalStore` at all, so such a module fails to build the moment a Server Component reaches it through a barrel. `@examples/ui` splits on exactly this line: `controls.tsx` and `code-block.tsx` carry the directive and the presentational files deliberately do not, which is what lets a panel with no hooks in it render on a server.
+- **An `Error` does not survive the Server Components boundary.** React's serialization substitutes its own error object for yours, so the subclass, the `code` and the brand are gone by the time a client component could read them. Read what is wanted while the error is still itself and hand a plain object across.
+- **A storage built while a module loads is shared by every request that server handles.** Safe only where nothing writes during a render; an application that writes needs one built per request.
+- **A `getSnapshot` handed to `useSyncExternalStore` has to return the same reference until something changes.** `getSync` deserializes on every call and a factory default answers fresh even for a key holding nothing, so a snapshot reading either straight through never settles and React stops the render with `Maximum update depth exceeded`. `@examples/web` caches against its revision counter, which is stable for exactly as long as nothing has written.
 
 ### Dependencies
 

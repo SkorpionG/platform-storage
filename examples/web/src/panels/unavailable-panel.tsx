@@ -1,3 +1,5 @@
+"use client";
+
 import { appSchema } from "@examples/schema";
 import { Badge, Button, Card, Code, Value } from "@examples/ui";
 import {

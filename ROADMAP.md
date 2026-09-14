@@ -16,6 +16,12 @@ Schema definition, typed keys and values, runtime validation on read and write, 
 
 `storage.subscribe(key, listener)`, backed by the `storage` event on the web, `storage.onChanged` in extensions, and an in-process emitter for memory and AsyncStorage. Needs an optional capability on the adapter interface, because the backends genuinely differ: an extension reports changes made by other contexts, the web `storage` event fires only in _other_ tabs, and AsyncStorage reports nothing at all.
 
+`examples/web` shows what its absence costs an application: a revision counter every write has to bump, and a cache keyed on that counter so a snapshot holds still between writes. The cache is not incidental. `useSyncExternalStore` compares snapshots by identity, `getSync` deserializes on every call, and a schema default built by a factory answers with a fresh value even for a key holding nothing, so without it React never settles. A real subscription removes both, and the React bindings below are where they would go in the meantime.
+
+### Asking `withFallback` which half it chose
+
+The composite adapter decides on first use and keeps the decision, and nothing exposes it. `adapter.name` names both halves whichever one is live, and `isAvailable()` forces the choice rather than reporting it. The server-rendering demo has to infer it by comparing values across the hydration boundary. A read-only accessor would make a storage explain itself in a devtools panel or a log line.
+
 ### Batch reads and writes
 
 `getMany` / `setMany`, preserving each key's own type in the result. Extension storage areas take batches natively, so the adapter interface grows optional `getMany` / `removeMany` hooks with a loop fallback elsewhere. This is where the per-operation round trip currently costs the most.
@@ -46,6 +52,8 @@ The largest deferred piece, and the reason several v0.1 decisions look the way t
 ### React bindings
 
 A separate package. The core stays framework-agnostic; the web adapter's synchronous reads are what make an SSR-safe initial value possible without a loading state.
+
+`examples/web` is the working prototype, and it is deliberately generic over the schema rather than written against the demo's own, so lifting it is a move rather than a rewrite. What it establishes: `useStoredValue(storage, key)` over `useSyncExternalStore`, a `getServerSnapshot` reading an empty backend derived from the storage's own schema so a server render and the first client render agree, and the identity cache above. The honest limit belongs in its README, because `getSync` cannot abolish the flash under server rendering: no server knows what a given browser stored, so what it removes is the promise, the effect and the loading state, not the repaint.
 
 ### Richer serializers
 

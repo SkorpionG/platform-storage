@@ -18,24 +18,6 @@ export function Code({ children, className }: CodeProps) {
   );
 }
 
-export interface CodeBlockProps {
-  readonly code: string;
-  readonly className?: string | undefined;
-}
-
-export function CodeBlock({ code, className }: CodeBlockProps) {
-  return (
-    <pre
-      className={cn(
-        "overflow-x-auto rounded-lg border border-line bg-inset p-3 font-mono text-[11px] leading-relaxed text-body",
-        className,
-      )}
-    >
-      {code}
-    </pre>
-  );
-}
-
 /**
  * A value rendered the way the console would show it, so `undefined`, `null` and `""` stay distinguishable.
  *

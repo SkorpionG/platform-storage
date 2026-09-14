@@ -1,7 +1,9 @@
+"use client";
+
 import { Button, Card, Code } from "@examples/ui";
 
-import { local } from "../storage";
-import { useWrite } from "../use-storage";
+import { local } from "../store/storage";
+import { useWrite } from "../hooks/use-storage";
 
 const FOREIGN_KEY = "analytics:session";
 

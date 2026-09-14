@@ -1,0 +1,14 @@
+{
+  "extends": "@tooling/typescript-config/react.json",
+  "compilerOptions": {
+    // Next compiles JSX itself rather than letting `tsc` do it, and the plugin is what types the App Router's own conventions.
+    "jsx": "preserve",
+    "plugins": [{ "name": "next" }],
+    // `node:fs` and `process`, for reading the schema module as text during a server render.
+    "types": ["node"],
+    "allowJs": true
+  },
+  // `.next/types` holds the route types `next typegen` writes, so excluding `.next` here would filter them straight back out.
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

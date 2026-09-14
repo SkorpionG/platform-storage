@@ -1,36 +1,17 @@
-import { appSchema } from "@examples/schema";
+"use client";
+
 import { Badge, Card } from "@examples/ui";
 import { useSyncExternalStore } from "react";
 
-import { getRevision, subscribeToRevision } from "../storage";
-
-interface Entry {
-  readonly key: string;
-  readonly raw: string;
-  readonly ours: boolean;
-}
-
-function readOrigin(): ReadonlyArray<Entry> {
-  const declared = new Set<string>(Object.values(appSchema.physicalKeys));
-  const entries: Array<Entry> = [];
-
-  for (let index = 0; index < window.localStorage.length; index += 1) {
-    const key = window.localStorage.key(index);
-    if (key === null) continue;
-
-    entries.push({
-      key,
-      raw: window.localStorage.getItem(key) ?? "",
-      ours: declared.has(key),
-    });
-  }
-
-  return entries.toSorted((left, right) => left.key.localeCompare(right.key));
-}
+import { getOriginServerSnapshot, getOriginSnapshot } from "../store/origin";
+import { subscribeToRevision } from "../store/revision";
 
 export function Inspector() {
-  useSyncExternalStore(subscribeToRevision, getRevision);
-  const entries = readOrigin();
+  const entries = useSyncExternalStore(
+    subscribeToRevision,
+    getOriginSnapshot,
+    getOriginServerSnapshot,
+  );
 
   return (
     <Card

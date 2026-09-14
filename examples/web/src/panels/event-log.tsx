@@ -1,9 +1,11 @@
+"use client";
+
 import { Badge, Button, Card } from "@examples/ui";
 import type { BadgeTone } from "@examples/ui";
 import { STORAGE_ERROR_CODE } from "@platform-storage/web";
 import { useSyncExternalStore } from "react";
 
-import { clearLog, getLog, subscribeToLog } from "../storage";
+import { clearLog, getLog, getServerLog, subscribeToLog } from "../store/log";
 
 function toneFor(code: string): BadgeTone {
   if (code === STORAGE_ERROR_CODE.Validation || code === STORAGE_ERROR_CODE.Serialization) {
@@ -16,7 +18,7 @@ function toneFor(code: string): BadgeTone {
 }
 
 export function EventLog() {
-  const entries = useSyncExternalStore(subscribeToLog, getLog);
+  const entries = useSyncExternalStore(subscribeToLog, getLog, getServerLog);
 
   return (
     <Card

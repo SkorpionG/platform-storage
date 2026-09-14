@@ -68,7 +68,7 @@ export interface FieldProps {
   readonly children: ReactNode;
 }
 
-/** One labelled row. The hint sits under the control, which is where the read type and the note go. */
+/** One labeled row. The hint sits under the control, which is where the read type and the note go. */
 export function Field({ label, hint, children }: FieldProps) {
   return (
     <div className="py-3 first:pt-0 last:pb-0">

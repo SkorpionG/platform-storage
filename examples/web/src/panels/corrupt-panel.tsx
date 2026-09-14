@@ -1,3 +1,5 @@
+"use client";
+
 import { appSchema, CORRUPTIONS } from "@examples/schema";
 import type { AppKey, Corruption } from "@examples/schema";
 import { Badge, Button, Card, Code, Select, Value } from "@examples/ui";
@@ -5,8 +7,8 @@ import { INVALID_POLICY, isPlatformStorageError } from "@platform-storage/web";
 import type { InvalidPolicy } from "@platform-storage/web";
 import { useState } from "react";
 
-import { local, localRecovering } from "../storage";
-import { useWrite } from "../use-storage";
+import { local, localRecovering } from "../store/storage";
+import { useWrite } from "../hooks/use-storage";
 
 /** The policies the library names, plus the callback it also accepts. */
 type PolicyName = InvalidPolicy | "callback";

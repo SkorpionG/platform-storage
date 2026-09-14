@@ -1,13 +1,12 @@
 {
-  "name": "@examples/ui",
+  "name": "@examples/web",
   "version": "0.0.0",
   "private": true,
-  "description": "Presentational components shared by the browser-based examples.",
+  "description": "The browser playground for @platform-storage/web, rendered by every web example.",
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./theme.css": "./src/theme.css"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -15,7 +14,9 @@
     "clean": "rm -rf .cache .turbo node_modules"
   },
   "dependencies": {
-    "prism-react-renderer": "catalog:"
+    "@examples/schema": "workspace:*",
+    "@examples/ui": "workspace:*",
+    "@platform-storage/web": "workspace:*"
   },
   "devDependencies": {
     "@tooling/oxlint-config": "workspace:*",

@@ -1,3 +1,5 @@
+"use client";
+
 import { KEY_NOTES } from "@examples/schema";
 import type { AppKey } from "@examples/schema";
 import {
@@ -15,8 +17,8 @@ import {
 } from "@examples/ui";
 import { useState } from "react";
 
-import { local } from "../storage";
-import { useStoredValue, useWrite } from "../use-storage";
+import { local } from "../store/storage";
+import { useStoredValue, useWrite } from "../hooks/use-storage";
 
 interface RowProps {
   readonly storageKey: AppKey;

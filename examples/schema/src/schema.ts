@@ -7,7 +7,7 @@ import * as z from "zod";
  *
  * Nothing here knows where the values are stored. The web example puts them in `localStorage`, and an extension or React Native example would hand the identical definition to its own storage. That is the claim this package exists to make good on, and its tsconfig has no `DOM` library so the compiler keeps it honest.
  *
- * Each key is chosen to make one behaviour visible; `KEY_NOTES` in the entry point says which.
+ * Each key is chosen to make one behavior visible; `KEY_NOTES` in the entry point says which.
  *
  * It sits in its own module so the playground can display this file verbatim rather than keeping a copy of it that drifts.
  */

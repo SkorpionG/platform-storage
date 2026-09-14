@@ -77,6 +77,10 @@ web_modules/
 # Next.js build output
 .next
 out
+next-env.d.ts
+# Re-created by `next dev` on every run.
+examples/next/AGENTS.md
+examples/next/CLAUDE.md
 
 # Nuxt.js build / generate output
 .nuxt

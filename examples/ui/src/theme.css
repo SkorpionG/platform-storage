@@ -1,0 +1,114 @@
+/*
+  Dark mode follows a class rather than the media query, because the `theme` key decides it and `system` is only one of the three values that key can hold.
+*/
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Semantic colors rather than a fixed palette, so a theme swap redefines these once instead of every component carrying a `dark:` variant. The names run from the page backwards: canvas holds cards, a card holds insets, and text runs from `fg` down to `faint`.
+*/
+@theme {
+  --color-canvas: oklch(0.985 0.002 260);
+  --color-surface: oklch(1 0 0);
+  --color-inset: oklch(0.972 0.003 260);
+  --color-raised: oklch(0.955 0.004 260);
+  --color-raised-hover: oklch(0.92 0.005 260);
+  --color-line: oklch(0.905 0.005 260);
+  --color-line-strong: oklch(0.855 0.006 260);
+  --color-fg: oklch(0.24 0.01 260);
+  --color-body: oklch(0.38 0.01 260);
+  --color-muted: oklch(0.5 0.012 260);
+  --color-soft: oklch(0.58 0.012 260);
+  --color-faint: oklch(0.7 0.008 260);
+}
+
+.dark {
+  --color-canvas: oklch(0.16 0.008 260);
+  --color-surface: oklch(0.212 0.008 260);
+  --color-inset: oklch(0.145 0.008 260);
+  --color-raised: oklch(0.27 0.008 260);
+  --color-raised-hover: oklch(0.325 0.008 260);
+  --color-line: oklch(0.3 0.008 260);
+  --color-line-strong: oklch(0.375 0.008 260);
+  --color-fg: oklch(0.96 0.003 260);
+  --color-body: oklch(0.87 0.004 260);
+  --color-muted: oklch(0.72 0.006 260);
+  --color-soft: oklch(0.62 0.008 260);
+  --color-faint: oklch(0.5 0.008 260);
+}
+
+/* Lets the browser paint its own form controls, scrollbars and focus rings to match. */
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-canvas);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+  Syntax colors for the highlighted code block, named by the token classes the highlighter emits. They live here rather than in a theme object passed to it, so a dark page swaps them the way every other color on the page swaps.
+*/
+:root {
+  --color-token-comment: oklch(0.62 0.01 260);
+  --color-token-keyword: oklch(0.52 0.16 300);
+  --color-token-string: oklch(0.52 0.13 150);
+  --color-token-number: oklch(0.55 0.14 60);
+  --color-token-function: oklch(0.52 0.15 250);
+  --color-token-punctuation: oklch(0.58 0.012 260);
+}
+
+.dark {
+  --color-token-comment: oklch(0.58 0.012 260);
+  --color-token-keyword: oklch(0.78 0.13 300);
+  --color-token-string: oklch(0.82 0.13 150);
+  --color-token-number: oklch(0.83 0.12 75);
+  --color-token-function: oklch(0.8 0.12 250);
+  --color-token-punctuation: oklch(0.62 0.008 260);
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: var(--color-token-comment);
+  font-style: italic;
+}
+
+.token.keyword,
+.token.boolean,
+.token.constant,
+.token.builtin,
+.token.important {
+  color: var(--color-token-keyword);
+}
+
+.token.string,
+.token.char,
+.token.attr-value,
+.token.regex {
+  color: var(--color-token-string);
+}
+
+.token.number,
+.token.symbol,
+.token.tag,
+.token.attr-name,
+.token.class-name {
+  color: var(--color-token-number);
+}
+
+.token.function,
+.token.property,
+.token.variable {
+  color: var(--color-token-function);
+}
+
+.token.punctuation,
+.token.operator {
+  color: var(--color-token-punctuation);
+}

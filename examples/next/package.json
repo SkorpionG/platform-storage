@@ -1,39 +1,39 @@
 {
-  "name": "@examples/vite-react",
+  "name": "@examples/next",
   "version": "0.0.0",
   "private": true,
-  "description": "A browser playground for @platform-storage/web.",
+  "description": "A server-rendered playground for @platform-storage/web, on the Next.js App Router.",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit",
     "lint": "oxlint",
-    "clean": "rm -rf dist .cache .turbo node_modules"
+    "clean": "rm -rf .next .cache .turbo node_modules next-env.d.ts"
   },
   "dependencies": {
     "@examples/schema": "workspace:*",
     "@examples/ui": "workspace:*",
     "@examples/web": "workspace:*",
     "@platform-storage/web": "workspace:*",
+    "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "catalog:",
+    "@tailwindcss/postcss": "catalog:",
     "@tooling/oxlint-config": "workspace:*",
     "@tooling/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@vitejs/plugin-react": "catalog:",
     "tailwindcss": "catalog:",
-    "typescript": "catalog:",
-    "vite": "catalog:"
+    "typescript": "catalog:"
   },
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=20.9.0"
   }
 }

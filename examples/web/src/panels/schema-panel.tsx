@@ -1,9 +1,12 @@
 import { appSchema, KEY_NOTES } from "@examples/schema";
-// The definition module itself, so what is shown can never drift from what runs.
-import schemaSource from "@examples/schema/schema-source?raw";
-import { Badge, Card, Code } from "@examples/ui";
+import { Badge, Card, Code, CodeBlock } from "@examples/ui";
 
-export function SchemaPanel() {
+export interface SchemaPanelProps {
+  /** The definition module's own text, so what is shown can never drift from what runs. Vite has `?raw` for this and Next does not, so each app supplies it the way its own build can. */
+  readonly source: string;
+}
+
+export function SchemaPanel({ source }: SchemaPanelProps) {
   return (
     <Card
       title="One schema, every platform"
@@ -15,9 +18,7 @@ export function SchemaPanel() {
         </>
       }
     >
-      <pre className="overflow-x-auto rounded-lg border border-line bg-inset p-3 font-mono text-[11px] leading-relaxed text-body">
-        {schemaSource.trim()}
-      </pre>
+      <CodeBlock code={source.trim()} />
 
       <table className="mt-4 w-full border-separate border-spacing-0 text-left">
         <thead>

@@ -1,6 +1,8 @@
+"use client";
+
 import { useEffect } from "react";
 
-import { local } from "./storage";
+import { local } from "../store/storage";
 import { useStoredValue } from "./use-storage";
 
 /**

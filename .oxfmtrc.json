@@ -7,6 +7,7 @@
   "endOfLine": "lf",
   "ignorePatterns": [
     "**/dist/**",
+    "**/.next/**",
     "pnpm-lock.yaml",
     // Vendored agent skills. Committed, but authored elsewhere: reformatting
     // them would put this repository's style into someone else's files and make

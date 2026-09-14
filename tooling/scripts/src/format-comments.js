@@ -45,7 +45,7 @@ const EXCLUDED_PREFIXES = [
 ];
 
 /*
-  A comment line that means something to a tool, not to a reader. Joining one onto a neighbour moves it off the line it applies to, which silently changes behaviour.
+  A comment line that means something to a tool, not to a reader. Joining one onto a neighbor moves it off the line it applies to, which silently changes behavior.
 */
 const DIRECTIVE =
   /^(@|#region\b|#endregion\b|eslint-|oxlint-|ts-|prettier-|biome-|c8 |v8 |istanbul |TODO\b|FIXME\b|NOTE\b|HACK\b|XXX\b)/;
