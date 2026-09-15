@@ -1,0 +1,9 @@
+{
+  "extends": "@tooling/typescript-config/library-dom.json",
+  "compilerOptions": {
+    // Only the tests write JSX; `src` has none.
+    "jsx": "react-jsx",
+    "types": ["node"]
+  },
+  "include": ["src", "tests", "tsdown.config.ts", "vitest.config.ts"]
+}

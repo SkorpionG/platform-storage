@@ -2,16 +2,16 @@
 
 import { Badge, Card, Code, Value } from "@examples/ui";
 
-import { useHydrated } from "../hooks/use-hydrated";
-import { useStoredValue } from "../hooks/use-storage";
-import { readDeclared } from "../store/snapshot";
+import { useHydrated, useStorageValue } from "@platform-storage/react";
+import { readDeclaredValue } from "@platform-storage/react/server";
+
 import { local } from "../store/storage";
 
 /** What `getSync` can and cannot do for a server-rendered first paint, with the three values that answer it side by side. */
 export function HydrationPanel() {
   const hydrated = useHydrated();
-  const declared = readDeclared(local, "theme");
-  const stored = useStoredValue(local, "theme");
+  const declared = readDeclaredValue(local, "theme");
+  const [stored] = useStorageValue(local, "theme");
 
   return (
     <Card

@@ -17,8 +17,9 @@ import {
 } from "@examples/ui";
 import { useState } from "react";
 
+import { useStorageValue } from "@platform-storage/react";
+
 import { local } from "../store/storage";
-import { useStoredValue, useWrite } from "../hooks/use-storage";
 
 interface RowProps {
   readonly storageKey: AppKey;
@@ -50,17 +51,15 @@ function Row({ storageKey, value, children, usage }: RowProps) {
 }
 
 export function ValuesPanel() {
-  const write = useWrite();
-
-  const theme = useStoredValue(local, "theme");
-  const displayName = useStoredValue(local, "displayName");
-  const reducedMotion = useStoredValue(local, "reducedMotion");
-  const fontScale = useStoredValue(local, "fontScale");
-  const visitCount = useStoredValue(local, "visitCount");
-  const recentSearches = useStoredValue(local, "recentSearches");
-  const user = useStoredValue(local, "user");
-  const lastDismissed = useStoredValue(local, "lastDismissed");
-  const nickname = useStoredValue(local, "nickname");
+  const [theme, themeWriter] = useStorageValue(local, "theme");
+  const [displayName, displayNameWriter] = useStorageValue(local, "displayName");
+  const [reducedMotion, reducedMotionWriter] = useStorageValue(local, "reducedMotion");
+  const [fontScale, fontScaleWriter] = useStorageValue(local, "fontScale");
+  const [visitCount, visitCountWriter] = useStorageValue(local, "visitCount");
+  const [recentSearches, recentSearchesWriter] = useStorageValue(local, "recentSearches");
+  const [user, userWriter] = useStorageValue(local, "user");
+  const [lastDismissed, lastDismissedWriter] = useStorageValue(local, "lastDismissed");
+  const [nickname, nicknameWriter] = useStorageValue(local, "nickname");
 
   const [draftName, setDraftName] = useState(user?.name ?? "");
 
@@ -75,7 +74,7 @@ export function ValuesPanel() {
             label="Theme"
             value={theme}
             options={["light", "dark", "system"]}
-            onChange={(next) => write(() => local.setSync("theme", next))}
+            onChange={(next) => themeWriter.set(next)}
           />
         </Row>
 
@@ -84,12 +83,10 @@ export function ValuesPanel() {
             label="Display name"
             value={displayName ?? ""}
             placeholder="unset"
-            onChange={(next) =>
-              write(() => {
-                if (next === "") local.removeSync("displayName");
-                else local.setSync("displayName", next);
-              })
-            }
+            onChange={(next) => {
+              if (next === "") displayNameWriter.remove();
+              else displayNameWriter.set(next);
+            }}
           />
         </Row>
 
@@ -97,7 +94,7 @@ export function ValuesPanel() {
           <Switch
             label="Reduced motion"
             checked={reducedMotion}
-            onChange={(next) => write(() => local.setSync("reducedMotion", next))}
+            onChange={(next) => reducedMotionWriter.set(next)}
           />
         </Row>
 
@@ -108,7 +105,7 @@ export function ValuesPanel() {
             min={0.75}
             max={2}
             step={0.05}
-            onChange={(next) => write(() => local.setSync("fontScale", next))}
+            onChange={(next) => fontScaleWriter.set(next)}
           />
         </Row>
 
@@ -116,7 +113,7 @@ export function ValuesPanel() {
           <Stepper
             label="Visit count"
             value={visitCount}
-            onChange={(next) => write(() => local.setSync("visitCount", next))}
+            onChange={(next) => visitCountWriter.set(next)}
           />
         </Row>
 
@@ -128,7 +125,7 @@ export function ValuesPanel() {
           <TagInput
             label="Recent searches"
             values={recentSearches}
-            onChange={(next) => write(() => local.setSync("recentSearches", next))}
+            onChange={(next) => recentSearchesWriter.set(next)}
           />
         </Row>
 
@@ -142,23 +139,17 @@ export function ValuesPanel() {
           />
           <Button
             tone="primary"
-            onClick={() =>
-              write(() => local.setSync("user", { id: "u_1", name: draftName || "Ada" }))
-            }
+            onClick={() => userWriter.set({ id: "u_1", name: draftName || "Ada" })}
           >
             Save
           </Button>
-          <Button onClick={() => write(() => local.removeSync("user"))}>Remove</Button>
+          <Button onClick={() => userWriter.remove()}>Remove</Button>
         </Row>
 
         <Row storageKey="lastDismissed" value={lastDismissed}>
-          <Button onClick={() => write(() => local.setSync("lastDismissed", "banner-a"))}>
-            Set text
-          </Button>
-          <Button onClick={() => write(() => local.setSync("lastDismissed", null))}>
-            Store null
-          </Button>
-          <Button onClick={() => write(() => local.removeSync("lastDismissed"))}>Remove</Button>
+          <Button onClick={() => lastDismissedWriter.set("banner-a")}>Set text</Button>
+          <Button onClick={() => lastDismissedWriter.set(null)}>Store null</Button>
+          <Button onClick={() => lastDismissedWriter.remove()}>Remove</Button>
         </Row>
 
         <Row storageKey="nickname" value={nickname}>
@@ -166,9 +157,7 @@ export function ValuesPanel() {
             label="Nickname"
             value={nickname ?? ""}
             placeholder="unset"
-            onChange={(next) =>
-              write(() => local.setSync("nickname", next === "" ? undefined : next))
-            }
+            onChange={(next) => nicknameWriter.set(next === "" ? undefined : next)}
           />
         </Row>
       </div>

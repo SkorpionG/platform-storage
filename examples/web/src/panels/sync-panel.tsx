@@ -3,14 +3,15 @@
 import { Badge, Button, Card, Code, Value } from "@examples/ui";
 import { useState } from "react";
 
-import { useStoredValue } from "../hooks/use-storage";
+import { useStorageValue } from "@platform-storage/react";
+
 import { local } from "../store/storage";
 
 export function SyncPanel() {
   /*
     Read at render, with no await and no loading state, because web storage answers immediately. Through the hook rather than calling `getSync` here, because a render on a server has to have an answer too, and one taken straight off the storage would disagree with the browser's.
   */
-  const immediate = useStoredValue(local, "theme");
+  const [immediate] = useStorageValue(local, "theme");
   const [awaited, setAwaited] = useState<string | undefined>();
 
   return (

@@ -2,14 +2,15 @@
 
 import { Badge, Value } from "@examples/ui";
 
-import { useStoredValue } from "../hooks/use-storage";
+import { useStorageValue } from "@platform-storage/react";
+
 import { local } from "../store/storage";
 
 /** The reads the server column makes, made again once this is running in a browser. */
 export function BrowserColumn() {
-  const theme = useStoredValue(local, "theme");
-  const recentSearches = useStoredValue(local, "recentSearches");
-  const user = useStoredValue(local, "user");
+  const [theme] = useStorageValue(local, "theme");
+  const [recentSearches] = useStorageValue(local, "recentSearches");
+  const [user] = useStorageValue(local, "user");
 
   return (
     <div className="rounded-lg border border-line bg-inset p-3">

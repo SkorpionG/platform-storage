@@ -16,7 +16,7 @@ Schema definition, typed keys and values, runtime validation on read and write, 
 
 `storage.subscribe(key, listener)`, backed by the `storage` event on the web, `storage.onChanged` in extensions, and an in-process emitter for memory and AsyncStorage. Needs an optional capability on the adapter interface, because the backends genuinely differ: an extension reports changes made by other contexts, the web `storage` event fires only in _other_ tabs, and AsyncStorage reports nothing at all.
 
-`examples/web` shows what its absence costs an application: a revision counter every write has to bump, and a cache keyed on that counter so a snapshot holds still between writes. The cache is not incidental. `useSyncExternalStore` compares snapshots by identity, `getSync` deserializes on every call, and a schema default built by a factory answers with a fresh value even for a key holding nothing, so without it React never settles. A real subscription removes both, and the React bindings below are where they would go in the meantime.
+Until it lands, nothing reports a change made in another tab or another extension context, so a React app only sees the writes it made itself.
 
 ### Asking `withFallback` which half it chose
 
@@ -49,11 +49,33 @@ The largest deferred piece, and the reason several v0.1 decisions look the way t
 - The whole chain runs in memory and is validated at every step before anything is written back.
 - Errors extend the existing hierarchy: `StorageMigrationError`, `MissingMigrationError`, `UnknownStorageVersionError`.
 
-### React bindings
+### Suspense support for the asynchronous hooks
 
-A separate package. The core stays framework-agnostic; the web adapter's synchronous reads are what make an SSR-safe initial value possible without a loading state.
+A `use()`-based variant of `useAsyncStorageValue`, so an extension or Expo app can render behind a Suspense boundary instead of branching on a status. Additive: the status-returning hook stays, and nothing about it changes.
 
-`examples/web` is the working prototype, and it is deliberately generic over the schema rather than written against the demo's own, so lifting it is a move rather than a rewrite. What it establishes: `useStoredValue(storage, key)` over `useSyncExternalStore`, a `getServerSnapshot` reading an empty backend derived from the storage's own schema so a server render and the first client render agree, and the identity cache above. The honest limit belongs in its README, because `getSync` cannot abolish the flash under server rendering: no server knows what a given browser stored, so what it removes is the promise, the effect and the loading state, not the repaint.
+It needs a cache keyed on the promise rather than on the value, and a decision about what a refetch does to a boundary that has already resolved. Neither is hard; both are easy to get subtly wrong, which is why the first release returns a status a component can read instead.
+
+### Optimistic writes
+
+A write over a slow backend shows the previous value until it lands, which on an extension area or AsyncStorage is a visible delay on every keystroke that writes.
+
+Publishing the new value immediately is more delicate than it looks: `set` validates and may normalize, so the value optimistically shown can be one the storage would never hold, and a rejected write then has to roll back to something that may itself have been superseded. Worth doing, not worth guessing at.
+
+### A per-call policy through the hooks
+
+`storage.getSync(key, { onInvalid })` has no equivalent on `useStorageValue`, and adding an options parameter naively would be a trap: an inline object changes identity on every render, and a function has no identity that can be compared at all, so the options cannot take part in the cache key. A consumer who forgets to memoize gets `Maximum update depth exceeded` rather than a warning.
+
+Until there is an answer to that, policy belongs where it already works: on the key, or on the storage, declared outside React where identity is stable by construction.
+
+### An updater form for the writers
+
+`writer.set(next)` takes a value, never `(previous) => next`. A component holding the value can compute the next one itself, but a component that only writes cannot, so incrementing a counter from a button means reading a key it does not otherwise display.
+
+Over a storage that only answers later the updater has to read before it writes, and two updates in flight then race. That ordering is the whole of the work.
+
+### A per-request error log
+
+`recordStorageError` collects into one log for the process, which is right in a browser and wrong on a server, where every in-flight request would share it. Harmless only because nothing reads the log during a server render; it becomes a leak between requests the moment something does.
 
 ### Richer serializers
 

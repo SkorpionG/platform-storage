@@ -3,12 +3,11 @@
 import { Badge, Card } from "@examples/ui";
 import { useSyncExternalStore } from "react";
 
-import { getOriginServerSnapshot, getOriginSnapshot } from "../store/origin";
-import { subscribeToRevision } from "../store/revision";
+import { getOriginServerSnapshot, getOriginSnapshot, subscribeToOrigin } from "../store/origin";
 
 export function Inspector() {
   const entries = useSyncExternalStore(
-    subscribeToRevision,
+    subscribeToOrigin,
     getOriginSnapshot,
     getOriginServerSnapshot,
   );

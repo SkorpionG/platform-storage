@@ -12,7 +12,7 @@ npm install @platform-storage/extension
 
 This package re-exports the whole `@platform-storage/core` API, so it is the only one you need. Add a [Standard Schema](https://standardschema.dev) validation library such as Zod alongside it.
 
-## Usage
+## API Usage
 
 ```ts
 import * as z from "zod";

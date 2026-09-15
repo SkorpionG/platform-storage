@@ -14,7 +14,7 @@ npm install @platform-storage/core
 
 Add a [Standard Schema](https://standardschema.dev) validation library such as Zod alongside it. Zod, Valibot and ArkType all work; none is a dependency, and nothing here imports a validation library at runtime.
 
-## Usage
+## API Usage
 
 ```ts
 import * as z from "zod";

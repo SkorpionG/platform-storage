@@ -2,14 +2,13 @@
 
 import { Button, Card, Code } from "@examples/ui";
 
+import { notifyStorageChanged } from "@platform-storage/react";
+
 import { local } from "../store/storage";
-import { useWrite } from "../hooks/use-storage";
 
 const FOREIGN_KEY = "analytics:session";
 
 export function ClearPanel() {
-  const write = useWrite();
-
   return (
     <Card
       title="clear() removes only what the schema declares"
@@ -17,13 +16,20 @@ export function ClearPanel() {
     >
       <div className="flex flex-wrap items-center gap-2">
         <Button
-          onClick={() =>
-            write(() => window.localStorage.setItem(FOREIGN_KEY, '"belongs to someone else"'))
-          }
+          onClick={() => {
+            window.localStorage.setItem(FOREIGN_KEY, '"belongs to someone else"');
+            notifyStorageChanged(local);
+          }}
         >
           Plant a foreign key
         </Button>
-        <Button tone="danger" onClick={() => write(() => local.clearSync())}>
+        <Button
+          tone="danger"
+          onClick={() => {
+            local.clearSync();
+            notifyStorageChanged(local);
+          }}
+        >
           clearSync()
         </Button>
       </div>

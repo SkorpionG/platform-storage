@@ -2,13 +2,13 @@
 
 import { Button, Card, Field, TextField, Value } from "@examples/ui";
 
+import { useStorageValue } from "@platform-storage/react";
+
 import { local, session } from "../store/storage";
-import { useStoredValue, useWrite } from "../hooks/use-storage";
 
 export function SessionPanel() {
-  const write = useWrite();
-  const inLocal = useStoredValue(local, "displayName");
-  const inSession = useStoredValue(session, "displayName");
+  const [inLocal, inLocalWriter] = useStorageValue(local, "displayName");
+  const [inSession, inSessionWriter] = useStorageValue(session, "displayName");
 
   return (
     <Card
@@ -28,12 +28,10 @@ export function SessionPanel() {
             label="Display name in localStorage"
             value={inLocal ?? ""}
             placeholder="unset"
-            onChange={(next) =>
-              write(() => {
-                if (next === "") local.removeSync("displayName");
-                else local.setSync("displayName", next);
-              })
-            }
+            onChange={(next) => {
+              if (next === "") inLocalWriter.remove();
+              else inLocalWriter.set(next);
+            }}
           />
         </Field>
 
@@ -49,12 +47,10 @@ export function SessionPanel() {
             label="Display name in sessionStorage"
             value={inSession ?? ""}
             placeholder="unset"
-            onChange={(next) =>
-              write(() => {
-                if (next === "") session.removeSync("displayName");
-                else session.setSync("displayName", next);
-              })
-            }
+            onChange={(next) => {
+              if (next === "") inSessionWriter.remove();
+              else inSessionWriter.set(next);
+            }}
           />
         </Field>
       </div>

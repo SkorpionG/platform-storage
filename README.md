@@ -18,6 +18,12 @@ npm install @platform-storage/react-native   # React Native and Expo, via AsyncS
 
 Add a [Standard Schema](https://standardschema.dev) validation library such as Zod alongside it.
 
+Using React? Add the hooks beside whichever of those you installed. They are not a platform package and do not replace one.
+
+```sh
+npm install @platform-storage/react
+```
+
 ## Example
 
 ```ts
@@ -72,12 +78,13 @@ Then the same code gets written again for the browser extension, and again for t
 
 ## Packages
 
-| Package                                                   | Holds                                                                |
-| --------------------------------------------------------- | -------------------------------------------------------------------- |
-| [`@platform-storage/core`](packages/core)                 | The schema API, the storage engine, the adapter contract, the errors |
-| [`@platform-storage/web`](packages/web)                   | The `localStorage` and `sessionStorage` adapters                     |
-| [`@platform-storage/extension`](packages/extension)       | The `local`, `sync` and `session` area adapters                      |
-| [`@platform-storage/react-native`](packages/react-native) | The AsyncStorage adapter                                             |
+| Package                                                   | Holds                                                                  |
+| --------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`@platform-storage/core`](packages/core)                 | The schema API, the storage engine, the adapter contract, the errors   |
+| [`@platform-storage/web`](packages/web)                   | The `localStorage` and `sessionStorage` adapters                       |
+| [`@platform-storage/extension`](packages/extension)       | The `local`, `sync` and `session` area adapters                        |
+| [`@platform-storage/react-native`](packages/react-native) | The AsyncStorage adapter                                               |
+| [`@platform-storage/react`](packages/react)               | React hooks over any of them, on the client and across a server render |
 
 Install core directly only when you are writing your own adapter. Each package's README documents what it adds; [`packages/core`](packages/core) documents the API they all share.
 

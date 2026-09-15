@@ -1,5 +1,6 @@
 import { appSchema } from "@examples/schema";
 import type { AppDefinition } from "@examples/schema";
+import { recordStorageError } from "@platform-storage/react";
 import {
   createLocalStorage,
   createStorage,
@@ -10,8 +11,6 @@ import {
 } from "@platform-storage/web";
 import type { KeyDefinition, SyncPlatformStorage } from "@platform-storage/web";
 
-import { record } from "./log";
-
 /**
  * The same schema over `localStorage`, paired with memory for a render that has no `window`.
  *
@@ -20,14 +19,14 @@ import { record } from "./log";
 export const local: SyncPlatformStorage<AppDefinition> = createStorage({
   schema: appSchema,
   adapter: withFallback(localStorageAdapter(), memoryAdapter({ name: "server-memory" })),
-  onError: record,
+  onError: recordStorageError,
 });
 
 /** The same arrangement over `sessionStorage`. Neither storage knows about the other. */
 export const session: SyncPlatformStorage<AppDefinition> = createStorage({
   schema: appSchema,
   adapter: withFallback(sessionStorageAdapter(), memoryAdapter({ name: "server-memory" })),
-  onError: record,
+  onError: recordStorageError,
 });
 
 /*
@@ -48,7 +47,7 @@ const DECLARED_DEFAULTS: Readonly<Record<string, unknown>> = Object.fromEntries(
 export const localRecovering: SyncPlatformStorage<AppDefinition> = createStorage({
   schema: appSchema,
   adapter: withFallback(localStorageAdapter(), memoryAdapter({ name: "server-memory" })),
-  onError: record,
+  onError: recordStorageError,
   onInvalid: (context) => DECLARED_DEFAULTS[context.key],
 });
 

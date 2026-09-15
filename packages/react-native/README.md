@@ -14,7 +14,7 @@ This package re-exports the whole `@platform-storage/core` API, so it is the onl
 
 AsyncStorage is an optional peer. This package never imports it, and any storage with its `getItem`, `setItem` and `removeItem` can stand in for it.
 
-## Usage
+## API Usage
 
 ```ts
 import AsyncStorage from "@react-native-async-storage/async-storage";

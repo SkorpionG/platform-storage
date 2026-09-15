@@ -2,10 +2,8 @@
 
 import { Badge, Button, Card } from "@examples/ui";
 import type { BadgeTone } from "@examples/ui";
+import { clearStorageErrors, useStorageErrors } from "@platform-storage/react";
 import { STORAGE_ERROR_CODE } from "@platform-storage/web";
-import { useSyncExternalStore } from "react";
-
-import { clearLog, getLog, getServerLog, subscribeToLog } from "../store/log";
 
 function toneFor(code: string): BadgeTone {
   if (code === STORAGE_ERROR_CODE.Validation || code === STORAGE_ERROR_CODE.Serialization) {
@@ -18,7 +16,7 @@ function toneFor(code: string): BadgeTone {
 }
 
 export function EventLog() {
-  const entries = useSyncExternalStore(subscribeToLog, getLog, getServerLog);
+  const entries = useStorageErrors();
 
   return (
     <Card
@@ -26,7 +24,7 @@ export function EventLog() {
       description="The onError observer sees each failure whichever policy runs, which is what keeps a falling-back read from being a silent one."
       aside={
         entries.length === 0 ? null : (
-          <Button onClick={clearLog} title="Clear the log">
+          <Button onClick={clearStorageErrors} title="Clear the log">
             Clear
           </Button>
         )
@@ -41,11 +39,13 @@ export function EventLog() {
           {entries.map((entry) => (
             <li key={entry.id} className="rounded-md border border-line bg-inset p-2">
               <div className="flex items-center gap-2">
-                <Badge tone={toneFor(entry.code)}>{entry.code}</Badge>
+                <Badge tone={toneFor(entry.error.code)}>{entry.error.code}</Badge>
                 {entry.count === 1 ? null : <Badge>×{entry.count}</Badge>}
-                <span className="text-[11px] text-faint">{entry.at}</span>
+                <span className="text-[11px] text-faint">
+                  {new Date(entry.at).toLocaleTimeString()}
+                </span>
               </div>
-              <p className="mt-1 text-[11px] leading-relaxed text-muted">{entry.message}</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted">{entry.error.message}</p>
             </li>
           ))}
         </ul>

@@ -2,7 +2,7 @@
 
 The workflow from making a change to publishing it. Releases go out by hand from a maintainer's machine; nothing publishes on its own.
 
-All four packages share one version number, through the `fixed` group in `.changeset/config.json`. A release versions and publishes the whole set, so `@platform-storage/core@1.2.0` and `@platform-storage/web@1.2.0` always exist together, which is what keeps the `workspace:*` dependency between them resolvable at every version.
+All five packages share one version number, through the `fixed` group in `.changeset/config.json`. A release versions and publishes the whole set, so `@platform-storage/core@1.2.0` and `@platform-storage/web@1.2.0` always exist together, which is what keeps the `workspace:*` dependency between them resolvable at every version.
 
 ## Setup
 
@@ -50,7 +50,7 @@ The description becomes the `CHANGELOG.md` entry, so write it for someone decidi
 - `minor` for anything added, and for behavior that changes without breaking existing code.
 - `major` for a change that can break a consumer: a removed or renamed export, a narrowed type, a different default.
 
-When one change spans several packages, name them all in the same changeset. Because the version is shared, the largest bump among the pending changesets decides the number for all four.
+When one change spans several packages, name them all in the same changeset. Because the version is shared, the largest bump among the pending changesets decides the number for all five.
 
 ## Releasing a version
 
@@ -89,7 +89,7 @@ This lists every pending changeset, the version each package moves to, and which
 pnpm version-packages
 ```
 
-This bumps the version in all four `package.json` files, writes or extends each `CHANGELOG.md` from the pending descriptions, and deletes the changeset files it consumed. It touches the registry not at all.
+This bumps the version in all five `package.json` files, writes or extends each `CHANGELOG.md` from the pending descriptions, and deletes the changeset files it consumed. It touches the registry not at all.
 
 ### 5. Read the diff
 

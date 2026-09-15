@@ -2,8 +2,9 @@
 
 import { useEffect } from "react";
 
+import { useStorageValue } from "@platform-storage/react";
+
 import { local } from "../store/storage";
-import { useStoredValue } from "./use-storage";
 
 /**
  * Applies the stored `theme` to the document, resolving `system` against the operating system.
@@ -11,7 +12,7 @@ import { useStoredValue } from "./use-storage";
  * This is what makes the key more than a value in a table: writing it through the typed API repaints the page. The class is set on `<html>` before React runs, by the inline script in `index.html`, so a reload never flashes the wrong theme.
  */
 export function useAppliedTheme(): void {
-  const theme = useStoredValue(local, "theme");
+  const [theme] = useStorageValue(local, "theme");
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");

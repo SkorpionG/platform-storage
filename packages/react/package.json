@@ -1,0 +1,106 @@
+{
+  "name": "@platform-storage/react",
+  "version": "0.0.0",
+  "description": "React hooks for platform-storage: read and write schema-validated storage from a component, on the client and across a server render.",
+  "keywords": [
+    "hooks",
+    "react",
+    "react-hooks",
+    "schema",
+    "ssr",
+    "storage",
+    "type-safe",
+    "typescript",
+    "use-sync-external-store",
+    "validation"
+  ],
+  "homepage": "https://github.com/SkorpionG/platform-storage/tree/main/packages/react#readme",
+  "bugs": {
+    "url": "https://github.com/SkorpionG/platform-storage/issues"
+  },
+  "license": "MIT",
+  "author": "SkorpionG",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SkorpionG/platform-storage.git",
+    "directory": "packages/react"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "import": {
+          "types": "./dist/index.d.ts",
+          "default": "./dist/index.js"
+        },
+        "require": {
+          "types": "./dist/index.d.cts",
+          "default": "./dist/index.cjs"
+        }
+      },
+      "./server": {
+        "import": {
+          "types": "./dist/server.d.ts",
+          "default": "./dist/server.js"
+        },
+        "require": {
+          "types": "./dist/server.d.cts",
+          "default": "./dist/server.cjs"
+        }
+      },
+      "./package.json": "./package.json"
+    },
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "check-package": "pnpm pack --out .cache/package.tgz && publint .cache/package.tgz && attw --profile node16 .cache/package.tgz",
+    "clean": "rm -rf dist .cache .turbo node_modules"
+  },
+  "dependencies": {
+    "@platform-storage/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
+    "@testing-library/dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@tooling/oxlint-config": "workspace:*",
+    "@tooling/typescript-config": "workspace:*",
+    "@tooling/vitest-config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "happy-dom": "catalog:",
+    "publint": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

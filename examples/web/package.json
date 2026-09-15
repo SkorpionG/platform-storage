@@ -16,6 +16,7 @@
   "dependencies": {
     "@examples/schema": "workspace:*",
     "@examples/ui": "workspace:*",
+    "@platform-storage/react": "workspace:*",
     "@platform-storage/web": "workspace:*"
   },
   "devDependencies": {

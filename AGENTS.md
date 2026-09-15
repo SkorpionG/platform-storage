@@ -16,10 +16,13 @@ The repository is a pnpm + Turborepo monorepo. Adapters are thin; nearly all of 
 | `@platform-storage/web`          | The `localStorage` and `sessionStorage` adapters, and storage factories over them |
 | `@platform-storage/extension`    | The `local`, `sync` and `session` area adapters, and a storage factory over them  |
 | `@platform-storage/react-native` | The AsyncStorage adapter, and a storage factory over it                           |
+| `@platform-storage/react`        | React hooks over any storage, and the server-safe declared read                   |
 | `tooling/*`                      | Private, shared TypeScript, oxlint, vitest and formatting configuration           |
 | `examples/*`                     | Demonstrations of the published packages. Every one is private and never released |
 
 Every platform package depends only on core and re-exports it, so an application installs one package. Platform packages never depend on each other.
+
+`@platform-storage/react` is not one of them. It exports hooks and nothing else, because a consumer already has a platform package for the schema and the errors, and it is installed alongside one rather than instead of one.
 
 The examples share in three layers: `@examples/schema` holds one schema definition with no platform imports, `@examples/ui` holds presentational components that know nothing about storage, and `@examples/web` holds the panels, hooks and storages demonstrating `@platform-storage/web` — note the name, one character from the published package it demonstrates.
 
@@ -97,7 +100,7 @@ A comment says **why**, never what the code already says. State the rule, not th
 
 ### Changes
 
-Every user-facing change needs a changeset: `pnpm changeset`. All four published packages share one version, so a changeset on any of them versions the set. `RELEASING.md` covers when one is needed, what to write in it, and how to choose the bump.
+Every user-facing change needs a changeset: `pnpm changeset`. All five published packages share one version, so a changeset on any of them versions the set. `RELEASING.md` covers when one is needed, what to write in it, and how to choose the bump.
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org): a `type: subject` line in the imperative mood, and a body of bullet points where the change is worth explaining. The subject says what the commit does; each bullet says what changed and, where it is not obvious, why. Prose is not hard-wrapped here either, so a bullet stays on one line however long it runs.
 
@@ -124,7 +127,7 @@ These were settled deliberately. Reopen them with the maintainer rather than in 
 
 Releases are published by hand from a maintainer's machine, and `RELEASING.md` is the procedure.
 
-All four packages share one version through the `fixed` group in `.changeset/config.json`, so a changeset on any one of them versions and publishes the set. That is what keeps the `workspace:*` dependency between them resolvable at every version.
+All five packages share one version through the `fixed` group in `.changeset/config.json`, so a changeset on any one of them versions and publishes the set. That is what keeps the `workspace:*` dependency between them resolvable at every version.
 
 No package sets `publishConfig.provenance`, because npm issues a provenance statement only to a build running on a cloud CI provider: asking for one from a laptop fails the publish rather than skipping it. `.github/workflows/release.yml` is the optional path for a release that wants provenance, and it is manual-trigger only, so nothing publishes on its own.
 
@@ -166,6 +169,7 @@ Read the relevant one before changing something here that looks arbitrary, and a
 
 - **In-repo `exports` point at `src`; `publishConfig` swaps them for `dist` on publish.** That is what lets the editor, `tsc` and vitest resolve workspace packages to source while consumers get the build. It works only through `pnpm pack` and `pnpm publish`, never `npm pack`, because npm does not apply `publishConfig`.
 - **Declaration maps are off deliberately.** They point at `src`, which `files` does not publish, so shipping them would hand every consumer a map to nothing. JavaScript source maps stay on.
+- **A bundler emits `"use client"` only for a chunk whose own entry module carries it.** A directive on a module the entry merely re-exports is dropped, the build succeeds, and nothing warns; the package is then server code to every framework that reads the directive. `packages/react/src/index.ts` carries it for that reason, and a test asserts it is the first line. The rule under **Platforms** is the source-level counterpart, with a different fix.
 - **Errors are identified by `code` and by brand, never by `instanceof`.** An application that resolves two copies of a package holds two copies of each class, and `instanceof` silently stops matching across them.
 
 ### Writing tests

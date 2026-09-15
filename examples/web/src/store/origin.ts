@@ -1,6 +1,7 @@
 import { appSchema } from "@examples/schema";
+import { subscribeToStorage } from "@platform-storage/react";
 
-import { getRevision } from "./revision";
+import { local } from "./storage";
 
 export interface OriginEntry {
   readonly key: string;
@@ -29,16 +30,26 @@ function readOrigin(): ReadonlyArray<OriginEntry> {
   return entries.toSorted((left, right) => left.key.localeCompare(right.key));
 }
 
-let cached: { readonly revision: number; readonly entries: ReadonlyArray<OriginEntry> } | undefined;
+/*
+  This panel reads the whole origin, including keys the schema never declared, so no value hook can serve it: it follows the storage as a whole and keeps its own snapshot.
 
-/** Everything on the origin, ours and otherwise. Cached against the revision for the same reason a value read is. */
+  Cached against a counter of its own rather than re-read on every render, for the same reason a value read is: `useSyncExternalStore` compares snapshots by identity, and a fresh array every time never settles.
+*/
+let version = 0;
+let cached: { readonly version: number; readonly entries: ReadonlyArray<OriginEntry> } | undefined;
+
+export function subscribeToOrigin(listener: () => void): () => void {
+  return subscribeToStorage(local, () => {
+    version += 1;
+    listener();
+  });
+}
+
 export function getOriginSnapshot(): ReadonlyArray<OriginEntry> {
-  const revision = getRevision();
-
-  if (cached !== undefined && cached.revision === revision) return cached.entries;
+  if (cached !== undefined && cached.version === version) return cached.entries;
 
   const entries = readOrigin();
-  cached = { revision, entries };
+  cached = { version, entries };
 
   return entries;
 }

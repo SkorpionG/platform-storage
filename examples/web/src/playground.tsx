@@ -1,3 +1,4 @@
+import { Code } from "@examples/ui";
 import type { ReactNode } from "react";
 
 import { AppliedTheme } from "./applied-theme";
@@ -40,9 +41,9 @@ export function Playground({ eyebrow, title, intro, schemaSource, leading }: Pla
 
       <footer className="mx-auto max-w-7xl px-6 pb-10 pt-2">
         <p className="text-xs leading-relaxed text-faint">
-          The page re-reads every value after each action, because change subscription is not part
-          of the library yet. It is on the roadmap; until it lands, an app either re-reads or keeps
-          its own state, which is what this demo does.
+          Every panel here reads through <Code>@platform-storage/react</Code>, so nothing on this
+          page counts its own writes. Cross-tab and cross-context changes are still invisible,
+          because no backend reports them yet; that one is on the roadmap.
         </p>
       </footer>
     </div>

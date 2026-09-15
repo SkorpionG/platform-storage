@@ -3,12 +3,12 @@
 import { appSchema, CORRUPTIONS } from "@examples/schema";
 import type { AppKey, Corruption } from "@examples/schema";
 import { Badge, Button, Card, Code, Select, Value } from "@examples/ui";
+import { notifyStorageChanged } from "@platform-storage/react";
 import { INVALID_POLICY, isPlatformStorageError } from "@platform-storage/web";
 import type { InvalidPolicy } from "@platform-storage/web";
 import { useState } from "react";
 
 import { local, localRecovering } from "../store/storage";
-import { useWrite } from "../hooks/use-storage";
 
 /** The policies the library names, plus the callback it also accepts. */
 type PolicyName = InvalidPolicy | "callback";
@@ -69,7 +69,6 @@ function readWithPolicy(key: AppKey, policy: PolicyName): Outcome {
 }
 
 export function CorruptPanel() {
-  const write = useWrite();
   const [policy, setPolicy] = useState<PolicyName>("fallback");
   const [outcomes, setOutcomes] = useState<Readonly<Record<string, Outcome>>>({});
 
@@ -106,18 +105,25 @@ export function CorruptPanel() {
                 <p className="mt-0.5 text-xs text-soft">{corruption.explains}</p>
               </div>
 
-              <Button tone="danger" onClick={() => write(() => plant(corruption))}>
+              <Button
+                tone="danger"
+                onClick={() => {
+                  plant(corruption);
+                  notifyStorageChanged(local, corruption.key);
+                }}
+              >
                 Plant
               </Button>
               <Button
-                onClick={() =>
-                  write(() =>
-                    setOutcomes((current) => ({
-                      ...current,
-                      [corruption.label]: readWithPolicy(corruption.key, policy),
-                    })),
-                  )
-                }
+                onClick={() => {
+                  setOutcomes((current) => ({
+                    ...current,
+                    [corruption.label]: readWithPolicy(corruption.key, policy),
+                  }));
+
+                  /* Under the `remove` policy the read deletes the entry, so the rest of the page has to look again. */
+                  notifyStorageChanged(local, corruption.key);
+                }}
               >
                 Read
               </Button>
