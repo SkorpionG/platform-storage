@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    // WXT writes its build here rather than to `dist`, once per browser it was asked for.
+    "build": {
+      "outputs": [".output/**"]
+    },
+    // `wxt prepare` runs ahead of `tsc` and writes the generated declarations, so they are outputs of the typecheck rather than of the build.
+    "typecheck": {
+      "outputs": [".cache/tsbuildinfo.json", ".wxt/**"]
+    }
+  }
+}

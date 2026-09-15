@@ -1,3 +1,7 @@
+import { INVALID_POLICY } from "@platform-storage/core";
+import type { InvalidPolicy, KeyDefinition } from "@platform-storage/core";
+
+import { appSchema } from "./schema";
 import type { AppKey } from "./schema";
 
 export { appSchema } from "./schema";
@@ -131,3 +135,37 @@ export const CORRUPTIONS: ReadonlyArray<Corruption> = [
     explains: "Deserialization fails before validation is even reached.",
   },
 ];
+
+/** The policies the library names, plus the callback it also accepts. Declared here rather than per app, because nothing about the list depends on where the values are stored. */
+export type PolicyName = InvalidPolicy | "callback";
+
+/** Keyed by every policy, so one added to the library fails to compile until it is described here. */
+export const POLICY_LABELS: { readonly [Name in PolicyName]: string } = {
+  fallback: "fallback — the built-in default",
+  throw: "throw — reject the read",
+  remove: "remove — delete, then fall back",
+  callback: "callback — decide per read",
+};
+
+/** The same list, in the shape a select takes. */
+export const POLICIES: ReadonlyArray<{ readonly value: PolicyName; readonly label: string }> = [
+  ...Object.values(INVALID_POLICY),
+  "callback" as const,
+].map((value) => ({ value, label: POLICY_LABELS[value] }));
+
+/**
+ * Every key's declared default, keyed by the logical key.
+ *
+ * An invalid-data callback is handed the key as a plain string, so recovering that key's own default means a lookup built once rather than an index into the definition.
+ */
+export const DECLARED_DEFAULTS: Readonly<Record<string, unknown>> = Object.fromEntries(
+  appSchema.keys.map((key) => {
+    const definition: KeyDefinition = appSchema.definition[key];
+    return [key, definition.default];
+  }),
+);
+
+/** Every physical key the schema declares, for telling ours apart from whatever else shares the backend. Built once rather than per read. */
+export const DECLARED_PHYSICAL_KEYS: ReadonlySet<string> = new Set<string>(
+  Object.values(appSchema.physicalKeys),
+);

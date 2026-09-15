@@ -1,4 +1,4 @@
-import { appSchema } from "@examples/schema";
+import { DECLARED_PHYSICAL_KEYS } from "@examples/schema";
 import { subscribeToStorage } from "@platform-storage/react";
 
 import { local } from "./storage";
@@ -13,7 +13,6 @@ export interface OriginEntry {
 const NOTHING: ReadonlyArray<OriginEntry> = Object.freeze([]);
 
 function readOrigin(): ReadonlyArray<OriginEntry> {
-  const declared = new Set<string>(Object.values(appSchema.physicalKeys));
   const entries: Array<OriginEntry> = [];
 
   for (let index = 0; index < window.localStorage.length; index += 1) {
@@ -23,7 +22,7 @@ function readOrigin(): ReadonlyArray<OriginEntry> {
     entries.push({
       key,
       raw: window.localStorage.getItem(key) ?? "",
-      ours: declared.has(key),
+      ours: DECLARED_PHYSICAL_KEYS.has(key),
     });
   }
 

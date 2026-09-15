@@ -1,0 +1,5 @@
+{
+  "extends": "@tooling/typescript-config/react.json",
+  // `wxt prepare` writes the first of these, which is why the typecheck runs it first. It references `wxt/vite-builder-env`, which is how `?raw` and the rest of Vite's own module types arrive without this package depending on Vite. Extending WXT's generated tsconfig instead would let its own compiler options win over this repository's.
+  "include": [".wxt/wxt.d.ts", "src", "wxt.config.ts"]
+}

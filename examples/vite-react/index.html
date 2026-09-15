@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <!-- The mark lives beside the components it belongs with, the way the design tokens do. A path out of the package rather than a copy in `public/`, because Vite rewrites this one to a hashed asset at build time and a bare package specifier is not something it can follow here. -->
+    <link rel="icon" type="image/svg+xml" href="../ui/src/icon.svg" />
     <title>platform-storage · browser playground</title>
     <script>
       /*

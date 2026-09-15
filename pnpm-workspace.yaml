@@ -31,6 +31,10 @@ catalog:
   "@types/webextension-polyfill": ^0.12.6
   "@vitejs/plugin-react": ^6.1.1
   "@vitest/coverage-v8": ^4.1.11
+  # Rasterizes one source image into the icon sizes a manifest asks for, so none of them is committed. Pulls in sharp, which ships a platform binary.
+  "@wxt-dev/auto-icons": ^1.1.2
+  # Teaches WXT to compile JSX. Released against `wxt` rather than against React, so the two move together.
+  "@wxt-dev/module-react": ^1.2.2
   happy-dom: ^20.13.2
   lefthook: ^2.1.12
   next: ^16.3.5
@@ -48,6 +52,10 @@ catalog:
   typescript: ^6.0.3
   vite: ^8.2.2
   vitest: ^4.1.11
+  # What launches a browser with the extension already loaded. An optional peer of WXT, and without it `wxt dev` quietly falls back to printing the directory to load by hand.
+  web-ext: ^10.6.0
+  # Builds the extension example for Chromium and Firefox from one source. It depends on Vite itself, so that example declares none of its own and takes whichever version WXT resolves.
+  wxt: ^0.21.4
   zod: ^4.5.4
 
 minimumReleaseAgeExclude:

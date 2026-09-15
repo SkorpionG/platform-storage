@@ -1,0 +1,59 @@
+import { Badge, Button, Card } from "@examples/ui";
+import type { BadgeTone } from "@examples/ui";
+import { STORAGE_ERROR_CODE } from "@platform-storage/extension";
+import { clearStorageErrors, useStorageErrors } from "@platform-storage/react";
+
+function toneFor(code: string): BadgeTone {
+  if (code === STORAGE_ERROR_CODE.Validation || code === STORAGE_ERROR_CODE.Serialization) {
+    return "warning";
+  }
+  if (code === STORAGE_ERROR_CODE.Unavailable || code === STORAGE_ERROR_CODE.Adapter) {
+    return "danger";
+  }
+  return "neutral";
+}
+
+export function EventLog() {
+  const entries = useStorageErrors();
+
+  return (
+    <Card
+      title="Every failure, including the handled ones"
+      description="The onError observer sees each failure whichever policy runs, which is what keeps a falling-back read from being a silent one. A browser refusing a write, such as a sync value over quota, arrives here too."
+      aside={
+        entries.length === 0 ? null : (
+          <Button onClick={clearStorageErrors} title="Clear the log">
+            Clear
+          </Button>
+        )
+      }
+    >
+      {entries.length === 0 ? (
+        <p className="text-xs text-faint">
+          Nothing has failed yet. Plant a corrupt value and read it back, or push a value past the
+          sync quota.
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {entries.map((entry) => (
+            <li key={entry.id} className="rounded-md border border-line bg-inset p-2">
+              <div className="flex items-center gap-2">
+                <Badge tone={toneFor(entry.error.code)}>{entry.error.code}</Badge>
+                {entry.count === 1 ? null : <Badge>×{entry.count}</Badge>}
+                <span className="text-[11px] text-faint">
+                  {new Date(entry.at).toLocaleTimeString()}
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted">{entry.error.message}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="mt-3 text-xs leading-relaxed text-soft">
+        This log belongs to the page reading it. The background service worker keeps its own, so a
+        failure there is not shown here.
+      </p>
+    </Card>
+  );
+}

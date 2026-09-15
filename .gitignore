@@ -87,6 +87,9 @@ examples/next/CLAUDE.md
 dist
 .output
 
+# WXT's generated types and manifest scaffolding, written by `wxt prepare`. Its build output is the `.output` above.
+.wxt
+
 # Gatsby files
 .cache/
 # Comment in the public line in if your project uses Gatsby and not Next.js

@@ -1,9 +1,8 @@
-import { Code } from "@examples/ui";
+import { Code, Masthead } from "@examples/ui";
 import type { ReactNode } from "react";
 
 import { AppliedTheme } from "./applied-theme";
 import { CommonPanels } from "./common-panels";
-import { Masthead } from "./masthead";
 import { SidePanels } from "./side-panels";
 
 export interface PlaygroundProps {

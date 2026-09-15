@@ -1,4 +1,4 @@
-import { appSchema } from "@examples/schema";
+import { appSchema, DECLARED_DEFAULTS } from "@examples/schema";
 import type { AppDefinition } from "@examples/schema";
 import { recordStorageError } from "@platform-storage/react";
 import {
@@ -9,7 +9,7 @@ import {
   sessionStorageAdapter,
   withFallback,
 } from "@platform-storage/web";
-import type { KeyDefinition, SyncPlatformStorage } from "@platform-storage/web";
+import type { SyncPlatformStorage } from "@platform-storage/web";
 
 /**
  * The same schema over `localStorage`, paired with memory for a render that has no `window`.
@@ -28,16 +28,6 @@ export const session: SyncPlatformStorage<AppDefinition> = createStorage({
   adapter: withFallback(sessionStorageAdapter(), memoryAdapter({ name: "server-memory" })),
   onError: recordStorageError,
 });
-
-/*
-  An invalid-data callback is handed the logical key as a plain string, so recovering the key's own default means a lookup built once rather than an index into the definition.
-*/
-const DECLARED_DEFAULTS: Readonly<Record<string, unknown>> = Object.fromEntries(
-  appSchema.keys.map((key) => {
-    const definition: KeyDefinition = appSchema.definition[key];
-    return [key, definition.default];
-  }),
-);
 
 /**
  * The same `localStorage`, read through a storage-level callback policy.

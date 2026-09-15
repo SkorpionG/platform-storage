@@ -1,0 +1,46 @@
+{
+  "name": "@examples/extension",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A browser-extension playground for @platform-storage/extension, built with WXT.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:browser": "WXT_OPEN_BROWSER=true wxt",
+    "dev:firefox": "wxt -b firefox",
+    "dev:firefox:browser": "WXT_OPEN_BROWSER=true wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "typecheck": "wxt prepare && tsc --noEmit",
+    "lint": "oxlint",
+    "clean": "rm -rf .output .wxt .cache .turbo node_modules"
+  },
+  "dependencies": {
+    "@examples/schema": "workspace:*",
+    "@examples/ui": "workspace:*",
+    "@platform-storage/extension": "workspace:*",
+    "@platform-storage/react": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "catalog:",
+    "@tooling/oxlint-config": "workspace:*",
+    "@tooling/typescript-config": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@wxt-dev/auto-icons": "catalog:",
+    "@wxt-dev/module-react": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "web-ext": "catalog:",
+    "wxt": "catalog:"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/*
+  The tokens live beside the components they color, so every app rendering those components gets the same palette rather than its own copy of it. A relative path rather than a package specifier, because Tailwind resolves a bare specifier through an `exports` map and a stylesheet is not what that map is for.
+*/
+@import "../../ui/src/theme.css";
+
+/*
+  Tailwind detects content by scanning outward from this file, which stops at the package boundary. The panels are inside this package and so are found already; every shared package that writes a class name needs its own line here, or its components render unstyled with no error anywhere.
+*/
+@source "../../ui/src";

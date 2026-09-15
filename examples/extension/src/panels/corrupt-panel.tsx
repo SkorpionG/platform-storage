@@ -1,43 +1,41 @@
-"use client";
-
 import { appSchema, CORRUPTIONS, POLICIES } from "@examples/schema";
-import type { AppKey, Corruption, PolicyName } from "@examples/schema";
+import type { AppKey, PolicyName, ValueCorruption } from "@examples/schema";
 import { Badge, Button, Card, Code, Select, Value } from "@examples/ui";
-import { notifyStorageChanged } from "@platform-storage/react";
-import { isPlatformStorageError } from "@platform-storage/web";
+import { isPlatformStorageError } from "@platform-storage/extension";
 import { useState } from "react";
+import { browser } from "wxt/browser";
 
-import { local, localRecovering } from "../store/storage";
+import { local, localRecovering } from "../store/storages";
+
+/*
+  An extension area transports JSON values rather than text, so the one corruption that is text which is not JSON at all has no equivalent here: there is no encoding step to fail in. `@examples/schema` marks that entry `kind: "text"` for exactly this reason.
+*/
+const PLANTABLE: ReadonlyArray<ValueCorruption> = CORRUPTIONS.filter(
+  (corruption) => corruption.kind === "value",
+);
 
 interface ReadOutcome {
   readonly kind: "read";
   readonly value: unknown;
 }
-
 interface FailedOutcome {
   readonly kind: "failed";
   readonly label: string;
 }
-
 type Outcome = ReadOutcome | FailedOutcome;
 
-/** Writes past the library, the way a previous version of an app or a hand edit would. */
-function plant(corruption: Corruption): void {
-  const physical = appSchema.physicalKeys[corruption.key];
-
-  window.localStorage.setItem(
-    physical,
-    corruption.kind === "text" ? corruption.text : JSON.stringify(corruption.value),
-  );
+/** Writes past the library, the way a previous version of an extension or a value synced from an older install would. */
+async function plant(corruption: ValueCorruption): Promise<void> {
+  await browser.storage.local.set({ [appSchema.physicalKeys[corruption.key]]: corruption.value });
 }
 
-function readWithPolicy(key: AppKey, policy: PolicyName): Outcome {
+async function readWithPolicy(key: AppKey, policy: PolicyName): Promise<Outcome> {
   try {
     // The callback policy is declared on its own storage, because a per-call callback is checked against the one key being read and this reads whichever key the row names.
     const value =
       policy === "callback"
-        ? localRecovering.getSync(key)
-        : local.getSync(key, { onInvalid: policy });
+        ? await localRecovering.get(key)
+        : await local.get(key, { onInvalid: policy });
 
     return { kind: "read", value };
   } catch (error) {
@@ -55,7 +53,7 @@ export function CorruptPanel() {
   return (
     <Card
       title="Persisted data outlives the code that wrote it"
-      description="These buttons write bad values straight through window.localStorage, behind the library's back. That is what an older release, a hand edit, or another script on the same origin leaves behind."
+      description="These buttons write bad values straight through the storage area, behind the library's back. That is what an older release, another script in the same extension, or a value synced from a device still running last year's version leaves behind."
       aside={
         <Select
           label="Invalid-data policy"
@@ -69,7 +67,7 @@ export function CorruptPanel() {
       }
     >
       <div className="space-y-2">
-        {CORRUPTIONS.map((corruption) => {
+        {PLANTABLE.map((corruption) => {
           const outcome = outcomes[corruption.label];
 
           return (
@@ -85,25 +83,15 @@ export function CorruptPanel() {
                 <p className="mt-0.5 text-xs text-soft">{corruption.explains}</p>
               </div>
 
-              <Button
-                tone="danger"
-                onClick={() => {
-                  plant(corruption);
-                  notifyStorageChanged(local, corruption.key);
-                }}
-              >
+              <Button tone="danger" onClick={() => void plant(corruption)}>
                 Plant
               </Button>
               <Button
-                onClick={() => {
-                  setOutcomes((current) => ({
-                    ...current,
-                    [corruption.label]: readWithPolicy(corruption.key, policy),
-                  }));
-
-                  /* Under the `remove` policy the read deletes the entry, so the rest of the page has to look again. */
-                  notifyStorageChanged(local, corruption.key);
-                }}
+                onClick={() =>
+                  void readWithPolicy(corruption.key, policy).then((next) => {
+                    setOutcomes((current) => ({ ...current, [corruption.label]: next }));
+                  })
+                }
               >
                 Read
               </Button>

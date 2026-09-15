@@ -24,21 +24,7 @@ Every platform package depends only on core and re-exports it, so an application
 
 `@platform-storage/react` is not one of them. It exports hooks and nothing else, because a consumer already has a platform package for the schema and the errors, and it is installed alongside one rather than instead of one.
 
-The examples share in three layers: `@examples/schema` holds one schema definition with no platform imports, `@examples/ui` holds presentational components that know nothing about storage, and `@examples/web` holds the panels, hooks and storages demonstrating `@platform-storage/web` — note the name, one character from the published package it demonstrates.
-
-Panels are shared _within_ a platform and split _across_ platforms: two browser apps demonstrate the same package and differ only in how they render it, while an extension or a React Native app shares nothing below the schema. Each app is then a shell, supplying its own copy and whichever panels its platform alone can show.
-
-They also need tooling a published API does not, which is what `tooling/typescript/react.json` and `tooling/oxlint/react.json` exist for. The first adds `jsx` and reaches past `ES2022`, because a browser demo can rely on more of the language than a library shipped to unknown runtimes. The second relaxes three rules, each because the code it governs is an application rather than a contract:
-
-- `explicit-function-return-type`, which is right on a published API and would otherwise be demanded of every component and every handler inside it.
-- `import/no-unassigned-import`, so a stylesheet can be imported for its side effect.
-- `import/default`, because a bundler query such as `?raw` names a module the resolver cannot follow. TypeScript still checks those imports, so nothing is lost.
-
-Neither file carries comments, because nothing under `tooling/` does and an editor reads a plain `.json` as strict JSON.
-
-**Tailwind does not see a sibling package unless it is told to.** Content detection scans outward from the file holding the CSS and stops at the package boundary, so classes used in `@examples/ui` or `@examples/web` never reach the build and their components render unstyled with no error anywhere. The app's stylesheet names each one with `@source`, and every further shared package needs its own line. The design tokens travel the other way: they live in `@examples/ui/src/theme.css` and each app `@import`s them by relative path, so a palette is defined once rather than per app.
-
-`react-in-jsx-scope` is turned off in `tooling/oxlint/base.json` rather than in the React config, even though only the examples write JSX. The command line resolves the nearest `.oxlintrc.json` per file, but an editor extension generally loads the root one, so a rule left on in the base config is reported against every `.tsx` file no matter what the package beside it says. The rule describes the classic JSX runtime, which nothing here uses.
+The demonstration apps have conventions, tooling and traps of their own, and [`examples/AGENTS.md`](examples/AGENTS.md) is where those live: how the three sharing layers work, why `tooling/typescript/react.json` and `tooling/oxlint/react.json` exist, what Tailwind has to be told about a sibling package, and how to run each app. Read it before changing anything under `examples/`.
 
 ## Commands
 
@@ -55,8 +41,7 @@ Neither file carries comments, because nothing under `tooling/` does and an edit
 | Packaging checks  | `pnpm check-package`                                |
 | One package       | `pnpm --filter @platform-storage/core test`         |
 | Watch one package | `pnpm --filter @platform-storage/core test:watch`   |
-| Run an example    | `pnpm --filter @examples/vite-react dev`            |
-| Run the Next demo | `pnpm --filter @examples/next dev`                  |
+| Run an example    | See [`examples/AGENTS.md`](examples/AGENTS.md)      |
 | Record a change   | `pnpm changeset`                                    |
 | Version the set   | `pnpm version-packages`                             |
 | Publish           | `pnpm release`                                      |
@@ -168,6 +153,7 @@ Read the relevant one before changing something here that looks arbitrary, and a
 ### Packaging
 
 - **In-repo `exports` point at `src`; `publishConfig` swaps them for `dist` on publish.** That is what lets the editor, `tsc` and vitest resolve workspace packages to source while consumers get the build. It works only through `pnpm pack` and `pnpm publish`, never `npm pack`, because npm does not apply `publishConfig`.
+- **A workspace package therefore reaches a bundler as source, and source transforms apply to it.** A consumer's build sees `dist` and treats it as a dependency; an app in this repository sees `src` at a path outside `node_modules`, so anything filtering on that path treats library code as its own. A framework transform that rewrites free identifiers is the case that bites, since library code is written against no such convention. Keep such a transform scoped to the app, never widened to make the library survive it; `examples/AGENTS.md` records the one that has happened.
 - **Declaration maps are off deliberately.** They point at `src`, which `files` does not publish, so shipping them would hand every consumer a map to nothing. JavaScript source maps stay on.
 - **A bundler emits `"use client"` only for a chunk whose own entry module carries it.** A directive on a module the entry merely re-exports is dropped, the build succeeds, and nothing warns; the package is then server code to every framework that reads the directive. `packages/react/src/index.ts` carries it for that reason, and a test asserts it is the first line. The rule under **Platforms** is the source-level counterpart, with a different fix.
 - **Errors are identified by `code` and by brand, never by `instanceof`.** An application that resolves two copies of a package holds two copies of each class, and `instanceof` silently stops matching across them.

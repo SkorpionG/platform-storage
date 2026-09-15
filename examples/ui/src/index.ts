@@ -24,5 +24,5 @@ export type {
   TagInputProps,
   TextFieldProps,
 } from "./controls";
-export { Badge, Card, Divider, Field } from "./surfaces";
-export type { BadgeProps, BadgeTone, CardProps, FieldProps } from "./surfaces";
+export { Badge, Card, Divider, Field, Masthead } from "./surfaces";
+export type { BadgeProps, BadgeTone, CardProps, FieldProps, MastheadProps } from "./surfaces";
