@@ -410,6 +410,16 @@ function formatFile(filePath) {
   return { changed: next !== original, next };
 }
 
+/**
+ * Whether this repository authors the file, and may therefore rewrite it. Applies to a path named on the command line as much as to one this script found.
+ *
+ * @param {string} file
+ * @returns {boolean}
+ */
+function isOurs(file) {
+  return !EXCLUDED_PREFIXES.some((prefix) => file.startsWith(prefix));
+}
+
 function listCandidateFiles() {
   const tracked = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], {
     encoding: "utf8",
@@ -421,7 +431,7 @@ function listCandidateFiles() {
       .filter(Boolean)
       /* A path git knows about need not be on disk: a file staged and then moved, or a half-finished rebase, leaves entries pointing at nothing. */
       .filter((file) => existsSync(file))
-      .filter((file) => !EXCLUDED_PREFIXES.some((prefix) => file.startsWith(prefix)))
+      .filter(isOurs)
       .filter((file) => {
         const extension = extname(file);
         return (
@@ -437,7 +447,8 @@ function main() {
   const args = process.argv.slice(2);
   const checkOnly = args.includes("--check");
   const explicit = args.filter((arg) => !arg.startsWith("--"));
-  const files = explicit.length > 0 ? explicit : listCandidateFiles();
+  /* A git hook passes whatever it staged, vendored paths included, so the exclusions have to be applied here rather than only where this script picks files itself. */
+  const files = explicit.length > 0 ? explicit.filter(isOurs) : listCandidateFiles();
 
   /** @type {Array<string>} */
   const wrapped = [];

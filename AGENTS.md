@@ -166,6 +166,11 @@ Read the relevant one before changing something here that looks arbitrary, and a
 - A `// @vitest-environment node` docblock at the top of one suite runs it without a DOM inside a package whose config is happy-dom. That is how the web package proves its server behavior without a second config.
 - **A fake backend must be held in a variable, not built inside the source function.** Returning a fresh fake on every call sends a write and the following read to different backends, because the source really is called per operation.
 
+### Linting and formatting
+
+- **oxlint's `ignorePatterns` is not inherited through `extends`.** It only takes effect in the config a file actually resolves to, so it belongs in the root `.oxlintrc.json` rather than in `tooling/oxlint/base.json`. This hid for a long time because oxlint already skips anything gitignored, and every path the key named was gitignored; `.agents` is the first that is committed, and so the first where the key had to work.
+- **A fixer that a git hook drives is handed paths, not asked to find them.** An exclusion applied only where a tool walks the tree is bypassed the moment lefthook passes `{staged_files}`, and for a rewriting tool that means editing files this repository does not author — which then conflicts with lefthook's stash of unstaged changes and leaves the commit unfinishable. `format-comments` applies its exclusions to both paths for that reason.
+
 ### Editor tooling
 
 - **A `$schema` path inside a config file resolves against that file's own URI.** Opening one from git history therefore looks for the schema under `git:` and fails. The mapping lives in `.vscode/settings.json` under `json.schemas` instead, whose paths resolve against the workspace root, and points at the copy in `node_modules` so there is no version to keep in step.

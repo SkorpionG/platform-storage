@@ -1,3 +1,4 @@
 {
-  "extends": ["./tooling/oxlint/base.json"]
+  "extends": ["./tooling/oxlint/base.json"],
+  "ignorePatterns": [".agents/**", ".claude/**"]
 }

@@ -11,7 +11,12 @@
     "typescript/no-explicit-any": "error",
     "typescript/no-non-null-assertion": "error",
     "typescript/explicit-function-return-type": "error",
-    "typescript/array-type": ["error", { "default": "generic" }],
+    "typescript/array-type": [
+      "error",
+      {
+        "default": "generic"
+      }
+    ],
     "unicorn/prefer-node-protocol": "error",
     "import/no-cycle": "error",
     "no-console": "error",
@@ -25,6 +30,5 @@
         "typescript/no-non-null-assertion": "off"
       }
     }
-  ],
-  "ignorePatterns": ["dist/**", ".next/**", ".output/**", ".wxt/**", "node_modules/**", ".cache/**"]
+  ]
 }
