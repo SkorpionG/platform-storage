@@ -90,6 +90,21 @@ dist
 # WXT's generated types and manifest scaffolding, written by `wxt prepare`. Its build output is the `.output` above.
 .wxt
 
+# Expo's caches and generated types. `expo export` writes to the `dist` above.
+.expo
+.metro-health-check*
+
+# Native projects, which `expo prebuild` regenerates from the app config. Nothing here is written by hand, and the Expo example runs in Expo Go without them.
+/examples/expo/ios
+/examples/expo/android
+
+# Signing material. None of this belongs in a repository, whether or not anything here uses it yet.
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
 # Gatsby files
 .cache/
 # Comment in the public line in if your project uses Gatsby and not Next.js

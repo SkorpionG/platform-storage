@@ -1,0 +1,9 @@
+{
+  "extends": "@tooling/typescript-config/native.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
+}

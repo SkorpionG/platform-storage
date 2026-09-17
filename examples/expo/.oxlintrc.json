@@ -1,0 +1,7 @@
+{
+  "extends": ["../../tooling/oxlint/react.json"],
+  "plugins": ["typescript", "unicorn", "oxc", "import", "react"],
+  "rules": {
+    "unicorn/no-array-sort": "off"
+  }
+}

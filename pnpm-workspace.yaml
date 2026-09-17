@@ -58,6 +58,21 @@ catalog:
   wxt: ^0.21.4
   zod: ^4.5.4
 
+# The Expo SDK pins the exact versions it was built against, and they are not the ones the browser examples want: React 19.2.3 rather than 19.3.0, and AsyncStorage 2.x rather than 3.x. Expo Go ships the native half of each module at the SDK's version, so a newer JavaScript half would be talking to an older native one. A catalog of its own is what lets `@examples/expo` hold the SDK's set without moving every other example onto it.
+catalogs:
+  expo:
+    "@expo/ui": ~57.0.18
+    "@react-native-async-storage/async-storage": 2.2.0
+    expo: ~57.0.23
+    expo-constants: ~57.0.18
+    expo-doctor: ^1.20.4
+    expo-linking: ~57.0.10
+    expo-router: ~57.0.21
+    react: 19.2.3
+    react-native: 0.86.3
+    react-native-safe-area-context: ~5.7.0
+    react-native-screens: ~4.26.0
+
 minimumReleaseAgeExclude:
   - happy-dom@20.13.2
   - "@types/react@19.3.0"
@@ -66,7 +81,9 @@ minimumReleaseAgeExclude:
   - react-dom@19.3.0
   - scheduler@0.28.0
 
-# AsyncStorage is a development dependency only so that a type test can check `AsyncStorageLike` against its real declaration. Its peers are React and the whole React Native toolchain, which nothing in this repository runs, so they are removed from the graph rather than installed. Scoped to that one parent, so a package that genuinely depends on React is unaffected.
+# The copy `packages/react-native` keeps is a development dependency only, so that a type test can check `AsyncStorageLike` against its real declaration. Its peers are React and the whole React Native toolchain, which that package never runs, so they are removed from the graph rather than installed.
+#
+# Pinned to the 3.x line rather than named bare, because an override matches the parent by name and rewrites its manifest for every consumer: unpinned, this would strip the peers from the copy `@examples/expo` actually runs on a device, and AsyncStorage's own runtime imports `react-native` for `TurboModuleRegistry` and `Platform`. The Expo app is on the version its SDK bundles, which is 2.x, so the two do not collide.
 overrides:
-  "@react-native-async-storage/async-storage>react": "-"
-  "@react-native-async-storage/async-storage>react-native": "-"
+  "@react-native-async-storage/async-storage@^3>react": "-"
+  "@react-native-async-storage/async-storage@^3>react-native": "-"

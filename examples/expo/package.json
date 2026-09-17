@@ -1,0 +1,50 @@
+{
+  "name": "@examples/expo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A native playground for @platform-storage/react-native, on Expo and AsyncStorage.",
+  "license": "MIT",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo start --ios",
+    "android": "expo start --android",
+    "build": "expo export",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "doctor": "expo-doctor",
+    "clean": "rm -rf dist .expo .cache .turbo node_modules"
+  },
+  "dependencies": {
+    "@examples/schema": "workspace:*",
+    "@expo/ui": "catalog:expo",
+    "@platform-storage/react": "workspace:*",
+    "@platform-storage/react-native": "workspace:*",
+    "@react-native-async-storage/async-storage": "catalog:expo",
+    "expo": "catalog:expo",
+    "expo-constants": "catalog:expo",
+    "expo-linking": "catalog:expo",
+    "expo-router": "catalog:expo",
+    "react": "catalog:expo",
+    "react-native": "catalog:expo",
+    "react-native-safe-area-context": "catalog:expo",
+    "react-native-screens": "catalog:expo"
+  },
+  "devDependencies": {
+    "@tooling/oxlint-config": "workspace:*",
+    "@tooling/typescript-config": "workspace:*",
+    "@types/react": "catalog:",
+    "expo-doctor": "catalog:expo",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": "^20.19.4 || >=22.12.0"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "@types/react"
+      ]
+    }
+  }
+}

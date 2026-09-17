@@ -287,7 +287,7 @@ function formatSlashComments(lines) {
     }
 
     /* A run of `//` lines at the same indent is one paragraph. */
-    const lineComment = line.match(/^(\s*)\/\/\s?(.*)$/);
+    const lineComment = line.match(/^(\s*)\/\/(?!\/)\s?(.*)$/);
     if (lineComment) {
       const indent = lineComment[1] ?? "";
       const content = lineComment[2] ?? "";
@@ -306,7 +306,7 @@ function formatSlashComments(lines) {
 
       let joined = trimmedContent;
       while (index + 1 < lines.length) {
-        const next = (lines[index + 1] ?? "").match(/^(\s*)\/\/\s?(.*)$/);
+        const next = (lines[index + 1] ?? "").match(/^(\s*)\/\/(?!\/)\s?(.*)$/);
         if (!next) break;
         if ((next[1] ?? "") !== indent) break;
 

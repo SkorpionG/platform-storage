@@ -89,6 +89,8 @@ A serializer boundary is the natural seam. Needs care around key management, so 
 
 Inspecting what is stored, against which schema, and what failed to validate.
 
+Blocked on a way to enumerate. The adapter contract has no key listing, deliberately, because positional enumeration is a web `Storage` idea no other backend shares — so every demo that shows what a backend holds reaches past the library to the backend itself, and three of them now do. Serving it needs an optional capability shaped like the existing `has?`, roughly `keys?(): Promise<ReadonlyArray<string>>`, present only on the backends that can answer it. Widening a structural declaration such as `AsyncStorageLike` to reach `getAllKeys` and `multiGet` is the wrong fix, since it would narrow the contract to one backend.
+
 ## Tooling
 
 ### Type-aware linting

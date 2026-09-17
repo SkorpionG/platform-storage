@@ -4,7 +4,7 @@ Guide for the demonstration apps under `examples/`. Everything in [the repositor
 
 ## What these are
 
-Demonstrations of the published packages, and the only thing in the repository that exercises them the way a consumer would. The test suite covers the logic thoroughly and cannot cover the integration surface at all: a real bundler resolving an `exports` map, a real browser with a real quota, a real extension host, a real server render. Each app exists to put one of those under load.
+Demonstrations of the published packages, and the only thing in the repository that exercises them the way a consumer would. The test suite covers the logic thoroughly and cannot cover the integration surface at all: a real bundler resolving an `exports` map, a real browser with a real quota, a real extension host, a real server render, a real device. Each app exists to put one of those under load.
 
 Every one is private and never released. They are named outside the `@platform-storage/*` scope — `@examples/next`, `@examples/extension` — so they cannot match the `fixed` group glob in `.changeset/config.json` either. Changesets is configured with `privatePackages: { version: false, tag: false }`, so **an example never needs a changeset**; only a user-facing change to a published package does.
 
@@ -18,6 +18,7 @@ Every one is private and never released. They are named outside the `@platform-s
 | `@examples/vite-react` | A browser playground for the web package, client only                             |
 | `@examples/next`       | The same playground on the App Router, which is what runs the server path         |
 | `@examples/extension`  | A WXT extension demonstrating `@platform-storage/extension` across three contexts |
+| `@examples/expo`       | An Expo app demonstrating `@platform-storage/react-native` on a real device       |
 
 ## Commands
 
@@ -29,6 +30,9 @@ Every one is private and never released. They are named outside the `@platform-s
 | …and open a browser    | `pnpm --filter @examples/extension dev:browser`         |
 | The extension, Firefox | `pnpm --filter @examples/extension dev:firefox:browser` |
 | Package the extension  | `pnpm --filter @examples/extension zip`                 |
+| Run the Expo app       | `pnpm --filter @examples/expo start`                    |
+| …on one platform       | `pnpm --filter @examples/expo ios` / `… android`        |
+| Check its dependencies | `pnpm --filter @examples/expo doctor`                   |
 
 `dev` is `cache: false` and `persistent: true` in the root `turbo.json`, because a development server never finishes and never produces an output worth keeping.
 
@@ -44,7 +48,7 @@ A component that is presentational, carries no `"use client"` and imports no sto
 
 Anything platform-agnostic that is _data_ rather than a component goes in `@examples/schema`, which already depends on core and pulls in neither React nor the DOM: `KEY_NOTES` and `CORRUPTIONS` were there first, and `POLICY_LABELS`, `POLICIES`, `DECLARED_DEFAULTS` and `DECLARED_PHYSICAL_KEYS` joined them once a second app needed the same lists. A policy list that disagreed between two demos would be worse than the duplication it saved.
 
-**There is deliberately no fourth layer for platform-agnostic panels**, and the duplication that leaves is intended. `EventLog` is the case to weigh it against: it is nearly identical between `@examples/web` and `@examples/extension` and depends on no platform. Sharing it would mean a package of its own, since `@examples/schema` has no React and `@examples/ui` has no storage — its own config, two dependency edges and a `@source` line in every app's stylesheet, to save a few dozen lines once the copy that genuinely differs is passed in as props. Each app keeping its own also lets that copy say something true about its platform, which is most of what a demo panel is for. Revisit if a third React DOM example appears, such as the Electron renderer; a React Native one would not qualify, because it can use neither the DOM nor Tailwind.
+**There is deliberately no fourth layer for platform-agnostic panels**, and the duplication that leaves is intended. `EventLog` is the case to weigh it against: it is nearly identical between `@examples/web` and `@examples/extension` and depends on no platform. Sharing it would mean a package of its own, since `@examples/schema` has no React and `@examples/ui` has no storage — its own config, two dependency edges and a `@source` line in every app's stylesheet, to save a few dozen lines once the copy that genuinely differs is passed in as props. Each app keeping its own also lets that copy say something true about its platform, which is most of what a demo panel is for. Revisit if a third React DOM example appears, such as the Electron renderer. `@examples/expo` is the case that settles the other direction: it can use neither the DOM nor Tailwind, so it reimplements `EventLog` in `View` and `Text` and shares nothing below the schema, exactly as predicted.
 
 ## Tooling
 
@@ -61,6 +65,8 @@ Neither file carries comments, because nothing under `tooling/` does and an edit
 An example extends the shared configs the same way every package does: `tsconfig.json` by package name (`@tooling/typescript-config/react.json`) and `.oxlintrc.json` by relative path (`../../tooling/oxlint/react.json`). That asymmetry is why the tooling packages are devDependencies at all.
 
 ## Styling
+
+**None of this section applies to `@examples/expo`.** React Native has no CSS, no cascade and no Tailwind, so that app carries its own tokens in `src/theme.ts`: the same palette converted once from the `oklch()` values in `@examples/ui/src/theme.css`, because React Native's style engine parses no color function beyond `rgb` and `hsl`. A palette change therefore has to be made in both places, which is the price of a platform that cannot read the stylesheet.
 
 **Tailwind does not see a sibling package unless it is told to.** Content detection scans outward from the file holding the CSS and stops at the package boundary, so classes used in `@examples/ui` or `@examples/web` never reach the build and their components render unstyled with no error anywhere. The app's stylesheet names each one with `@source`, and every further shared package needs its own line. The design tokens travel the other way: they live in `@examples/ui/src/theme.css` and each app `@import`s them by relative path, so a palette is defined once rather than per app.
 
@@ -90,3 +96,36 @@ Read the relevant one before changing something here that looks arbitrary, and a
 - **The origin inspector does not port from `@examples/web`.** That one reads synchronously and caches a snapshot for `useSyncExternalStore`; an area answers with a promise, so `use-area-contents.ts` keeps the answer in state and re-reads when the storage over that area reports a change.
 - **A text corruption has no equivalent on an extension area.** Areas transport JSON values rather than text, so there is no encoding step to fail in. `@examples/schema` marks that entry `kind: "text"` and the extension's corrupt panel filters to `kind === "value"`.
 - **`no-console` is on here too.** The React config does not relax it, and a service worker has no other obvious way to report itself — which is the point: everything observable goes through storage, messaging or `onError`, where a page can actually see it.
+
+### The Expo app
+
+#### Workspace
+
+- **A peer override matches its parent by name, so version-scope it.** `"@react-native-async-storage/async-storage>react-native": "-"` removed that peer for _every_ consumer, not just the package that wanted it gone, and AsyncStorage's runtime imports `react-native` directly. A real app would then have resolved it only through pnpm's implicit hoisting, which is the phantom dependency the Boundaries section exists to prevent. Pinning the selector to `@^3` leaves the library's copy stripped and the app's properly peered.
+- **`catalogs.expo` exists because the Expo SDK pins exact versions.** SDK 57 wants React 19.2.3 and AsyncStorage 2.2.0 where the default catalog holds 19.3.0 and ^3.1.1, and Expo Go ships the _native_ half at the SDK's version, so a 3.x JavaScript half would be talking to a 2.2.0 native module. Moving the default catalog would drag every other example along with it. A pleasing side effect: the workspace now holds AsyncStorage 2.2.0 and 3.1.1 at once and `AsyncStorageLike` satisfies both, which is the structural-typing claim demonstrated across a major version.
+- **`@types/react` is deliberately not in that catalog.** Putting it there changed which copy pnpm hoists and broke `@examples/next` with `TS2883`, in a package that was never touched. The app takes the default catalog's copy and records the mismatch in `expo.install.exclude`, so `expo install` stops offering to fix it.
+- **`expo-doctor` reports a duplicate React and that is expected.** The app is on the SDK's version and `packages/react` is on the workspace's for its tests. It is a check on the tree, not the bundle; Metro emits one React, and two would throw "Invalid hook call" on the first render.
+- **Do not add a `metro.config.js`.** One was written to force React to a single copy, then deleted to test whether it did anything: the bundle was byte-identical. Expo's default config already resolves it.
+
+#### Writing the app
+
+- **`tooling/typescript/native.json`, not `react.json`.** The React config ships the DOM lib, which would let `document`, `window` and `localStorage` typecheck and then crash. The native one drops it, sets `types: ["expo/types"]` because the base sets `types: []`, and adds `moduleSuffixes` so `tsc` can resolve a platform-specific file.
+- **A bare string inside a `View` is a runtime error**, where inside a `div` it is ordinary. `Field` wraps a string hint in `<Text>` itself rather than making every call site remember.
+- **`@expo/ui`'s `Button` takes a `label` prop, not string children.** iOS hands children straight to the native view as an element. Three runtime errors came from `<Button>−</Button>`.
+- **`@expo/ui`'s `TextInput` takes an `ObservableState`**, not a string, so a value arriving later from storage cannot simply be passed in. `TextRow` commits on blur, because writing per keystroke round-trips through storage and drags the cursor back.
+- **Every `@expo/ui` tree needs its own `Host`**, and `Host matchContents` sizes to what it holds — which collapses a slider to its thumb. `Control` takes an optional width and matches only the height.
+- **A host re-measures whenever the native tree inside it changes size**, so anything whose width depends on state belongs outside it. A stepper built as one host around `[button, count, button]` reflows every time the count gains a digit, which moves the buttons and clips their labels; three hosts with the count between them as a React Native `Text` keeps each button a fixed size and lets the row center the number.
+- **A native stack over the tabs brings the keyboard back.** `RNSScreen` records the first responder before a transition and calls `becomeFirstResponder` on it once the transition finishes, so on any screen where a text field has been used, presenting anything reopens the keyboard. It is iOS-only and it is why the schema is a React Native `Modal` rather than a `formSheet` route: the tabs are the root, with no stack around them.
+- **Hermes does not implement `Array#toSorted`.** It throws `undefined is not a function` at runtime, and `unicorn/no-array-sort` recommends exactly that method, so the rule is off for this package rather than disabled per line. Browser code elsewhere in `examples/` uses `toSorted` safely.
+- **`fontFamily` is resolved against the platform's own font list.** Naming Menlo on Android silently falls back to the default sans rather than erroring, so the monospace family goes through `MONO` in `src/theme.ts`.
+- **Navigation decides when a tab's screen mounts**, so anything that must happen once per launch is guarded by a module-level record rather than by a mount. `NativeTabs` was observed mounting every tab's screen at startup, which a mount-guarded launch counter would have counted wrongly.
+- **The native tab bar is themed per platform.** iOS repaints its own bar from the `ThemeProvider` value, and giving it explicit colors costs it the system material and truncates a label. Android's bar follows the operating system instead and stays light under a stored dark theme, so the root layout hands it the palette there and only there.
+- **A device cannot pre-paint a stored theme either.** The browser examples read `localStorage` synchronously in an inline script and paint the stored choice on the first frame. AsyncStorage only answers later, so `useAppliedScheme` shows the device's own setting until the first read lands and the app corrects itself, exactly as the extension does and for the same reason.
+- **`?raw` has no Metro equivalent**, so this is the one app that cannot display the schema module verbatim. Its schema panel lists the keys instead.
+- **Four dependencies are imported by nothing and still required.** `expo-constants`, `expo-linking`, `react-native-safe-area-context` and `react-native-screens` are non-optional peers of `expo-router`, so a search for unused dependencies will offer all four and removing any of them breaks the app at runtime rather than at build time.
+
+#### Verifying it
+
+- **A route can be opened without touching the screen.** `xcrun simctl openurl <device> "exp://127.0.0.1:8081/--/<route>"` navigates Expo Go on iOS, and `adb shell am start -a android.intent.action.VIEW -d "exp://<host>:8081/--/<route>"` does the same on Android. `xcrun simctl terminate <device> host.exp.Exponent` followed by that `openurl` is a genuine force-quit and relaunch, which a reload is not.
+- **Android can be driven; iOS cannot.** `adb shell input tap|swipe` works, so the Android emulator can be taken through the whole app. There is no equivalent for the iOS simulator without an accessibility grant, so iOS panels below the fold are reached by temporarily reducing the screen to the panel under test.
+- **The store can be read and written from outside the app.** On iOS it is a `manifest.json` under `Documents/ExponentExperienceData/@anonymous/<slug>/RCTAsyncLocalStorage` inside the container `xcrun simctl get_app_container <device> host.exp.Exponent data` prints. Planting into it and relaunching is how the corrupt-read path was first proven, and reading it afterwards is how a value was shown to have survived on disk rather than in a runtime.

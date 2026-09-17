@@ -148,7 +148,8 @@ Read the relevant one before changing something here that looks arbitrary, and a
 
 - **Shared runtime code goes in core, never in a private package.** `tsdown` keeps dependencies external, so a platform bundle imports what it depends on rather than inlining it. A private `@tooling/*` package would be unresolvable for a consumer at install time, and bundling it instead would put a second copy inside every platform package. Core is already a dependency of all three platform packages and is re-exported by each.
 - **Check a backend's own export names before naming a factory after it.** AsyncStorage exports a `createAsyncStorage` of its own, which is why the factory here is `createReactNativeStorage`, named for the platform the way `createExtensionStorage` is.
-- **A development dependency drags its peers in.** pnpm installs missing peers automatically, and AsyncStorage's are React and the whole React Native toolchain, all for one type assertion. A scoped override in `pnpm-workspace.yaml`, of the form `"<package>>react": "-"`, drops them from that one parent's graph and leaves every other package's peers alone.
+- **A development dependency drags its peers in.** pnpm installs missing peers automatically, and AsyncStorage's are React and the whole React Native toolchain, all for one type assertion. An override in `pnpm-workspace.yaml`, of the form `"<package>>react": "-"`, drops them.
+- **That override matches its parent by name, so it needs a version too.** It rewrites the named package's manifest for **every** consumer, not only the one that wanted the peer gone — so once a real application depends on the same package, the peer it genuinely needs is missing and resolves only through pnpm's implicit hoisting. Write the selector as `"<package>@<range>>react": "-"` and the two copies stay independent. `examples/AGENTS.md` records the case that caught it.
 
 ### Packaging
 
@@ -169,6 +170,7 @@ Read the relevant one before changing something here that looks arbitrary, and a
 ### Linting and formatting
 
 - **oxlint's `ignorePatterns` is not inherited through `extends`.** It only takes effect in the config a file actually resolves to, so it belongs in the root `.oxlintrc.json` rather than in `tooling/oxlint/base.json`. This hid for a long time because oxlint already skips anything gitignored, and every path the key named was gitignored; `.agents` is the first that is committed, and so the first where the key had to work.
+- **A comment matcher has to exclude the triple slash.** `format-comments` matched `//` and treated the third slash of a `/// <reference … />` directive as content, rewrapping it into `// / <reference … />` and silently destroying it. Nothing warns, because the result is still a valid comment. Its matchers use `\/\/(?!\/)` for that reason; the repository had no such directive until an Expo app needed one.
 - **A fixer that a git hook drives is handed paths, not asked to find them.** An exclusion applied only where a tool walks the tree is bypassed the moment lefthook passes `{staged_files}`, and for a rewriting tool that means editing files this repository does not author — which then conflicts with lefthook's stash of unstaged changes and leaves the commit unfinishable. `format-comments` applies its exclusions to both paths for that reason.
 
 ### Editor tooling

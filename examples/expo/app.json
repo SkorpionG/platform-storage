@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "platform-storage",
+    "slug": "platform-storage-expo",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "platformstorage",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "plugins": ["expo-router"]
+  }
+}
