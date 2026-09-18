@@ -26,6 +26,11 @@
     "https://turborepo.dev/schema.json": true,
     "https://unpkg.com/@changesets/config@3.1.1/schema.json": true
   },
+  // The editor decides a file is JSONC from its name, and knows `tsconfig.json` but not the shared bases these packages extend. Both tools read comments in their own configs — `tsc` has always allowed them, and oxlint documents them — so without this the editor reports an error in a file that is perfectly valid.
+  "files.associations": {
+    "**/tooling/typescript/*.json": "jsonc",
+    "**/tooling/oxlint/*.json": "jsonc"
+  },
   // Mapped here rather than with a `$schema` inside each file. A relative `$schema` is resolved against the document's own URI, so opening one of these from git history looks for the schema under `git:` and fails; these paths are resolved against the workspace root instead. Reading the installed copy also means the rules validated against are always the ones oxlint enforces, with no version to keep in step.
   "json.schemas": [
     {

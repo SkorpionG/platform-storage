@@ -20,7 +20,7 @@ describe("jsonSerializer", () => {
 
   it("throws when serializing a value JSON cannot represent", () => {
     const circular: Record<string, unknown> = {};
-    circular.self = circular;
+    circular["self"] = circular;
 
     expect(() => jsonSerializer.serialize(circular)).toThrow();
   });

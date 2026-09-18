@@ -1,111 +1,112 @@
 # Roadmap
 
-What is deliberately out of scope, and what each item needs when it lands. Nothing here is a promise of a date; the list exists so that cut scope is recorded rather than remembered.
+What is deliberately out of scope for now, and the direction each item would take. Nothing here is a commitment or a date; the list exists so that cut scope is recorded rather than remembered.
 
 ## v0.1 — the current target
 
-Schema definition, typed keys and values, runtime validation on read and write, automatic serialization, typed errors, the layered invalid-data policy, an asynchronous API with a typed synchronous extension for synchronous adapters, the memory adapter, `withFallback`, and one adapter package per platform: `@platform-storage/web` over `localStorage` and `sessionStorage`, `@platform-storage/extension` over the `local`, `sync` and `session` areas, and `@platform-storage/react-native` over AsyncStorage.
+Schema definition, typed keys and values, runtime validation on read and write, automatic serialization, typed errors, the layered invalid-data policy, and an asynchronous API with a typed synchronous extension wherever the adapter can answer immediately. The memory adapter and `withFallback` come with it.
+
+One package per platform, each re-exporting the core so that an application installs one: `@platform-storage/web` over `localStorage` and `sessionStorage`, `@platform-storage/extension` over the `local`, `sync` and `session` areas, and `@platform-storage/react-native` over AsyncStorage. `@platform-storage/react` is installed alongside whichever of those a project already has, and adds hooks over any storage plus the declared read a server render answers with.
+
+## Why values are stored bare
+
+What a backend holds is exactly what the schema produced, with nothing wrapped around it, so a key stays readable by code that never loaded this library and nothing is spent storing a wrapper. It also leaves room to move: anything added later can treat an unwrapped value as the earliest version it knows, and adopt data already stored without a migration of its own. Everything below is written against that.
 
 ## Next
 
-### A wire type on the memory adapter
+### Renaming the key a value is stored under
 
-`memoryAdapter` declares its wire as `string`. Pairing it with an adapter that transports JSON values, such as an extension area, does work: `withFallback` hands both halves the primary's serializer, so values reach memory unencoded and read back unchanged. What does not hold is the typing around it. `entries` is declared `ReadonlyMap<string, string>` while holding objects, so a test asserting against it is typed wrong, and `initial` is documented as already-serialized text when in that pairing it is not text at all. A wire-type parameter, `memoryAdapter<Wire>()`, would make both honest without changing the default.
+A key could name the stored names it used to have, so a read finding nothing at the current one tries them, brings the value forward and drops the old one. Lazy, so it costs nothing until that key is read, and independent of everything below it. The smallest of these items and the one most often wanted.
 
 ### Change subscription
 
-`storage.subscribe(key, listener)`, backed by the `storage` event on the web, `storage.onChanged` in extensions, and an in-process emitter for memory and AsyncStorage. Needs an optional capability on the adapter interface, because the backends genuinely differ: an extension reports changes made by other contexts, the web `storage` event fires only in _other_ tabs, and AsyncStorage reports nothing at all.
+Watching a key, over the `storage` event on the web, `storage.onChanged` in extensions, and an in-process emitter elsewhere. It needs an optional capability on the adapter contract, because the backends genuinely differ: an extension reports changes made by other contexts, the web event fires only in _other_ tabs, and AsyncStorage reports nothing at all. Anything useful built on it will want the previous value beside the new one.
 
-Until it lands, nothing reports a change made in another tab or another extension context, so a React app only sees the writes it made itself.
-
-### Asking `withFallback` which half it chose
-
-The composite adapter decides on first use and keeps the decision, and nothing exposes it. `adapter.name` names both halves whichever one is live, and `isAvailable()` forces the choice rather than reporting it. The server-rendering demo has to infer it by comparing values across the hydration boundary. A read-only accessor would make a storage explain itself in a devtools panel or a log line.
+Until it lands, nothing reports a change made in another tab or another extension context, so an application only ever sees the writes it made itself.
 
 ### Batch reads and writes
 
-`getMany` / `setMany`, preserving each key's own type in the result. Extension storage areas take batches natively, so the adapter interface grows optional `getMany` / `removeMany` hooks with a loop fallback elsewhere. This is where the per-operation round trip currently costs the most.
+Reading, writing and removing several keys at once, each keeping its own type in the result. Extension areas take batches natively, so the adapter contract would grow optional hooks with a loop everywhere else. This is where a per-operation round trip costs the most, and where `clear()` would stop being one call per key.
 
 ### Namespace prefix
 
-`createStorage({ namespace: "myapp" })`, prefixing every physical key that does not already declare its own. Cheap to add because physical-key resolution is already a single function.
+A prefix on the keys a storage stores under, so one origin can hold several unrelated storages without their names colliding. Two things it has to get right: a key needs a way out of the prefix, for addressing a name something else owns; and adopting a prefix renames everything already stored, which cannot be done silently, so it would lean on the rename above.
 
-### Parameterized keys
+### Versioned keys and migrations
 
-`key: (params) => string`, for per-entity values such as a tab selection stored per record. Adds a params argument to `get` / `set` / `remove` and a second type parameter to the key definition. The schema shape does not otherwise change.
+The largest deferred piece, and the reason several decisions look the way they do.
+
+A key could declare the shapes it has had and a function from each to the next, so a value written by an older release is brought forward on read instead of failing validation. Versioning would belong to the key rather than the storage, so one schema can hold versioned and unversioned keys together. A versioned key has to record its version somewhere, and that is the one place the bare-value rule gives way — for that key alone.
+
+What matters in the design: each step typed against the shape before it rather than against `unknown`, no way to express a missing step, a malformed chain caught where it is declared rather than when old data turns up, and validation at every step before anything is written back. The errors would extend the existing hierarchy.
+
+### Recovering a value by hand
+
+The escape hatch beside the above, for a key that has to stay readable by other code: a function receiving the stored value as `unknown`, returning a replacement, and having it written back. No type safety, deliberately. Close to what an `onInvalid` callback already does, except that the result would persist.
+
+### Migrations across keys
+
+Splitting one key into two, merging two into one, or moving a value between them. None is key-local, so it needs a pass over the whole storage rather than a lazy per-key one, and somewhere to record how far that pass has run. Later than versioned keys, and separate from them.
+
+### Listing what a backend holds, and devtools over it
+
+The adapter contract cannot enumerate keys, deliberately: positional enumeration is a web `Storage` idea no other backend shares. An optional capability, present only on backends that can answer, would serve the need without narrowing the contract — and would unblock a view of what is stored, against which schema, and what failed to validate.
 
 ### Per-key serializers
 
-A `serializer` on the key definition, overriding the adapter's. Two motivations: storing a bare enum string so other code can read the key without this library, and lifting the requirement that a schema accept its own output as input. A schema like `z.string().transform(Number)` cannot be used today, because `set` is typed to the value the key holds and validation then rejects that value as input. Separating the stored form from the validated form is what would make one-way transforms work.
+A serializer on the key definition, overriding the adapter's. Two motivations: storing a bare enum string so other code can read the key without this library, and lifting the requirement that a schema accept its own output as input. A schema such as `z.string().transform(Number)` cannot be used today, because `set` is typed to the value the key holds and validation then rejects that value as input. Separating the stored form from the validated form is what would make a one-way transform work.
 
-### Versioning and migrations
+### Parameterized keys
 
-The largest deferred piece, and the reason several v0.1 decisions look the way they do.
-
-- Layered on top, not folded in: `defineVersionedStorage` consumes the same `StorageSchema` objects that `createStorage` does, so adopting versioning never means rewriting a schema.
-- Values are stored bare in v0.1. The versioning layer introduces an envelope around the value and treats a non-envelope value as unversioned, which is what lets it be adopted without a migration of its own.
-- Migrations are keyed by source version and applied in sequence, each one typed against the previous version's shape rather than against `unknown`.
-- A missing migration in the chain is an error, never a silent partial upgrade.
-- The whole chain runs in memory and is validated at every step before anything is written back.
-- Errors extend the existing hierarchy: `StorageMigrationError`, `MissingMigrationError`, `UnknownStorageVersionError`.
-
-### Suspense support for the asynchronous hooks
-
-A `use()`-based variant of `useAsyncStorageValue`, so an extension or Expo app can render behind a Suspense boundary instead of branching on a status. Additive: the status-returning hook stays, and nothing about it changes.
-
-It needs a cache keyed on the promise rather than on the value, and a decision about what a refetch does to a boundary that has already resolved. Neither is hard; both are easy to get subtly wrong, which is why the first release returns a status a component can read instead.
-
-### Optimistic writes
-
-A write over a slow backend shows the previous value until it lands, which on an extension area or AsyncStorage is a visible delay on every keystroke that writes.
-
-Publishing the new value immediately is more delicate than it looks: `set` validates and may normalize, so the value optimistically shown can be one the storage would never hold, and a rejected write then has to roll back to something that may itself have been superseded. Worth doing, not worth guessing at.
-
-### A per-call policy through the hooks
-
-`storage.getSync(key, { onInvalid })` has no equivalent on `useStorageValue`, and adding an options parameter naively would be a trap: an inline object changes identity on every render, and a function has no identity that can be compared at all, so the options cannot take part in the cache key. A consumer who forgets to memoize gets `Maximum update depth exceeded` rather than a warning.
-
-Until there is an answer to that, policy belongs where it already works: on the key, or on the storage, declared outside React where identity is stable by construction.
-
-### An updater form for the writers
-
-`writer.set(next)` takes a value, never `(previous) => next`. A component holding the value can compute the next one itself, but a component that only writes cannot, so incrementing a counter from a button means reading a key it does not otherwise display.
-
-Over a storage that only answers later the updater has to read before it writes, and two updates in flight then race. That ordering is the whole of the work.
-
-### A per-request error log
-
-`recordStorageError` collects into one log for the process, which is right in a browser and wrong on a server, where every in-flight request would share it. Harmless only because nothing reads the log during a server render; it becomes a leak between requests the moment something does.
+A key whose stored name is computed from arguments, for a value kept per entity rather than once. It adds a parameter to the operations and a second type parameter to the key definition.
 
 ### Richer serializers
 
-`Date`, `Map`, `Set` and `BigInt` round trips, as an opt-in serializer rather than a change to the JSON default.
+`Date`, `Map`, `Set` and `BigInt` round trips, as an opt-in serializer rather than a change to the JSON default. A backend transporting JSON values refuses such a value today rather than storing something else in its place, which is the safe answer but not an answer to the need.
 
 ### Encryption hooks
 
-A serializer boundary is the natural seam. Needs care around key management, so it is deliberately not a v0.1 concern.
+A serializer boundary is the natural seam. Needs care around key management, which is why it is not a first concern.
 
-### Devtools
+### Two smaller adapter gaps
 
-Inspecting what is stored, against which schema, and what failed to validate.
+`memoryAdapter` declares its wire as `string`, which is untrue when it is paired with a backend transporting JSON values; a wire type parameter would fix it without changing the default. And `withFallback` chooses a half on first use and keeps that choice, but nothing exposes which one it picked.
 
-Blocked on a way to enumerate. The adapter contract has no key listing, deliberately, because positional enumeration is a web `Storage` idea no other backend shares — so every demo that shows what a backend holds reaches past the library to the backend itself, and three of them now do. Serving it needs an optional capability shaped like the existing `has?`, roughly `keys?(): Promise<ReadonlyArray<string>>`, present only on the backends that can answer it. Widening a structural declaration such as `AsyncStorageLike` to reach `getAllKeys` and `multiGet` is the wrong fix, since it would narrow the contract to one backend.
+## React
+
+### Suspense for the asynchronous hooks
+
+A variant of the asynchronous value hook built on `use()`, so a component can render behind a boundary instead of branching on a status. Additive: the status-returning hook stays. It needs a cache keyed on the promise rather than the value, and a decision about what a refetch does to a boundary that has already resolved.
+
+### Optimistic writes
+
+A write over a slow backend shows the previous value until it lands. Publishing the new one immediately is delicate: a write validates and may normalize, so the value shown optimistically can be one the storage would never hold, and a rejected write then has to roll back to something that may itself have been superseded.
+
+### An updater form for the writers
+
+A writer takes a value, never a function of the previous one, so a component that only writes cannot compute the next. Over a storage that answers later the updater has to read before it writes, and two updates in flight then race; that ordering is the whole of the work.
+
+### A per-call policy through the hooks
+
+The synchronous read takes a per-call invalid-data policy and the hooks do not. Adding an options parameter naively would be a trap: an object written at a call site is new on every render, and a function has no identity that can be compared at all, so neither can take part in the cache that keeps a snapshot stable. An answer has to give the policy a stable identity. Until there is one, policy belongs where it already works — on the key, or on the storage, declared outside React.
+
+### A per-request error log
+
+The error observer collects into one log for the process, which is right in a browser and wrong on a server, where every in-flight request would share it. Harmless only because nothing reads that log during a server render, and a leak between requests the moment something does.
 
 ## Tooling
 
 ### Type-aware linting
 
-`oxlint` gains type-aware rules through `oxlint-tsgolint`, which tracks the TypeScript 7 line. This repository pins TypeScript 6 (see the note in `pnpm-workspace.yaml`), so the rules are unavailable for now. Every package already has its own `tsconfig.json`, so enabling them later is a config change.
+oxlint gains type-aware rules through a companion tracking the TypeScript 7 line, and this repository pins TypeScript 6. Every package already has its own `tsconfig.json`, so enabling them later is a config change.
 
 ### TypeScript 7
 
-`latest` on npm is now the Go-native 7.x port. Revisit once `tsdown`'s declaration emit and `vitest`'s typecheck mode are validated against it.
+`latest` on npm is now the Go-native port. Revisit once the declaration-emit and typecheck tooling here is validated against it.
 
 ### Checking an inline `onInvalid` callback
 
-A callback written inline inside `defineStorageSchema` has its return value trusted rather than checked. The object is inferred and then constrained against a type derived from itself, so an inline callback gets no usable expectation to meet: its literal return widens to `string`, and a narrower rule would reject `() => "dark"` for a schema that plainly allows it.
-
-`defineKey(schema, options)` is the checked form and covers the case today, because taking the schema as its own argument means it is known before the options are read. Everything else about an inline entry, `default` and policy names included, is already checked. Revisit only if TypeScript's contextual typing through an F-bounded `const` type parameter improves enough to make both forms equivalent.
+A callback written inline inside `defineStorageSchema` has its return trusted rather than checked: the object is inferred and then constrained against a type derived from itself, so the callback gets no usable expectation to meet. `defineKey(schema, options)` is the checked form and covers the case today.
 
 ### Isolated declarations
 

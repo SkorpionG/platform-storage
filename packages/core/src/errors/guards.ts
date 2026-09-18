@@ -1,5 +1,9 @@
 import { ERROR_BRAND, STORAGE_ERROR_CODE } from "./codes";
-import type { PlatformStorageError, StorageValidationError } from "./errors";
+import type {
+  PlatformStorageError,
+  StorageQuotaExceededError,
+  StorageValidationError,
+} from "./errors";
 
 const KNOWN_CODES: ReadonlySet<string> = new Set(Object.values(STORAGE_ERROR_CODE));
 
@@ -18,4 +22,13 @@ export function isPlatformStorageError(value: unknown): value is PlatformStorage
 /** Whether a caught value is a validation failure, and so carries `issues` and the value that failed. */
 export function isStorageValidationError(value: unknown): value is StorageValidationError {
   return isPlatformStorageError(value) && value.code === STORAGE_ERROR_CODE.Validation;
+}
+
+/**
+ * Whether a caught value is a backend that ran out of room.
+ *
+ * This is the one backend failure worth retrying rather than only reporting: evict something and the same write usually succeeds. Not every platform can tell one apart, so a backend that gives no usable signal reports a plain `StorageAdapterError` instead and this answers `false`.
+ */
+export function isStorageQuotaError(value: unknown): value is StorageQuotaExceededError {
+  return isPlatformStorageError(value) && value.code === STORAGE_ERROR_CODE.Quota;
 }

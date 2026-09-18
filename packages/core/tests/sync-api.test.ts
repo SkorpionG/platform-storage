@@ -8,9 +8,9 @@ import {
   StorageAdapterError,
   StorageSchemaError,
   StorageValidationError,
-} from "../../index";
-import { asyncStringSchema, countSchema, themeSchema } from "../../../tests/fixtures/schemas";
-import { asyncOnlyAdapter } from "../../../tests/fakes/adapters";
+} from "../src/index";
+import { asyncStringSchema, countSchema, themeSchema } from "./fixtures/schemas";
+import { asyncOnlyAdapter } from "./fakes/adapters";
 
 const schema = defineStorageSchema({
   theme: { schema: themeSchema, default: "light" },

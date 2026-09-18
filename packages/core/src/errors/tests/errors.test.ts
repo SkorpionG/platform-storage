@@ -8,6 +8,7 @@ import {
   PlatformStorageError,
   STORAGE_ERROR_CODE,
   StorageAdapterError,
+  StorageQuotaExceededError,
   StorageSchemaError,
   StorageSerializationError,
   StorageUnavailableError,
@@ -65,6 +66,49 @@ describe("error hierarchy", () => {
 
     expect(error).toBeInstanceOf(StorageAdapterError);
     expect(error.code).toBe(STORAGE_ERROR_CODE.Unavailable);
+  });
+
+  it("reports a full backend the same way, since a quota is the backend refusing too", () => {
+    const error = new StorageQuotaExceededError({
+      adapter: "localStorage",
+      operation: "set",
+      physicalKey: "app:user",
+    });
+
+    expect(error).toBeInstanceOf(StorageAdapterError);
+    expect(error.code).toBe(STORAGE_ERROR_CODE.Quota);
+    expect(error.name).toBe("StorageQuotaExceededError");
+    expect(error.operation).toBe("set");
+    expect(error.physicalKey).toBe("app:user");
+  });
+});
+
+describe("StorageQuotaExceededError", () => {
+  it("names the backend and the key that did not fit", () => {
+    const error = new StorageQuotaExceededError({
+      adapter: "storage.sync",
+      operation: "set",
+      physicalKey: "app:user",
+    });
+
+    expect(error.message).toBe('The storage.sync backend is out of room for "app:user".');
+  });
+
+  it("leaves the key out when there is none to name", () => {
+    const error = new StorageQuotaExceededError({ adapter: "localStorage", operation: "set" });
+
+    expect(error.message).toBe("The localStorage backend is out of room.");
+  });
+
+  it("keeps the browser's own exception as the cause, so nothing is lost", () => {
+    const cause = new Error("QuotaExceededError");
+    const error = new StorageQuotaExceededError({
+      adapter: "localStorage",
+      operation: "set",
+      cause,
+    });
+
+    expect(error.cause).toBe(cause);
   });
 });
 

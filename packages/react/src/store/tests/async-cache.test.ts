@@ -2,6 +2,7 @@ import { createStorage, jsonSerializer } from "@platform-storage/core";
 import { describe, expect, it, vi } from "vitest";
 
 import { testSchema } from "../../../tests/fakes/schema";
+import type { TestKey } from "../../../tests/fakes/schema";
 
 import { asyncStorage, failingStorage } from "../../../tests/fakes/storages";
 import {
@@ -13,7 +14,9 @@ import { notifyStorageChanged } from "../changes";
 
 /* The read is started by the subscription and settles on its own, so a test waits for the listener rather than for a promise it does not hold. */
 function settled(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
+  return new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
 }
 
 describe("getAsyncValueSnapshot", () => {
@@ -97,6 +100,36 @@ describe("getAsyncValueSnapshot", () => {
     expect(snapshot.error?.message).toContain("hostile");
   });
 
+  /*
+    The hooks take any storage-shaped object, not only one `createStorage` built, so nothing guarantees a rejection has been through the engine. Reporting a raw one as itself would hand a component something with no `code` to read.
+  */
+  it("names a rejection that never went through the engine, so a component always gets a code", async () => {
+    const storage = {
+      ...asyncStorage(),
+      get: () => Promise.reject(new Error("straight from somewhere else")),
+    };
+
+    subscribeToAsyncValue(storage, "theme", () => {});
+    await settled();
+
+    const snapshot = getAsyncValueSnapshot(storage, "theme");
+
+    expect(snapshot.status).toBe("failed");
+    expect(snapshot.error?.code).toBe("ADAPTER");
+    expect(snapshot.error?.message).toBe("straight from somewhere else");
+  });
+
+  it("says so when even the reason is unrecognizable", async () => {
+    const storage = { ...asyncStorage(), get: () => Promise.reject("a bare string") };
+
+    subscribeToAsyncValue(storage, "theme", () => {});
+    await settled();
+
+    expect(getAsyncValueSnapshot(storage, "theme").error?.message).toBe(
+      "The storage failed for an unknown reason.",
+    );
+  });
+
   it("says nothing has been read on a server", () => {
     expect(getAsyncValueServerSnapshot().status).toBe("loading");
     expect(getAsyncValueServerSnapshot()).toBe(getAsyncValueServerSnapshot());
@@ -130,7 +163,9 @@ describe("subscribeToAsyncValue", () => {
     const storage = asyncStorage(5);
     subscribeToAsyncValue(storage, "theme", () => {});
     await settled();
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 20);
+    });
 
     expect(getAsyncValueSnapshot(storage, "theme").value).toBe("system");
 
@@ -183,5 +218,102 @@ describe("subscribeToAsyncValue", () => {
     await settled();
 
     expect(getAsyncValueSnapshot(storage, "theme").value).toBe("dark");
+  });
+
+  it("reads nothing again when nobody wrote while nobody was watching", async () => {
+    const storage = asyncStorage();
+    const reads = vi.spyOn(storage, "get");
+
+    const unsubscribe = subscribeToAsyncValue(storage, "theme", () => {});
+    await settled();
+    unsubscribe();
+    reads.mockClear();
+
+    subscribeToAsyncValue(storage, "theme", () => {});
+    await settled();
+
+    expect(reads).not.toHaveBeenCalled();
+  });
+
+  it("starts one read for several listeners, and keeps watching until the last leaves", async () => {
+    const storage = asyncStorage();
+    const reads = vi.spyOn(storage, "get");
+    const second = vi.fn();
+
+    const unsubscribeFirst = subscribeToAsyncValue(storage, "theme", () => {});
+    subscribeToAsyncValue(storage, "theme", second);
+    await settled();
+
+    expect(reads).toHaveBeenCalledTimes(1);
+
+    unsubscribeFirst();
+    second.mockClear();
+    notifyStorageChanged(storage, "theme");
+    await settled();
+
+    expect(second).toHaveBeenCalled();
+  });
+});
+
+/*
+  Two reads of one key can be in flight at once, because a change starts a new one without waiting for the old. Whichever started later is the current answer, so an earlier result has to be dropped rather than published over it.
+*/
+/** A storage whose first read is slow and whose later reads are immediate, so the first always lands last. */
+function slowFirstRead(first: () => Promise<unknown>) {
+  let attempt = 0;
+
+  return {
+    ...asyncStorage(),
+    get: (_key: TestKey) => {
+      attempt += 1;
+
+      return attempt === 1 ? first() : Promise.resolve("dark");
+    },
+  } as unknown as ReturnType<typeof asyncStorage>;
+}
+
+const after = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+describe("a read that a later one has superseded", () => {
+  it("is dropped rather than published over the newer answer", async () => {
+    const storage = slowFirstRead(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve("light"), 30);
+        }),
+    );
+
+    subscribeToAsyncValue(storage, "theme", () => {});
+    /* No await: the second read has to start while the first is still in flight. */
+    notifyStorageChanged(storage, "theme");
+
+    await after(80);
+
+    const snapshot = getAsyncValueSnapshot(storage, "theme");
+
+    expect(snapshot.status).toBe("ready");
+    expect(snapshot.value).toBe("dark");
+  });
+
+  it("is dropped when it failed too, so a stale failure cannot replace a good value", async () => {
+    const storage = slowFirstRead(
+      () =>
+        new Promise((_resolve, reject) => {
+          setTimeout(() => reject(new Error("slow failure")), 30);
+        }),
+    );
+
+    subscribeToAsyncValue(storage, "theme", () => {});
+    notifyStorageChanged(storage, "theme");
+
+    await after(80);
+
+    const snapshot = getAsyncValueSnapshot(storage, "theme");
+
+    expect(snapshot.status).toBe("ready");
+    expect(snapshot.value).toBe("dark");
   });
 });

@@ -98,6 +98,25 @@ describe("defineStorageSchema", () => {
     }
   });
 
+  it("rejects an entry whose schema is null, which an optional chain easily produces", () => {
+    expect(() => defineStorageSchema({ theme: { schema: null as never } })).toThrow(
+      /The "theme" entry has no Standard Schema validator/,
+    );
+  });
+
+  /* A validator is allowed to be callable — the specification marks the object, and says nothing about what else it is. */
+  it("accepts a callable validator, since the marker is what identifies one", () => {
+    const callable = Object.assign(() => undefined, {
+      "~standard": {
+        version: 1 as const,
+        vendor: "callable",
+        validate: (value: unknown) => ({ value }),
+      },
+    }) as never;
+
+    expect(() => defineStorageSchema({ theme: { schema: callable } })).not.toThrow();
+  });
+
   it("accepts an empty schema, which a storage with no declared keys legitimately has", () => {
     const schema = defineStorageSchema({});
 

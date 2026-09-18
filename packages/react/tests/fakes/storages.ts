@@ -20,7 +20,9 @@ export function asyncOnlyAdapter(delay = 0): StorageAdapter<string> {
   const settle = <Value>(value: Value): Promise<Value> =>
     delay === 0
       ? Promise.resolve(value)
-      : new Promise((resolve) => setTimeout(() => resolve(value), delay));
+      : new Promise((resolve) => {
+          setTimeout(() => resolve(value), delay);
+        });
 
   return {
     name: "async-only",

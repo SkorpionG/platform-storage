@@ -14,6 +14,7 @@ import {
 import { extensionStorageAdapter } from "../extension-storage-adapter";
 import {
   fakeStorageNamespace,
+  fullStorageArea,
   rejectingStorageArea,
 } from "../../tests/fakes/fake-extension-storage";
 
@@ -173,7 +174,10 @@ describe("an API that is not there", () => {
 
 describe("an area that rejects", () => {
   it("becomes an adapter error through a storage, keeping the browser's rejection as the cause", async () => {
-    const namespace = { ...fakeStorageNamespace(), sync: rejectingStorageArea("quota exceeded") };
+    const namespace = {
+      ...fakeStorageNamespace(),
+      sync: rejectingStorageArea("This extension has no storage permission."),
+    };
     const storage = createStorage({
       schema,
       adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
@@ -185,8 +189,101 @@ describe("an area that rejects", () => {
       adapter: "storage.sync",
       operation: "set",
       physicalKey: "theme",
-      cause: expect.objectContaining({ message: "quota exceeded" }),
+      cause: expect.objectContaining({ message: "This extension has no storage permission." }),
     });
+  });
+});
+
+/*
+  An area reports a full quota by naming the limit that was passed rather than with an error type of its own, so reading the message is the only way to tell one apart. The `sync` area has the tightest limits and is where this is met first.
+*/
+describe("a full area", () => {
+  const limits = [
+    ["the area's total", "QUOTA_BYTES quota exceeded"],
+    ["one item's share", "QUOTA_BYTES_PER_ITEM quota exceeded"],
+    ["the number of items", "MAX_ITEMS quota exceeded"],
+    ["the write rate", "MAX_WRITE_OPERATIONS_PER_MINUTE quota exceeded"],
+    ["a differently worded sentence", "Quota exceeded: quota_bytes"],
+  ] as const;
+
+  it.each(limits)("is recognized when the browser names %s", async (_label, message) => {
+    const namespace = { ...fakeStorageNamespace(), sync: fullStorageArea(message) };
+    const storage = createStorage({
+      schema,
+      adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
+    });
+
+    await expect(storage.set("theme", "dark")).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Quota,
+      adapter: "storage.sync",
+      operation: "set",
+      physicalKey: "theme",
+    });
+  });
+
+  /* A browser is not obliged to reject with an `Error`, and a bare string carries the same message. */
+  it("is recognized when the browser rejects with a bare string", async () => {
+    const namespace = {
+      ...fakeStorageNamespace(),
+      sync: { ...fakeStorageNamespace().sync, set: () => Promise.reject("QUOTA_BYTES exceeded") },
+    };
+    const storage = createStorage({
+      schema,
+      adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
+    });
+
+    await expect(storage.set("theme", "dark")).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Quota,
+    });
+  });
+
+  it("is not claimed for a rejection that says nothing about room", async () => {
+    const namespace = {
+      ...fakeStorageNamespace(),
+      sync: rejectingStorageArea("The browser is offline."),
+    };
+    const storage = createStorage({
+      schema,
+      adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
+    });
+
+    await expect(storage.set("theme", "dark")).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Adapter,
+    });
+  });
+
+  /* A rejection carrying no message at all has nothing to read, so it cannot be claimed either. */
+  it("is not claimed for a rejection with no message to read", async () => {
+    const namespace = {
+      ...fakeStorageNamespace(),
+      sync: { ...fakeStorageNamespace().sync, set: () => Promise.reject({ code: 500 }) },
+    };
+    const storage = createStorage({
+      schema,
+      adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
+    });
+
+    await expect(storage.set("theme", "dark")).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Adapter,
+    });
+  });
+
+  it("is still an adapter failure, so anything catching those still catches it", async () => {
+    const namespace = { ...fakeStorageNamespace(), sync: fullStorageArea("QUOTA_BYTES exceeded") };
+    const storage = createStorage({
+      schema,
+      adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
+    });
+
+    await expect(storage.set("theme", "dark")).rejects.toBeInstanceOf(StorageAdapterError);
+  });
+
+  it("leaves reads and removes alone, since only a write can run out of room", async () => {
+    const namespace = { ...fakeStorageNamespace(), sync: fullStorageArea("QUOTA_BYTES exceeded") };
+    const adapter = extensionStorageAdapter({ storage: () => namespace, area: "sync" });
+
+    await expect(adapter.get("theme")).resolves.toBeUndefined();
+    await expect(adapter.remove("theme")).resolves.toBeUndefined();
   });
 });
 

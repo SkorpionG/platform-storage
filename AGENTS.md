@@ -39,6 +39,7 @@ The demonstration apps have conventions, tooling and traps of their own, and [`e
 | Format            | `pnpm format` / `pnpm format:check`                 |
 | Comment wrapping  | `pnpm format:comments` / `pnpm format:comments:fix` |
 | Packaging checks  | `pnpm check-package`                                |
+| Consumer check    | `pnpm verify-tarballs`                              |
 | One package       | `pnpm --filter @platform-storage/core test`         |
 | Watch one package | `pnpm --filter @platform-storage/core test:watch`   |
 | Run an example    | See [`examples/AGENTS.md`](examples/AGENTS.md)      |
@@ -54,7 +55,7 @@ Root scripts only delegate to `turbo run`. Task logic belongs in the package tha
 
 - Functional and declarative. No classes, with one exception: `Error` subclasses, which have to be classes to be catchable by type.
 - `interface` for object shapes, `type` for unions, aliases and mapped types.
-- No TypeScript `enum`. Use an `as const` object plus a derived union type. oxlint has no rule for this, so it is on review to catch.
+- No TypeScript `enum`. Use an `as const` object plus a derived union type. `erasableSyntaxOnly` is what enforces this: everything here has to erase to nothing at runtime, which rules out `enum`, a value-bearing `namespace`, a parameter property and `import =`.
 - Explicit types on everything exported. `explicit-function-return-type` is an error, and a public type is part of the contract.
 - No `any`. `unknown` plus a narrowing check instead.
 - Guard clauses and early returns over nesting.
@@ -67,16 +68,23 @@ In Markdown and in code comments, keep each paragraph and each list item on a si
 
 ### Spelling is American
 
-`color`, `behavior`, `serialize`, `normalize`, `labeled`, `canceled`. Not `colour`, `behaviour`, `serialise`, `normalise`, `labelled`, `cancelled`. In prose, comments and identifiers alike, since the platform APIs this library wraps are spelled American themselves. No tool checks it; it is on review, the same way the ban on `enum` is.
+`color`, `behavior`, `serialize`, `normalize`, `labeled`, `canceled`. Not `colour`, `behaviour`, `serialise`, `normalise`, `labelled`, `cancelled`. In prose, comments and identifiers alike, since the platform APIs this library wraps are spelled American themselves. No tool checks it; it is on review, unlike the ban on `enum`, which the compiler now catches.
 
 ### Comments
 
 A comment says **why**, never what the code already says. State the rule, not the incident that produced it, and do not leave a comment describing an approach that was replaced: a reader cannot tell whether it documents the code or contradicts it. Avoid numbers that drift. Keep JSDoc on public API to what it guarantees and the one non-obvious reason it works that way.
 
+**One reason per paragraph, and a paragraph is a few sentences.** A comment earns its length by the number of reasons it gives, not by how thoroughly it gives one. When a second reason arrives, start a new paragraph rather than extending the sentence — a clause bolted onto the end of an already-long one is how a comment stops being read. Prose here is not hard-wrapped, so length is invisible while writing it and obvious to whoever reads it next; if a paragraph runs past roughly four lines on screen, it is doing more than one job.
+
+Trim to the reason. Naming the mechanism is the comment's work; walking through its consequences usually is not, and neither is the cost of an approach nobody is choosing between.
+
 ### Tests
 
 - **A test lives in a `tests/` folder beside the code it covers**: `src/schema/tests/define-key.test.ts` next to `src/schema/define-key.ts`. Moving or renaming a module takes its tests with it, and there is no parallel tree to keep in step.
-- The package's own top-level `tests/` folder holds only what belongs to no single module: shared fixtures, shared fakes, and cross-cutting suites such as the one binding `STORAGE_OPERATION` to every interface that exposes an operation.
+- **Every module with runtime behavior has a suite named for it**, whether or not the entry point publishes it. An internal module such as `src/storage/pipeline.ts` is covered directly rather than only through whatever calls it, because a suite reached through the engine tests the engine's use of it and not the module's own contract.
+- **A module that declares only types gets a `*.test-d.ts` instead, or nothing.** Nothing is the right answer where the compiler already proves the whole of what the module says; a `.test-d.ts` is worth writing where a type encodes a rule, such as a union derived from a constant or a conditional result type.
+- **Every published entry point has an `index.test-d.ts`** asserting what it exports, and asserting that the engine internals stay unpublished. That second half is what keeps an accidental `export *` from freezing an internal into the contract.
+- The package's own top-level `tests/` folder holds only what belongs to no single module: shared fixtures, shared fakes, and cross-cutting suites such as the one binding `STORAGE_OPERATION` to every interface that exposes an operation, or the one covering the synchronous half across adapters and schemas alike.
 - Test files never ship: `files: ["dist"]` decides what is published, and the bundler only follows what the entry point imports.
 - `*.test.ts` for runtime behavior, `*.test-d.ts` for type-level assertions with `expectTypeOf`. Both run under `pnpm test`; a type regression fails the build like any other bug.
 - Active-voice test titles that name the behavior, such as "returns the default when no value is stored" rather than "test default".
@@ -118,7 +126,7 @@ No package sets `publishConfig.provenance`, because npm issues a provenance stat
 
 ## Deferred work
 
-`ROADMAP.md` records what was cut from v0.1 and what each item needs. When scope is cut, add it there rather than leaving it in a conversation.
+`ROADMAP.md` records what was cut from v0.1 and the direction each item would take. It stays deliberately short of a specification: an entry says what the thing is and what makes it awkward, not what its API will be, so that nothing there reads as a promise. When scope is cut, add it there rather than leaving it in a conversation.
 
 ## Traps
 
@@ -131,6 +139,9 @@ Read the relevant one before changing something here that looks arbitrary, and a
 - **A constraint that inspects its own type parameter is rejected outright** as a circular constraint. `defineStorageSchema` gets away with it only because its conditional tests `Definition[Key]` rather than `Definition`.
 - **Zod's `.catch()` takes the value type as its input, not `unknown`.** A catch schema therefore does not drop `undefined` from a read: it governs invalid data, not absent data. Pair it with a `default` to cover both.
 - **`exactOptionalPropertyTypes` rejects assigning `undefined` to an optional property**, which is why public option types spell `| undefined` explicitly.
+- **`erasableSyntaxOnly` is what keeps the codebase functional**, not review. It rejects every construct that emits runtime code from a type position, which is the whole of the `enum` rule and more besides. Prove a change to it still bites by adding an `enum` and watching the build fail.
+- **`noPropertyAccessFromIndexSignature` means a record is read with a bracket**, so `record["self"]` rather than `record.self` wherever the key is not declared. It reads worse and is worth it: dotted access to a key nothing declares is how a typo becomes `undefined` at runtime.
+- `noImplicitReturns` and `noUncheckedSideEffectImports` are on as well, and neither has ever fired here; they are guards rather than corrections.
 - TypeScript is pinned to the 6.x line. `latest` on npm is the Go-native 7.x port, which the declaration-emit and typecheck tooling here is not validated against.
 
 ### Platforms
@@ -154,6 +165,8 @@ Read the relevant one before changing something here that looks arbitrary, and a
 ### Packaging
 
 - **In-repo `exports` point at `src`; `publishConfig` swaps them for `dist` on publish.** That is what lets the editor, `tsc` and vitest resolve workspace packages to source while consumers get the build. It works only through `pnpm pack` and `pnpm publish`, never `npm pack`, because npm does not apply `publishConfig`.
+- **Nothing in this repository consumes the built packages, so `pnpm verify-tarballs` is what does.** Every example resolves `workspace:*` to source, which means a broken `exports` map, a missing subpath or a declaration that vanishes under `node16` passes the whole suite. That script packs all five, installs them with npm into a throwaway project, and imports, requires and typechecks against them. `publint` and `attw` read a tarball; this one runs it. It belongs in CI on a push to `main` and in the release checklist, and deliberately not in the commit hook or on a pull request: it installs from the registry, so it is slow and fails offline, and what it guards changes far less often than the code does.
+- **pnpm puts the workspace-root `LICENSE` into every package tarball**, so no package needs a copy of its own. `README.md`, `LICENSE`, `package.json` and `CHANGELOG.md` are included whatever `files` says, but only when they are in the package directory — and the license is the one that is not.
 - **A workspace package therefore reaches a bundler as source, and source transforms apply to it.** A consumer's build sees `dist` and treats it as a dependency; an app in this repository sees `src` at a path outside `node_modules`, so anything filtering on that path treats library code as its own. A framework transform that rewrites free identifiers is the case that bites, since library code is written against no such convention. Keep such a transform scoped to the app, never widened to make the library survive it; `examples/AGENTS.md` records the one that has happened.
 - **Declaration maps are off deliberately.** They point at `src`, which `files` does not publish, so shipping them would hand every consumer a map to nothing. JavaScript source maps stay on.
 - **A bundler emits `"use client"` only for a chunk whose own entry module carries it.** A directive on a module the entry merely re-exports is dropped, the build succeeds, and nothing warns; the package is then server code to every framework that reads the directive. `packages/react/src/index.ts` carries it for that reason, and a test asserts it is the first line. The rule under **Platforms** is the source-level counterpart, with a different fix.
@@ -176,3 +189,4 @@ Read the relevant one before changing something here that looks arbitrary, and a
 ### Editor tooling
 
 - **A `$schema` path inside a config file resolves against that file's own URI.** Opening one from git history therefore looks for the schema under `git:` and fails. The mapping lives in `.vscode/settings.json` under `json.schemas` instead, whose paths resolve against the workspace root, and points at the copy in `node_modules` so there is no version to keep in step.
+- **A config file may hold comments even where the editor says it may not.** `tsc` and oxlint both accept them, and the configs here use them to explain a setting beside the setting itself, but the editor decides a file is JSONC from its name and knows `tsconfig.json` rather than the shared bases packages extend. The tools stay happy and only the editor complains, so the fix is a `files.associations` entry in `.vscode/settings.json`, not the removal of the comment.

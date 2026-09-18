@@ -40,8 +40,36 @@ jobs:
       - name: Format
         run: pnpm format:check
 
+      # One turbo invocation rather than one step per task. Turbo runs these as a single graph, in parallel across packages and across task types wherever the dependencies allow; five sequential steps would serialize them, and measurably so. A failure still names the task that broke it, as `@platform-storage/core#lint`.
+      #
       # Pull requests check only what they touched; pushes to main check everything, so nothing reaches the release branch unverified.
       - name: Build, typecheck, lint, test, package
         run: >-
           pnpm exec turbo run build typecheck lint test check-package
           ${{ github.event_name == 'pull_request' && '--affected' || '' }}
+
+  # Everything above resolves `workspace:*` to `src`, so none of it runs what a consumer receives. This installs the packed tarballs with npm and uses them, which is the only check that would catch a broken `exports` map or a missing subpath.
+  #
+  # A job of its own, and not on pull requests: it installs from the registry, so it is slower than everything above and fails when npm does. What it guards — the packaging configuration — changes rarely, and `RELEASING.md` requires it before any release regardless.
+  consumer:
+    name: Consume the packed tarballs
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Install, import and typecheck the tarballs
+        run: pnpm verify-tarballs

@@ -1,4 +1,7 @@
 {
+  /*
+    `library-dom.json` rather than the shared `react.json`, which is an application preset: it raises `lib` to ES2023 for the examples, and a published package should compile against the same baseline as every other one here. The one thing this package needs from it is `jsx`, set below.
+  */
   "extends": "@tooling/typescript-config/library-dom.json",
   "compilerOptions": {
     // Only the tests write JSX; `src` has none.

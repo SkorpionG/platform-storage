@@ -12,7 +12,9 @@ afterEach(cleanup);
 /* The read starts once the component is mounted and settles on its own, so a test waits for the browser rather than for a promise it does not hold. */
 function settled(): Promise<void> {
   return act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
   });
 }
 
@@ -80,7 +82,9 @@ describe("useAsyncStorageValue", () => {
 
     await act(async () => {
       screen.getByRole("button").click();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
     });
 
     expect(screen.getByRole("button").textContent).toBe('"dark"');
@@ -107,7 +111,9 @@ describe("useAsyncStorageValue", () => {
 
     await act(async () => {
       screen.getByRole("button").click();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
     });
 
     expect(screen.getByRole("button").textContent).toBe('"system"');
@@ -156,7 +162,9 @@ describe("useAsyncStorageWriter", () => {
     render(<WriteOnly />);
     await act(async () => {
       screen.getByRole("button").click();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
     });
 
     expect(rejection).toBeInstanceOf(Error);

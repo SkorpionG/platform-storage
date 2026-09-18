@@ -16,6 +16,7 @@ export type { StorageErrorCode, StorageOperation, ValueOperation } from "./error
 export {
   PlatformStorageError,
   StorageAdapterError,
+  StorageQuotaExceededError,
   StorageSchemaError,
   StorageSerializationError,
   StorageUnavailableError,
@@ -29,7 +30,11 @@ export type {
   UnknownStorageKeyErrorOptions,
 } from "./errors/errors";
 export { formatIssues } from "./errors/format-issues";
-export { isPlatformStorageError, isStorageValidationError } from "./errors/guards";
+export {
+  isPlatformStorageError,
+  isStorageQuotaError,
+  isStorageValidationError,
+} from "./errors/guards";
 
 export { defineKey } from "./schema/define-key";
 export { defineStorageSchema } from "./schema/define-storage-schema";
@@ -60,7 +65,7 @@ export type {
   PlatformStorage,
   SyncPlatformStorage,
   SyncStorageMethods,
-} from "./storage/create-storage";
+} from "./storage/platform-storage";
 export { DEFAULT_INVALID_POLICY, INVALID_POLICY } from "./storage/invalid-policy";
 export type {
   InvalidContext,

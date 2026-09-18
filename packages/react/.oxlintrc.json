@@ -1,4 +1,7 @@
 {
+  /*
+    `base.json` rather than the shared `react.json`, which is an application preset and relaxes two things a published package should keep. It turns `explicit-function-return-type` off, and a return type here is part of the contract; and it adds `jsx-a11y`, which has nothing to check in a package that exports hooks and renders no markup. The `react` plugin itself is wanted, for the rules about how a hook may be called.
+  */
   "extends": ["../../tooling/oxlint/base.json"],
   "plugins": ["typescript", "unicorn", "oxc", "import", "react"]
 }

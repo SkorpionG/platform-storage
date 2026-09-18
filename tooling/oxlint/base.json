@@ -1,5 +1,7 @@
 {
+  // Two plugins are deliberately absent. `node` describes CommonJS and Node built-ins, which a browser and React Native library cannot reach. `promise` fires only on correct code here: its rules reject a `then` over an operation producing nothing, which every void adapter method is.
   "plugins": ["typescript", "unicorn", "oxc", "import"],
+  // The remaining categories stay off. `pedantic` is mostly size limits on `describe` blocks, and three of its rules contradict deliberate decisions here: `max-classes-per-file`, `no-inner-declarations`, and `unicorn/no-useless-undefined` in a library whose subject is that `undefined` means something.
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -17,6 +19,8 @@
         "default": "generic"
       }
     ],
+    // A value returned from a promise executor goes nowhere, so an operation written there never settles and nothing says why.
+    "no-promise-executor-return": "error",
     "unicorn/prefer-node-protocol": "error",
     "import/no-cycle": "error",
     "no-console": "error",
@@ -27,7 +31,9 @@
       "files": ["**/tests/**"],
       "rules": {
         "typescript/explicit-function-return-type": "off",
-        "typescript/no-non-null-assertion": "off"
+        "typescript/no-non-null-assertion": "off",
+        // The rule guards against an object becoming awaitable by accident. A suite covering the check that recognizes a thenable has to build one on purpose, which is the opposite case.
+        "unicorn/no-thenable": "off"
       }
     }
   ]

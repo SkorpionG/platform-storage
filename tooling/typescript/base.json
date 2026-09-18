@@ -12,13 +12,18 @@
     "exactOptionalPropertyTypes": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    "noUncheckedSideEffectImports": true,
+
+    // The codebase is functional and declares no `enum`, `namespace` or parameter property. This is what checks that, rather than leaving it to review: everything here erases to nothing at runtime.
+    "erasableSyntaxOnly": true,
 
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "declaration": true,
-    "declarationMap": true,
     "noEmit": true,
 
     "incremental": true,

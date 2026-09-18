@@ -5,6 +5,8 @@ import {
   defineStorageSchema,
   jsonSerializer,
   memoryAdapter,
+  STORAGE_ERROR_CODE,
+  STORAGE_OPERATION,
   StorageAdapterError,
   StorageSerializationError,
   StorageUnavailableError,
@@ -175,7 +177,7 @@ describe("values the serializer cannot represent", () => {
   it("reports a write it could not serialize, naming the direction", async () => {
     const { storage } = build();
     const circular: Record<string, unknown> = {};
-    circular.self = circular;
+    circular["self"] = circular;
 
     await storage.set("anything", circular).catch((error: StorageSerializationError) => {
       expect(error).toBeInstanceOf(StorageSerializationError);
@@ -190,7 +192,7 @@ describe("values the serializer cannot represent", () => {
   it("writes nothing when serializing fails", async () => {
     const { adapter, storage } = build();
     const circular: Record<string, unknown> = {};
-    circular.self = circular;
+    circular["self"] = circular;
 
     await expect(storage.set("anything", circular)).rejects.toThrow();
 
@@ -201,7 +203,7 @@ describe("values the serializer cannot represent", () => {
     const onError = vi.fn();
     const storage = createStorage({ schema, adapter: memoryAdapter(), onError });
     const circular: Record<string, unknown> = {};
-    circular.self = circular;
+    circular["self"] = circular;
 
     await expect(storage.set("anything", circular)).rejects.toThrow();
 
@@ -228,6 +230,26 @@ describe("clear", () => {
     await storage.clear();
 
     expect(adapter.entries.get("someone-elses-key")).toBe('"keep me"');
+  });
+
+  /*
+    Nothing reports the `clear` operation. Removing the declared keys one at a time is what lets a failure name the key the backend refused, which is more use than knowing only that a clear went wrong somewhere. `STORAGE_OPERATION.Clear` names the method for the rest of the API, not a call any adapter receives.
+  */
+  it("reports a refusal as a remove, naming the key the backend would not delete", async () => {
+    const adapter = {
+      ...memoryAdapter({ name: "stubborn" }),
+      remove: () => Promise.reject(new Error("refused")),
+    };
+    const storage = createStorage({ schema, adapter });
+
+    await expect(storage.clear()).rejects.toThrow(
+      expect.objectContaining({
+        code: STORAGE_ERROR_CODE.Adapter,
+        adapter: "stubborn",
+        operation: STORAGE_OPERATION.Remove,
+        physicalKey: "theme",
+      }),
+    );
   });
 });
 

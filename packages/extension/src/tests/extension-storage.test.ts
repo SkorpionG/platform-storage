@@ -72,6 +72,43 @@ describe("createExtensionStorage", () => {
     expect([...namespace.local.entries.keys()]).toEqual(["someone-elses-key"]);
   });
 
+  /*
+    An area holds JSON values, so nothing is encoded on the way in. That is what makes a value outside JSON dangerous here rather than merely wrong: the browser stores something else in its place and the loss shows up much later, as data that no longer matches its schema. The write is refused instead.
+  */
+  it("refuses a write the area could not hold, naming where in the value the problem is", async () => {
+    const namespace = fakeStorageNamespace();
+    const datedSchema = defineStorageSchema({
+      profile: { schema: z.object({ id: z.string(), seenAt: z.date() }) },
+    });
+    const storage = createExtensionStorage({ schema: datedSchema, storage: () => namespace });
+
+    await expect(storage.set("profile", { id: "u1", seenAt: new Date() })).rejects.toThrow(
+      expect.objectContaining({
+        code: "SERIALIZATION",
+        direction: "serialize",
+        key: "profile",
+      }),
+    );
+    expect(namespace.local.entries.size).toBe(0);
+  });
+
+  it("reports the failure through onError and says which part of the value it was", async () => {
+    const namespace = fakeStorageNamespace();
+    const onError = vi.fn();
+    const mapSchema = defineStorageSchema({ cache: { schema: z.custom<unknown>() } });
+    const storage = createExtensionStorage({
+      schema: mapSchema,
+      storage: () => namespace,
+      onError,
+    });
+
+    await expect(storage.set("cache", { entries: new Map() })).rejects.toThrow();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(onError).mock.calls[0]?.[0].cause).toMatchObject({
+      message: "`entries` is a Map, which is not a JSON value.",
+    });
+  });
+
   it("passes the remaining options through to createStorage", async () => {
     const namespace = fakeStorageNamespace();
     await namespace.local.set({ theme: "purple" });

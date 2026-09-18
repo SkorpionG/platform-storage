@@ -6,25 +6,41 @@
 
 Declare what your app stores, once. Every read and write is then validated at runtime and typed at compile time, whether the values live in `localStorage`, a browser extension's storage area, or React Native's AsyncStorage.
 
-## Install
+## Installation
 
 One package per platform. Each re-exports the whole core API, so it is the only one you need.
 
+| Platform                                 | Package                          |
+| ---------------------------------------- | -------------------------------- |
+| Browsers and Electron renderers          | `@platform-storage/web`          |
+| Browser extensions, Chromium and Firefox | `@platform-storage/extension`    |
+| React Native and Expo                    | `@platform-storage/react-native` |
+
 ```sh
-npm install @platform-storage/web            # localStorage, sessionStorage, Electron renderers
-npm install @platform-storage/extension      # browser extensions: local, sync, session
-npm install @platform-storage/react-native   # React Native and Expo, via AsyncStorage
+npm install @platform-storage/web zod
 ```
 
-Add a [Standard Schema](https://standardschema.dev) validation library such as Zod alongside it.
+```sh
+pnpm add @platform-storage/web zod
+```
 
-Using React? Add the hooks beside whichever of those you installed. They are not a platform package and do not replace one.
+```sh
+yarn add @platform-storage/web zod
+```
+
+```sh
+bun add @platform-storage/web zod
+```
+
+Zod is one choice among many: any [Standard Schema](https://standardschema.dev) validator works, and none of them is a dependency of this project. Swap in Valibot or ArkType if you prefer.
+
+Using React? Add the hooks beside whichever platform package you installed. They are not a platform package and do not replace one.
 
 ```sh
 npm install @platform-storage/react
 ```
 
-## Example
+## Quick Start
 
 ```ts
 import * as z from "zod";
@@ -37,7 +53,8 @@ const schema = defineStorageSchema({
 
 const storage = createLocalStorage({ schema });
 
-await storage.set("theme", "dark");
+await storage.set("theme", "dark"); // ✅
+await storage.set("theme", "blue"); // ❌ Type error
 
 const theme = await storage.get("theme"); // "light" | "dark"
 const user = await storage.get("user"); // { id: string; name: string } | undefined
@@ -45,12 +62,89 @@ const user = await storage.get("user"); // { id: string; name: string } | undefi
 
 `theme` has no `undefined` in its type because the key declares a default. `user` does, because nothing answers for it when the backend holds nothing.
 
-Switching platform means switching the import. The schema does not change:
+## Features
+
+### 1. Typed keys and values, from one declaration
+
+The schema is the single source of truth. Keys autocomplete, values are checked against the validator you wrote, and nothing is restated at a call site.
+
+```ts
+await storage.get("theme"); // ✅ "light" | "dark"
+await storage.get("them"); // ❌ Type error: not a declared key
+await storage.set("user", { id: "u1" }); // ❌ Type error: `name` is missing
+```
+
+### 2. Validated on the way in and on the way out
+
+Persisted data outlives the code that wrote it. A value may have been written by an older release, edited by hand in devtools, synced from another device, or written by different code on the same origin — so it is checked when it comes back, not only when it goes in.
+
+```ts
+localStorage.setItem("theme", '"solarized"'); // something else wrote this
+
+await storage.get("theme"); // "light" — the declared default, not a crash
+```
+
+### 3. A read that survives bad data, without being silent
+
+A value that no longer matches its schema falls back to the key's default rather than breaking the read. The `onError` observer still sees every failure, so nothing is swallowed. Choose `"throw"` when you would rather know loudly — per call, per key, or per storage.
+
+```ts
+const storage = createLocalStorage({
+  schema,
+  onError: (error) => console.warn(error.code, error.message),
+});
+
+await storage.get("theme", { onInvalid: "throw" }); // rejects instead of falling back
+```
+
+### 4. Synchronous reads where the platform allows one
+
+Web storage answers immediately, so those storages also expose `getSync` and its siblings — which is what lets a first render paint a stored value with no loading state. On a platform that can only answer later, those methods are simply absent from the type.
+
+```ts
+const theme = storage.getSync("theme"); // "light" | "dark", no await
+
+const area = createExtensionStorage({ schema });
+area.getSync("theme"); // ❌ Type error: an area only ever answers later
+```
+
+### 5. One schema, every platform
+
+Switching platform means switching the import. The schema module itself has no DOM types and does not change.
 
 ```ts
 import { createExtensionStorage } from "@platform-storage/extension";
+import { createReactNativeStorage } from "@platform-storage/react-native";
 
-const storage = createExtensionStorage({ schema, area: "sync" });
+const synced = createExtensionStorage({ schema, area: "sync" });
+const onDevice = createReactNativeStorage({ schema, asyncStorage: AsyncStorage });
+```
+
+### 6. `clear()` that only clears yours
+
+An origin is shared. `clear()` removes the keys your schema declares and nothing else, so another library's data, another storage's data, and a token written by something else all survive.
+
+```ts
+localStorage.setItem("analytics:session", "abc");
+
+await storage.clear();
+
+localStorage.getItem("analytics:session"); // "abc" — untouched
+```
+
+### 7. Errors you can branch on
+
+Every failure carries a stable `code`. Branch on that rather than on the class, because an application that resolves two copies of a package holds two copies of each class and `instanceof` quietly stops matching across them.
+
+```ts
+import { isStorageQuotaError } from "@platform-storage/web";
+
+try {
+  await storage.set("recentSearches", next);
+} catch (error) {
+  if (!isStorageQuotaError(error)) throw error;
+  await storage.set("recentSearches", next.slice(-10)); // evict and retry
+}
 ```
 
 ## Why
@@ -66,15 +160,6 @@ const theme = raw ? (JSON.parse(raw) as Theme) : "light";
 That cast is a lie. The value may have been written by an older version of the app, edited by hand, synced from another device, or written by different code on the same origin. TypeScript cannot see any of it, so the failure surfaces somewhere else entirely.
 
 Then the same code gets written again for the browser extension, and again for the mobile app, against three different APIs.
-
-## What you get
-
-- **One source of truth.** A schema maps each logical key to its validation schema, the key its backend stores under, and its default. Keys and value types are both inferred from it.
-- **Validated at the boundary.** Data is checked on the way in and on the way out, because persisted data outlives the code that wrote it.
-- **A read that survives bad data.** A value that no longer matches its schema falls back to the key's default instead of breaking the read, and an `onError` observer sees every failure. Choose `"throw"` per call, per key, or per storage when you would rather know loudly.
-- **Synchronous reads where the platform allows.** Web storage answers immediately, so those storages also expose `getSync` and friends, typed so they are simply absent elsewhere.
-- **Honest about platforms.** An adapter exposes what its backend can actually do, rather than pretending every backend is the same. A missing backend is reported, never a crash.
-- **`clear()` that only clears yours.** It removes the keys your schema declares and nothing else on the origin.
 
 ## Packages
 
@@ -110,9 +195,12 @@ pnpm typecheck
 pnpm lint
 pnpm format
 pnpm check-package # publint and Are The Types Wrong, on the packed tarballs
+pnpm changeset     # record a user-facing change
 ```
 
-Conventions, boundaries, the settled design decisions and the traps worth knowing are in [AGENTS.md](AGENTS.md). The release process is in [RELEASING.md](RELEASING.md).
+`examples/` holds a working application per platform — a Vite browser app, a Next.js server-rendered one, a WXT browser extension and an Expo app — each built on the same schema module, so a change can be seen running rather than only tested. [`examples/AGENTS.md`](examples/AGENTS.md) says how to run each one.
+
+Conventions, boundaries, the settled design decisions and the traps worth knowing are in [AGENTS.md](AGENTS.md). What is deliberately deferred is in [ROADMAP.md](ROADMAP.md), and the release process is in [RELEASING.md](RELEASING.md).
 
 ## License
 

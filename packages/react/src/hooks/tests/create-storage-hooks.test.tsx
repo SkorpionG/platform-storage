@@ -9,7 +9,9 @@ afterEach(cleanup);
 
 function settled(): Promise<void> {
   return act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
   });
 }
 
@@ -164,7 +166,9 @@ describe("createStorageHooks over a storage that only answers later", () => {
 
     await act(async () => {
       screen.getByRole("button").click();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
     });
 
     expect(screen.getByRole("button").textContent).toBe("dark");
@@ -189,7 +193,9 @@ describe("createStorageHooks over a storage that only answers later", () => {
 
     await act(async () => {
       screen.getByRole("button").click();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
     });
 
     expect(await storage.get("theme")).toBe("system");

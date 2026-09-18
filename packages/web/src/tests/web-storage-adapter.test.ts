@@ -13,8 +13,8 @@ import {
   StorageValidationError,
   withFallback,
 } from "../index";
-import { isWebStorageAvailable, webStorageAdapter } from "../web-storage-adapter";
-import { throwingStorage } from "../../tests/fakes/throwing-storage";
+import { isQuotaExceeded, isWebStorageAvailable, webStorageAdapter } from "../web-storage-adapter";
+import { storageRefusingWrites, throwingStorage } from "../../tests/fakes/throwing-storage";
 
 /** Stands in for reaching `window.localStorage` where the browser refuses to hand it over. */
 function refusedStorage(): Storage {
@@ -162,23 +162,91 @@ describe("a storage that cannot be reached", () => {
 
 describe("a storage that refuses a write", () => {
   it("throws in the browser's own vocabulary at the adapter, for the engine to wrap", () => {
-    const adapter = webStorageAdapter(() => throwingStorage());
+    const adapter = webStorageAdapter(() => storageRefusingWrites(new Error("no")));
 
-    expect(() => adapter.setSync("theme", '"dark"')).toThrow(DOMException);
+    expect(() => adapter.setSync("theme", '"dark"')).toThrow("no");
   });
 
   it("becomes an adapter error through a storage, keeping the browser's exception as the cause", async () => {
-    const storage = createStorage({ schema, adapter: webStorageAdapter(() => throwingStorage()) });
+    const cause = new Error("no");
+    const storage = createStorage({
+      schema,
+      adapter: webStorageAdapter(() => storageRefusingWrites(cause)),
+    });
 
     await storage.set("theme", "dark").catch((error: StorageAdapterError) => {
       expect(error).toBeInstanceOf(StorageAdapterError);
       expect(error.code).toBe(STORAGE_ERROR_CODE.Adapter);
       expect(error.operation).toBe("set");
       expect(error.physicalKey).toBe("theme");
-      expect((error.cause as DOMException).name).toBe("QuotaExceededError");
+      expect(error.cause).toBe(cause);
     });
 
     expect.assertions(5);
+  });
+});
+
+/*
+  The one backend failure this adapter names itself. Everything else is left in the browser's vocabulary for the engine to wrap, but only the adapter knows how its own platform reports a full origin, and it is the one case a caller can act on by evicting something and writing again.
+*/
+describe("a full origin", () => {
+  const quotaFailures = [
+    ["the standard exception", new DOMException("full", "QuotaExceededError")],
+    ["Firefox's name for it", new DOMException("full", "NS_ERROR_DOM_QUOTA_REACHED")],
+    ["an older browser setting only the DOM code", { name: "Error", code: 22 }],
+    ["an older Firefox setting only its code", { name: "Error", code: 1014 }],
+  ] as const;
+
+  it.each(quotaFailures)("is recognized from %s", (_label, failure) => {
+    expect(isQuotaExceeded(failure)).toBe(true);
+  });
+
+  it("is not claimed for a refusal that says nothing about room", () => {
+    expect(isQuotaExceeded(new Error("no"))).toBe(false);
+    expect(isQuotaExceeded(new DOMException("denied", "SecurityError"))).toBe(false);
+    expect(isQuotaExceeded({ code: 23 })).toBe(false);
+    expect(isQuotaExceeded(null)).toBe(false);
+    expect(isQuotaExceeded("QuotaExceededError")).toBe(false);
+  });
+
+  it("surfaces with its own code, so a caller can evict and retry rather than only report", async () => {
+    const cause = new DOMException("full", "QuotaExceededError");
+    const storage = createStorage({
+      schema,
+      adapter: webStorageAdapter(() => storageRefusingWrites(cause), { name: "localStorage" }),
+    });
+
+    await expect(storage.set("theme", "dark")).rejects.toThrow(
+      expect.objectContaining({
+        code: STORAGE_ERROR_CODE.Quota,
+        adapter: "localStorage",
+        operation: "set",
+        physicalKey: "theme",
+        cause,
+      }),
+    );
+  });
+
+  it("is still an adapter failure, so anything catching those still catches it", async () => {
+    const storage = createStorage({
+      schema,
+      adapter: webStorageAdapter(() =>
+        storageRefusingWrites(new DOMException("full", "QuotaExceededError")),
+      ),
+    });
+
+    await expect(storage.set("theme", "dark")).rejects.toBeInstanceOf(StorageAdapterError);
+  });
+
+  it("leaves reads and removes alone, since only a write can run out of room", () => {
+    const adapter = webStorageAdapter(() =>
+      storageRefusingWrites(new DOMException("full", "QuotaExceededError")),
+    );
+
+    expect(adapter.getSync("theme")).toBeUndefined();
+    expect(() => {
+      adapter.removeSync("theme");
+    }).not.toThrow();
   });
 });
 

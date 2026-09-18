@@ -1,4 +1,9 @@
-import { passthroughSerializer, requireBackend, STORAGE_OPERATION } from "@platform-storage/core";
+import {
+  passthroughSerializer,
+  requireBackend,
+  STORAGE_OPERATION,
+  StorageQuotaExceededError,
+} from "@platform-storage/core";
 import type {
   BackendSource,
   JsonValue,
@@ -34,11 +39,38 @@ function read(target: ExtensionStorageArea, key: string): Promise<JsonValue | un
 }
 
 /**
+ * The limits an area names when a write does not fit.
+ *
+ * An extension area reports a full quota in its message rather than with an error type of its own, and the message names the limit that was passed: the area's total in `QUOTA_BYTES`, one item's share in `QUOTA_BYTES_PER_ITEM`, and the `sync` area's rate limits in the two `MAX_` ones. Matched case-insensitively, since Chrome and Firefox word the surrounding sentence differently.
+ */
+const QUOTA_LIMITS: ReadonlyArray<string> = [
+  "QUOTA_BYTES",
+  "QUOTA_BYTES_PER_ITEM",
+  "MAX_ITEMS",
+  "MAX_WRITE_OPERATIONS",
+];
+
+function isQuotaRejection(cause: unknown): boolean {
+  const message: unknown =
+    typeof cause === "object" && cause !== null
+      ? (cause as { readonly message?: unknown }).message
+      : cause;
+
+  if (typeof message !== "string") return false;
+
+  const upper = message.toUpperCase();
+
+  return QUOTA_LIMITS.some((limit) => upper.includes(limit));
+}
+
+/**
  * An adapter over one WebExtension storage area.
  *
  * Values are handed to the area untouched, because it stores JSON values natively: encoding them would double-encode, spend the `sync` quota twice, and hide the value from any code that reads the key without this library.
  *
- * The namespace is resolved on every operation rather than once at construction, so an adapter built while a module loads works in whichever context the module ends up in, and a context with no extension API, or an area the browser does not have, reports `StorageUnavailableError` instead of crashing. A call the area rejects, as a `sync` write over quota is, is let through in the browser's own vocabulary for the engine to wrap as `StorageAdapterError` with that rejection as the cause.
+ * The namespace is resolved on every operation rather than once at construction, so an adapter built while a module loads works in whichever context it ends up in. A context with no extension API, and an area the browser does not have, both report `StorageUnavailableError` rather than crashing.
+ *
+ * A rejected call is left in the browser's own vocabulary for the engine to wrap. The exception is a full area, which this adapter names itself: an area reports one in its message rather than with an error type, so reading that is the adapter's job rather than the caller's.
  */
 export function extensionStorageAdapter(
   options: ExtensionStorageAdapterOptions = {},
@@ -59,7 +91,15 @@ export function extensionStorageAdapter(
     operation: StorageOperation,
     physicalKey: string,
     action: (target: ExtensionStorageArea) => Promise<Value>,
-  ): Promise<Value> => Promise.resolve().then(() => action(reach(operation, physicalKey)));
+  ): Promise<Value> =>
+    Promise.resolve()
+      .then(() => action(reach(operation, physicalKey)))
+      .catch((cause: unknown) => {
+        /* Everything else is left to the engine, which wraps it as `StorageAdapterError` with the browser's rejection as its cause. Only a full area is named here, because only the adapter can read the limit out of the message. */
+        if (!isQuotaRejection(cause)) throw cause;
+
+        throw new StorageQuotaExceededError({ adapter: name, operation, physicalKey, cause });
+      });
 
   return {
     name,

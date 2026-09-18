@@ -83,6 +83,24 @@ describe("a storage that rejects", () => {
 
     await expect(storage.get("theme")).rejects.toThrow(StorageAdapterError);
   });
+
+  /*
+    The web and extension adapters raise `StorageQuotaExceededError` for a backend that has run out of room, because each of those platforms names the case. AsyncStorage does not: what a full device produces depends on the native layer underneath, and there is no signal that means the same thing on both iOS and Android. Guessing from a message would be wrong more often than right, so the failure keeps the general code and the rejection itself stays reachable through `cause`.
+  */
+  it("reports a full device as a plain adapter failure, since nothing here can tell one apart", async () => {
+    const cause = new Error("SQLITE_FULL: database or disk is full");
+    const storage = createStorage({
+      schema,
+      adapter: asyncStorageAdapter(rejectingAsyncStorage(cause.message)),
+    });
+
+    await expect(storage.set("theme", "dark")).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Adapter,
+    });
+    await expect(storage.set("theme", "dark")).rejects.not.toMatchObject({
+      code: STORAGE_ERROR_CODE.Quota,
+    });
+  });
 });
 
 describe("through a storage", () => {

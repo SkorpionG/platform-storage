@@ -7,6 +7,7 @@ export const STORAGE_ERROR_CODE = {
   Validation: "VALIDATION",
   Serialization: "SERIALIZATION",
   Adapter: "ADAPTER",
+  Quota: "QUOTA",
   Unavailable: "UNAVAILABLE",
   UnknownKey: "UNKNOWN_KEY",
   InvalidSchema: "INVALID_SCHEMA",
@@ -19,6 +20,8 @@ export type StorageErrorCode = (typeof STORAGE_ERROR_CODE)[keyof typeof STORAGE_
  * Every operation a storage or an adapter can perform.
  *
  * This is the single source for operation names: errors report one, and the API surface is checked against it. A type test asserts that the adapter contract and the storage interface expose exactly these, so adding an operation without naming it here fails the build rather than producing an error that reports an operation nothing else knows about.
+ *
+ * `Clear` names the method rather than a call any adapter receives. `clear()` removes the declared keys one at a time, so a backend that refuses reports `Remove` and the key it refused, which is the more useful of the two.
  */
 export const STORAGE_OPERATION = {
   Get: "get",

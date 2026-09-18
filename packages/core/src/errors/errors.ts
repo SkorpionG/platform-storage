@@ -110,7 +110,9 @@ export interface StorageAdapterErrorOptions {
 }
 
 /**
- * The backend itself failed: an exhausted quota, a revoked permission, a rejected native call.
+ * The backend itself failed: a revoked permission, a rejected native call, a storage the browser will not write to.
+ *
+ * A backend that has simply run out of room raises `StorageQuotaExceededError`, which extends this, so catching this one still catches that.
  *
  * This is never subject to the invalid-data policy. A policy decides what a bad *value* means; it cannot decide what a broken backend means.
  */
@@ -135,6 +137,27 @@ export class StorageAdapterError extends PlatformStorageError {
     this.adapter = options.adapter;
     this.operation = options.operation;
     this.physicalKey = options.physicalKey;
+  }
+}
+
+/**
+ * The backend is full: `localStorage` over its origin allowance, a `sync` area over `QUOTA_BYTES`, a device out of space.
+ *
+ * Separate from a plain `StorageAdapterError` because it is the one backend failure an application can usually act on, by evicting something and writing again. Recognizing it is each adapter's job rather than the engine's, since only the adapter knows how its own platform reports one.
+ */
+export class StorageQuotaExceededError extends StorageAdapterError {
+  constructor(options: StorageAdapterErrorOptions) {
+    const target = options.physicalKey === undefined ? "" : ` for "${options.physicalKey}"`;
+
+    super(
+      {
+        ...options,
+        message: options.message ?? `The ${options.adapter} backend is out of room${target}.`,
+      },
+      STORAGE_ERROR_CODE.Quota,
+    );
+
+    this.name = "StorageQuotaExceededError";
   }
 }
 

@@ -3,6 +3,7 @@ import {
   jsonSerializer,
   requireBackend,
   STORAGE_OPERATION,
+  StorageQuotaExceededError,
 } from "@platform-storage/core";
 import type { BackendSource, StorageOperation, SyncStorageAdapter } from "@platform-storage/core";
 
@@ -19,6 +20,32 @@ export interface WebStorageAdapterOptions {
 }
 
 const PROBE_KEY = "__platform_storage_probe__";
+
+/**
+ * The names and legacy codes browsers report an exhausted origin allowance under.
+ *
+ * `QuotaExceededError` is the standard one. Firefox raises `NS_ERROR_DOM_QUOTA_REACHED` instead, and older browsers set only the numeric `code`: 22 in the DOM specification, 1014 in Firefox. All four are checked because a caller that wants to evict and retry has to recognize the case wherever it runs.
+ */
+const QUOTA_NAMES: ReadonlySet<string> = new Set([
+  "QuotaExceededError",
+  "NS_ERROR_DOM_QUOTA_REACHED",
+]);
+const QUOTA_CODES: ReadonlySet<number> = new Set([22, 1014]);
+
+/**
+ * Whether the browser refused a write because the origin is full, rather than because it refuses writes at all.
+ *
+ * Safari in private browsing raises `QuotaExceededError` for every write, with an allowance of zero. The two are indistinguishable from the exception alone, which is why `isWebStorageAvailable` probes before a storage is ever chosen.
+ */
+export function isQuotaExceeded(cause: unknown): boolean {
+  if (typeof cause !== "object" || cause === null) return false;
+
+  const { name, code } = cause as { readonly name?: unknown; readonly code?: unknown };
+
+  if (typeof name === "string" && QUOTA_NAMES.has(name)) return true;
+
+  return typeof code === "number" && QUOTA_CODES.has(code);
+}
 
 /**
  * Reports whether a web storage object can actually be written to.
@@ -43,7 +70,9 @@ export function isWebStorageAvailable(getStorage: WebStorageSource): boolean {
 /**
  * An adapter over any web `Storage`: `localStorage`, `sessionStorage`, or anything else with that shape.
  *
- * The storage is reached through `getStorage` on every operation rather than once at construction, so an adapter built while a module loads still works, and a storage that cannot be reached reports `StorageUnavailableError` instead of crashing. A storage that refuses a write, as an exhausted quota does, is let through in its own vocabulary for the engine to wrap as `StorageAdapterError` with the browser's exception as the cause.
+ * The storage is reached through `getStorage` on every operation rather than once at construction, so an adapter built while a module loads still works, and one that cannot be reached reports `StorageUnavailableError` rather than crashing.
+ *
+ * A refused write is left in the browser's own vocabulary for the engine to wrap. The exception is a full origin, which this adapter names itself, because the browsers disagree about how they report one and a caller wanting to evict and retry should not have to know that.
  */
 export function webStorageAdapter(
   getStorage: WebStorageSource,
@@ -59,7 +88,21 @@ export function webStorageAdapter(
     // `getItem` answers `null` for a missing key, and `null` is a wire value the JSON serializer would read back as a stored null.
     getSync: (key) => reach(STORAGE_OPERATION.Get, key).getItem(key) ?? undefined,
     setSync: (key, value) => {
-      reach(STORAGE_OPERATION.Set, key).setItem(key, value);
+      const storage = reach(STORAGE_OPERATION.Set, key);
+
+      try {
+        storage.setItem(key, value);
+      } catch (cause) {
+        /* Everything else is left to the engine, which wraps it as `StorageAdapterError` with the browser's exception as its cause. Only the full-origin case is named here, because only the adapter knows how this platform reports one. */
+        if (!isQuotaExceeded(cause)) throw cause;
+
+        throw new StorageQuotaExceededError({
+          adapter: name,
+          operation: STORAGE_OPERATION.Set,
+          physicalKey: key,
+          cause,
+        });
+      }
     },
     removeSync: (key) => {
       reach(STORAGE_OPERATION.Remove, key).removeItem(key);

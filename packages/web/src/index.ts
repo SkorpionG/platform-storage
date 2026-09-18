@@ -1,6 +1,6 @@
 export * from "@platform-storage/core";
 
-export { isWebStorageAvailable, webStorageAdapter } from "./web-storage-adapter";
+export { isQuotaExceeded, isWebStorageAvailable, webStorageAdapter } from "./web-storage-adapter";
 export type { WebStorageAdapterOptions, WebStorageSource } from "./web-storage-adapter";
 export {
   createLocalStorage,

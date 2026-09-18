@@ -1,5 +1,5 @@
 import { isSyncStorageAdapter } from "../adapter/adapter";
-import type { StorageAdapter, SyncStorageAdapter, WireOf } from "../adapter/adapter";
+import type { StorageAdapter } from "../adapter/adapter";
 import { STORAGE_ERROR_CODE, STORAGE_OPERATION } from "../errors/codes";
 import {
   StorageSchemaError,
@@ -7,94 +7,25 @@ import {
   UnknownStorageKeyError,
 } from "../errors/errors";
 import type { PlatformStorageError } from "../errors/errors";
-import type { GetResult, KeyOf, SetValue } from "../schema/key-definition";
-import type { StorageSchema, StorageSchemaDefinition } from "../schema/storage-schema";
+import type { GetResult, KeyOf } from "../schema/key-definition";
+import type { StorageSchemaDefinition } from "../schema/storage-schema";
 import type { Serializer } from "../serializer/serializer";
 import type { SchemaIssue } from "../types/standard-schema";
 import type { MaybePromise } from "../types/utils";
-import { callAdapter } from "./adapter-calls";
 import { applyInvalidPolicy, resolveOnInvalid } from "./invalid-policy";
 import type { InvalidContext, OnInvalid } from "./invalid-policy";
 import { chain, expectSync } from "./maybe-promise";
 import { deserializeWire, resolveMissing, serializeValue, validateValue } from "./pipeline";
 import type { EntryContext, ExecutionMode } from "./pipeline";
-
-export interface GetOptions<Definition> {
-  /**
-   * Overrides the key's and the storage's policy for this read alone.
-   *
-   * A callback given here is checked against what the key can hold, because nothing is being inferred at a call site the way it is in a schema declaration.
-   */
-  readonly onInvalid?: OnInvalid<GetResult<Definition>> | undefined;
-}
-
-export interface CreateStorageOptions<
-  Definition extends StorageSchemaDefinition,
-  Adapter extends StorageAdapter<unknown>,
-> {
-  readonly schema: StorageSchema<Definition>;
-  readonly adapter: Adapter;
-  /** Replaces the adapter's own serializer. Typed against what that adapter transports. */
-  readonly serializer?: Serializer<WireOf<Adapter>> | undefined;
-  /** The policy for every key that does not declare its own. Defaults to `"fallback"`. */
-  readonly onInvalid?: OnInvalid<unknown> | undefined;
-  /**
-   * Called for every failure, whether it is thrown or handled.
-   *
-   * This is what keeps a falling-back read from being a silent one: wire it to a logger and stale data still shows up, without a read ever breaking the surface reading it.
-   */
-  readonly onError?: ((error: PlatformStorageError) => void) | undefined;
-}
-
-export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
-  readonly schema: StorageSchema<Definition>;
-  readonly adapter: StorageAdapter<unknown>;
-
-  get<Key extends KeyOf<Definition>>(
-    key: Key,
-    options?: GetOptions<Definition[Key]>,
-  ): Promise<GetResult<Definition[Key]>>;
-  set<Key extends KeyOf<Definition>>(key: Key, value: SetValue<Definition[Key]>): Promise<void>;
-  remove(key: KeyOf<Definition>): Promise<void>;
-  /** Whether anything is stored, without validating it. */
-  has(key: KeyOf<Definition>): Promise<boolean>;
-  /** Removes only the keys this schema declares, never anything else sharing the backend. */
-  clear(): Promise<void>;
-
-  /** The key the backend stores under, for tooling that has to address it directly. */
-  physicalKey(key: KeyOf<Definition>): string;
-}
-
-/** The synchronous half, present only when the adapter can answer immediately. */
-export interface SyncStorageMethods<Definition extends StorageSchemaDefinition> {
-  getSync<Key extends KeyOf<Definition>>(
-    key: Key,
-    options?: GetOptions<Definition[Key]>,
-  ): GetResult<Definition[Key]>;
-  setSync<Key extends KeyOf<Definition>>(key: Key, value: SetValue<Definition[Key]>): void;
-  removeSync(key: KeyOf<Definition>): void;
-  hasSync(key: KeyOf<Definition>): boolean;
-  clearSync(): void;
-}
-
-export type SyncPlatformStorage<Definition extends StorageSchemaDefinition> =
-  PlatformStorage<Definition> & SyncStorageMethods<Definition>;
-
-export type CreateStorageResult<
-  Definition extends StorageSchemaDefinition,
-  Adapter extends StorageAdapter<unknown>,
-> =
-  Adapter extends SyncStorageAdapter<unknown>
-    ? SyncPlatformStorage<Definition>
-    : PlatformStorage<Definition>;
-
-/** How the engine reaches its backend, in whichever mode it is running. */
-interface StorageIo {
-  get(physicalKey: string): MaybePromise<unknown>;
-  set(physicalKey: string, wire: unknown): MaybePromise<void>;
-  remove(physicalKey: string): MaybePromise<void>;
-  has(physicalKey: string): MaybePromise<boolean>;
-}
+import type {
+  CreateStorageOptions,
+  CreateStorageResult,
+  GetOptions,
+  PlatformStorage,
+  SyncStorageMethods,
+} from "./platform-storage";
+import { createAsyncIo, createSyncIo } from "./storage-io";
+import type { StorageIo } from "./storage-io";
 
 /**
  * Builds a storage over a schema and a backend.
@@ -132,63 +63,7 @@ export function createStorage<
     return { key, physicalKey, definition, serializer };
   }
 
-  function buildAsyncIo(): StorageIo {
-    const get = (physicalKey: string): MaybePromise<unknown> =>
-      callAdapter(adapter, STORAGE_OPERATION.Get, physicalKey, report, () =>
-        adapter.get(physicalKey),
-      );
-
-    return {
-      get,
-      set: (physicalKey, wire) =>
-        callAdapter(adapter, STORAGE_OPERATION.Set, physicalKey, report, () =>
-          adapter.set(physicalKey, wire),
-        ),
-      remove: (physicalKey) =>
-        callAdapter(adapter, STORAGE_OPERATION.Remove, physicalKey, report, () =>
-          adapter.remove(physicalKey),
-        ),
-      has: (physicalKey) => {
-        const { has } = adapter;
-
-        return has === undefined
-          ? chain(get(physicalKey), (wire) => wire !== undefined)
-          : callAdapter(adapter, STORAGE_OPERATION.Has, physicalKey, report, () =>
-              has.call(adapter, physicalKey),
-            );
-      },
-    };
-  }
-
-  function buildSyncIo(sync: SyncStorageAdapter<unknown>): StorageIo {
-    const get = (physicalKey: string): MaybePromise<unknown> =>
-      callAdapter(adapter, STORAGE_OPERATION.Get, physicalKey, report, () =>
-        sync.getSync(physicalKey),
-      );
-
-    return {
-      get,
-      set: (physicalKey, wire) =>
-        callAdapter(adapter, STORAGE_OPERATION.Set, physicalKey, report, () => {
-          sync.setSync(physicalKey, wire);
-        }),
-      remove: (physicalKey) =>
-        callAdapter(adapter, STORAGE_OPERATION.Remove, physicalKey, report, () => {
-          sync.removeSync(physicalKey);
-        }),
-      has: (physicalKey) => {
-        const { hasSync } = sync;
-
-        return hasSync === undefined
-          ? chain(get(physicalKey), (wire) => wire !== undefined)
-          : callAdapter(adapter, STORAGE_OPERATION.Has, physicalKey, report, () =>
-              hasSync.call(sync, physicalKey),
-            );
-      },
-    };
-  }
-
-  const asyncIo = buildAsyncIo();
+  const asyncIo = createAsyncIo(adapter, report);
 
   function recover(
     io: StorageIo,
@@ -293,6 +168,7 @@ export function createStorage<
     return io.has(entryFor(key).physicalKey);
   }
 
+  /* One key at a time, so a backend that refuses names the key it refused rather than the whole operation. */
   function runClear(io: StorageIo): MaybePromise<void> {
     let pending: MaybePromise<void> = undefined;
 
@@ -336,7 +212,7 @@ export function createStorage<
     return storage as CreateStorageResult<Definition, Adapter>;
   }
 
-  const syncIo = buildSyncIo(adapter);
+  const syncIo = createSyncIo(adapter, report);
 
   const syncMethods: SyncStorageMethods<Definition> = {
     getSync: <Key extends KeyOf<Definition>>(key: Key, getOptions?: GetOptions<Definition[Key]>) =>
