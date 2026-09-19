@@ -70,6 +70,7 @@ Publishing from a dirty tree publishes whatever is lying around, since the tarba
 ```sh
 pnpm install
 pnpm format:check
+pnpm knip && pnpm knip:production
 pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm check-package
 ```
 

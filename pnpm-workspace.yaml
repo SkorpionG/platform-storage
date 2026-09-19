@@ -36,6 +36,8 @@ catalog:
   # Teaches WXT to compile JSX. Released against `wxt` rather than against React, so the two move together.
   "@wxt-dev/module-react": ^1.2.2
   happy-dom: ^20.13.2
+  # Finds unused files, exports and dependencies across every workspace from one place, so only the root depends on it.
+  knip: ^6.37.0
   lefthook: ^2.1.12
   next: ^16.3.5
   oxfmt: ^0.66.0

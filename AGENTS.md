@@ -39,6 +39,7 @@ The demonstration apps have conventions, tooling and traps of their own, and [`e
 | Format            | `pnpm format` / `pnpm format:check`                 |
 | Comment wrapping  | `pnpm format:comments` / `pnpm format:comments:fix` |
 | Packaging checks  | `pnpm check-package`                                |
+| Unused code       | `pnpm knip` / `pnpm knip:production`                |
 | Consumer check    | `pnpm verify-tarballs`                              |
 | One package       | `pnpm --filter @platform-storage/core test`         |
 | Watch one package | `pnpm --filter @platform-storage/core test:watch`   |
@@ -47,7 +48,7 @@ The demonstration apps have conventions, tooling and traps of their own, and [`e
 | Version the set   | `pnpm version-packages`                             |
 | Publish           | `pnpm release`                                      |
 
-Root scripts only delegate to `turbo run`. Task logic belongs in the package that owns it, which is what lets turbo parallelize and cache per package.
+Root scripts only delegate to `turbo run`. Task logic belongs in the package that owns it, which is what lets turbo parallelize and cache per package. The exceptions are the tools that read the whole workspace in one pass — the formatters and knip — which have no per-package task to delegate to.
 
 ## Conventions
 
@@ -165,7 +166,7 @@ Read the relevant one before changing something here that looks arbitrary, and a
 ### Packaging
 
 - **In-repo `exports` point at `src`; `publishConfig` swaps them for `dist` on publish.** That is what lets the editor, `tsc` and vitest resolve workspace packages to source while consumers get the build. It works only through `pnpm pack` and `pnpm publish`, never `npm pack`, because npm does not apply `publishConfig`.
-- **Nothing in this repository consumes the built packages, so `pnpm verify-tarballs` is what does.** Every example resolves `workspace:*` to source, which means a broken `exports` map, a missing subpath or a declaration that vanishes under `node16` passes the whole suite. That script packs all five, installs them with npm into a throwaway project, and imports, requires and typechecks against them. `publint` and `attw` read a tarball; this one runs it. It belongs in CI on a push to `main` and in the release checklist, and deliberately not in the commit hook or on a pull request: it installs from the registry, so it is slow and fails offline, and what it guards changes far less often than the code does.
+- **Nothing in this repository consumes the built packages, so `pnpm verify-tarballs` is what does.** Every example resolves `workspace:*` to source, which means a broken `exports` map, a missing subpath or a declaration that vanishes under `node16` passes the whole suite. That script builds and packs all five, installs them with npm into a throwaway project, and imports, requires and typechecks against them. `publint` and `attw` read a tarball; this one runs it. It belongs in CI on a push to `main` and in the release checklist, and deliberately not in the commit hook or on a pull request: it installs from the registry, so it is slow and fails offline, and what it guards changes far less often than the code does.
 - **pnpm puts the workspace-root `LICENSE` into every package tarball**, so no package needs a copy of its own. `README.md`, `LICENSE`, `package.json` and `CHANGELOG.md` are included whatever `files` says, but only when they are in the package directory — and the license is the one that is not.
 - **A workspace package therefore reaches a bundler as source, and source transforms apply to it.** A consumer's build sees `dist` and treats it as a dependency; an app in this repository sees `src` at a path outside `node_modules`, so anything filtering on that path treats library code as its own. A framework transform that rewrites free identifiers is the case that bites, since library code is written against no such convention. Keep such a transform scoped to the app, never widened to make the library survive it; `examples/AGENTS.md` records the one that has happened.
 - **Declaration maps are off deliberately.** They point at `src`, which `files` does not publish, so shipping them would hand every consumer a map to nothing. JavaScript source maps stay on.
@@ -184,6 +185,8 @@ Read the relevant one before changing something here that looks arbitrary, and a
 
 - **oxlint's `ignorePatterns` is not inherited through `extends`.** It only takes effect in the config a file actually resolves to, so it belongs in the root `.oxlintrc.json` rather than in `tooling/oxlint/base.json`. This hid for a long time because oxlint already skips anything gitignored, and every path the key named was gitignored; `.agents` is the first that is committed, and so the first where the key had to work.
 - **A comment matcher has to exclude the triple slash.** `format-comments` matched `//` and treated the third slash of a `/// <reference … />` directive as content, rewrapping it into `// / <reference … />` and silently destroying it. Nothing warns, because the result is still a valid comment. Its matchers use `\/\/(?!\/)` for that reason; the repository had no such directive until an Expo app needed one.
+- **knip runs twice, and the second run is the one that protects consumers.** `pnpm knip` covers the whole workspace, tests included. `pnpm knip:production` checks only the published packages' shipped code, in strict mode, against `dependencies` alone, so a package cannot import something only its `devDependencies` provide. Strict is scoped to `@platform-storage/*` because a bundled example app correctly keeps its build tools in `devDependencies`.
+- **knip cannot see two things here, and `knip.jsonc` tells it.** Vitest reads type-level suites from `typecheck.include`, which the plugin does not follow, so `*.test-d.ts` files are named as entries. And every package extends the oxlint config by relative path, so `@tooling/oxlint-config` looks unused while being what puts that config in turbo's graph.
 - **A fixer that a git hook drives is handed paths, not asked to find them.** An exclusion applied only where a tool walks the tree is bypassed the moment lefthook passes `{staged_files}`, and for a rewriting tool that means editing files this repository does not author — which then conflicts with lefthook's stash of unstaged changes and leaves the commit unfinishable. `format-comments` applies its exclusions to both paths for that reason.
 
 ### Editor tooling

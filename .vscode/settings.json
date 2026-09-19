@@ -4,6 +4,7 @@
     "arktype",
     "attw",
     "changesets",
+    "knip",
     "lefthook",
     "oxfmt",
     "oxlint",
@@ -24,7 +25,11 @@
   "specstory.cloudSync.enabled": "always",
   "json.schemaDownload.trustedDomains": {
     "https://turborepo.dev/schema.json": true,
-    "https://unpkg.com/@changesets/config@3.1.1/schema.json": true
+    "https://unpkg.com/@changesets/config@3.1.1/schema.json": true,
+    "https://opencode.ai/config.json": true,
+    "https://models.dev/model-schema.json": true,
+    "https://unpkg.com/knip@6/schema-jsonc.json": true,
+    "https://unpkg.com/knip@6/schema.json": true
   },
   // The editor decides a file is JSONC from its name, and knows `tsconfig.json` but not the shared bases these packages extend. Both tools read comments in their own configs — `tsc` has always allowed them, and oxlint documents them — so without this the editor reports an error in a file that is perfectly valid.
   "files.associations": {

@@ -221,6 +221,11 @@ function main() {
     /** @type {Record<string, string>} */
     const tarballs = {};
 
+    // `dist` is not committed, so a checkout has none, and a tarball packed without it ships only a manifest. Building here also keeps the check from passing on whatever stale build a working copy happens to hold. Turbo's cache makes it close to free when nothing has changed.
+    step("building", () =>
+      run("pnpm", ["exec", "turbo", "run", "build", "--filter=@platform-storage/*"], REPO),
+    );
+
     step("packing", () => {
       for (const name of PACKAGES) {
         const packageDir = join(REPO, "packages", name);

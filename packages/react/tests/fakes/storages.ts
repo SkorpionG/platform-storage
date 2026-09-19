@@ -14,7 +14,7 @@ export function syncStorage(): SyncPlatformStorage<TestDefinition> {
  *
  * Holds its values, unlike a stub that always resolves with nothing, because the asynchronous tests have to watch a written value come back.
  */
-export function asyncOnlyAdapter(delay = 0): StorageAdapter<string> {
+function asyncOnlyAdapter(delay = 0): StorageAdapter<string> {
   const entries = new Map<string, string>();
 
   const settle = <Value>(value: Value): Promise<Value> =>

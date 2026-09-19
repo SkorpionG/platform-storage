@@ -1,0 +1,35 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+profile = "platform-storage"
+
+[profiles.platform-storage]
+model_reasoning_effort = "medium"
+personality = "friendly"
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+
+[mcp_servers.chrome-devtools]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"]
+
+[mcp_servers.gh_grep]
+url = "https://mcp.grep.app"
+
+[mcp_servers.next-devtools]
+command = "npx"
+args = ["-y", "next-devtools-mcp@latest"]
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@latest"]
+
+[mcp_servers.expo]
+url = "https://mcp.expo.dev/mcp"
+
+[mcp_servers.knip]
+command = "npx"
+args = ["-y", "@knip/mcp"]
+
+[features]
+hooks = true

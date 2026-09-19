@@ -24,3 +24,6 @@ pre-commit:
       run: pnpm typecheck
     - name: test
       run: pnpm test
+    # Whole-workspace like the two above, and quick enough to sit beside them: both modes finish in a couple of seconds and need no network.
+    - name: knip
+      run: pnpm knip && pnpm knip:production

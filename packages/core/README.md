@@ -9,18 +9,16 @@ The engine behind [platform-storage](https://github.com/SkorpionG/platform-stora
 Install the package for your platform instead where one exists, since each re-exports everything here. Install core directly when you are writing your own adapter.
 
 ```sh
+# Install with npm
 npm install @platform-storage/core zod
-```
 
-```sh
+# Install with pnpm
 pnpm add @platform-storage/core zod
-```
 
-```sh
+# Install with Yarn
 yarn add @platform-storage/core zod
-```
 
-```sh
+# Install with Bun
 bun add @platform-storage/core zod
 ```
 

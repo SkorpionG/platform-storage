@@ -9,18 +9,16 @@ React hooks for [platform-storage](https://github.com/SkorpionG/platform-storage
 Install this alongside the platform package you already use, rather than instead of it. Unlike the platform packages, this one does not re-export the core API: the schema, the storage and the errors keep coming from where they came from.
 
 ```sh
+# Install with npm
 npm install @platform-storage/web @platform-storage/react
-```
 
-```sh
+# Install with pnpm
 pnpm add @platform-storage/web @platform-storage/react
-```
 
-```sh
+# Install with Yarn
 yarn add @platform-storage/web @platform-storage/react
-```
 
-```sh
+# Install with Bun
 bun add @platform-storage/web @platform-storage/react
 ```
 

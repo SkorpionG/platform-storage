@@ -1,12 +1,13 @@
 {
-  "mcpServers": {
+  "servers": {
     "context7": {
       "url": "https://mcp.context7.com/mcp",
       "type": "http"
     },
     "chrome-devtools": {
       "command": "npx",
-      "args": ["-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"]
+      "args": ["-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"],
+      "type": "stdio"
     },
     "gh_grep": {
       "type": "http",
@@ -14,19 +15,23 @@
     },
     "next-devtools": {
       "command": "npx",
-      "args": ["-y", "next-devtools-mcp@latest"]
+      "args": ["-y", "next-devtools-mcp@latest"],
+      "type": "stdio"
     },
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest"]
+      "args": ["@playwright/mcp@latest"],
+      "type": "stdio"
     },
     "expo": {
-      "type": "http",
-      "url": "https://mcp.expo.dev/mcp"
+      "url": "https://mcp.expo.dev/mcp",
+      "type": "http"
     },
     "knip": {
       "command": "npx",
-      "args": ["-y", "@knip/mcp"]
+      "args": ["-y", "@knip/mcp"],
+      "type": "stdio"
     }
-  }
+  },
+  "inputs": []
 }

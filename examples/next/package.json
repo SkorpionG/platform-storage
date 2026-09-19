@@ -14,14 +14,11 @@
     "clean": "rm -rf .next .cache .turbo node_modules next-env.d.ts"
   },
   "dependencies": {
-    "@examples/schema": "workspace:*",
     "@examples/ui": "workspace:*",
     "@examples/web": "workspace:*",
-    "@platform-storage/web": "workspace:*",
     "next": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:",
-    "zod": "catalog:"
+    "react-dom": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

@@ -17,10 +17,8 @@
     "@examples/schema": "workspace:*",
     "@examples/ui": "workspace:*",
     "@examples/web": "workspace:*",
-    "@platform-storage/web": "workspace:*",
     "react": "catalog:",
-    "react-dom": "catalog:",
-    "zod": "catalog:"
+    "react-dom": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/vite": "catalog:",

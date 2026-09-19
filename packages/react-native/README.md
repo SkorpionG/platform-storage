@@ -7,18 +7,16 @@ Schema-first, type-safe React Native and Expo storage. The mobile half of [platf
 ## Installation
 
 ```sh
+# Install with npm
 npm install @platform-storage/react-native @react-native-async-storage/async-storage zod
-```
 
-```sh
+# Install with pnpm
 pnpm add @platform-storage/react-native @react-native-async-storage/async-storage zod
-```
 
-```sh
+# Install with Yarn
 yarn add @platform-storage/react-native @react-native-async-storage/async-storage zod
-```
 
-```sh
+# Install with Bun
 bun add @platform-storage/react-native @react-native-async-storage/async-storage zod
 ```
 

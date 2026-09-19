@@ -1,7 +1,7 @@
 import type { JsonValue } from "../../src/index";
 import type { ExtensionStorageArea, ExtensionStorageNamespace } from "../../src/types";
 
-export interface FakeStorageArea extends ExtensionStorageArea {
+interface FakeStorageArea extends ExtensionStorageArea {
   /** What the area is holding, for a test to assert against without going back through a storage. */
   readonly entries: ReadonlyMap<string, JsonValue>;
 }
@@ -15,9 +15,7 @@ function toKeys(keys: string | Array<string>): Array<string> {
  *
  * `set` round-trips each value through JSON, because a real area serializes what it is given rather than keeping the object: a suite that stored an object and read it back must not be handed the very same reference. `get` answers only with the keys it found, as the real one does, so a missing key is absent from the record rather than present as `undefined`.
  */
-export function fakeStorageArea(
-  initial: Readonly<Record<string, JsonValue>> = {},
-): FakeStorageArea {
+function fakeStorageArea(initial: Readonly<Record<string, JsonValue>> = {}): FakeStorageArea {
   const entries = new Map<string, JsonValue>(Object.entries(initial));
 
   return {

@@ -40,6 +40,10 @@ jobs:
       - name: Format
         run: pnpm format:check
 
+      # Unused files, exports and dependencies across the workspace, then the published packages alone against their `dependencies`. Neither reads a build, so both run before one and fail fast.
+      - name: Unused code and dependencies
+        run: pnpm knip && pnpm knip:production
+
       # One turbo invocation rather than one step per task. Turbo runs these as a single graph, in parallel across packages and across task types wherever the dependencies allow; five sequential steps would serialize them, and measurably so. A failure still names the task that broke it, as `@platform-storage/core#lint`.
       #
       # Pull requests check only what they touched; pushes to main check everything, so nothing reaches the release branch unverified.

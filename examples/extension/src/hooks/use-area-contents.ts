@@ -6,7 +6,7 @@ import { browser } from "wxt/browser";
 
 import { local, session, sync } from "../store/storages";
 
-export interface AreaEntry {
+interface AreaEntry {
   readonly key: string;
   /** What the area holds, which for an extension is the value itself rather than text. */
   readonly value: unknown;

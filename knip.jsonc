@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Vendored agent skills: committed, but authored elsewhere and never edited here.
+  "ignore": [".agents/**"],
+  // Every package extends the shared oxlint config by relative path, so nothing imports it by name. The dependency still earns its place: it is what puts the config in turbo's graph, so changing it re-runs every package's lint instead of replaying a cached pass.
+  "ignoreDependencies": ["@tooling/oxlint-config"],
+  "workspaces": {
+    "packages/*": {
+      // The `!` marks what ships, so `knip --production` checks the published code against `dependencies` alone and leaves the suites and their fakes to the default run.
+      "project": ["src/**/*.{ts,tsx}!", "!src/**/tests/**!", "tests/**/*.{ts,tsx}"],
+      // Vitest reads type-level suites from `typecheck.include`, which the plugin does not follow, so they are named here beside the runtime ones.
+      "vitest": {
+        "entry": ["**/tests/**/*.test.{ts,tsx}", "**/tests/**/*.test-d.{ts,tsx}"],
+      },
+    },
+    "tooling/vitest": {
+      // `base.js` is plain JavaScript loaded with no build step, and this is the declaration a consuming package's tsconfig reads beside it.
+      "entry": ["base.d.ts"],
+    },
+    "examples/extension": {
+      // WXT's `srcDir` moves the entrypoints under `src/`, where the plugin's default pattern does not look.
+      "entry": ["src/entrypoints/**/*.{ts,tsx}!"],
+    },
+    "examples/expo": {
+      // The Expo config implies both for a standalone build: `expo-system-ui` for `userInterfaceStyle`, `expo-updates` unless updates are switched off. This app runs in Expo Go, which ships both native modules itself.
+      "ignoreDependencies": ["expo-system-ui", "expo-updates"],
+    },
+  },
+}

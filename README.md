@@ -17,18 +17,16 @@ One package per platform. Each re-exports the whole core API, so it is the only 
 | React Native and Expo                    | `@platform-storage/react-native` |
 
 ```sh
+# Install with npm
 npm install @platform-storage/web zod
-```
 
-```sh
+# Install with pnpm
 pnpm add @platform-storage/web zod
-```
 
-```sh
+# Install with Yarn
 yarn add @platform-storage/web zod
-```
 
-```sh
+# Install with Bun
 bun add @platform-storage/web zod
 ```
 
@@ -195,6 +193,7 @@ pnpm typecheck
 pnpm lint
 pnpm format
 pnpm check-package # publint and Are The Types Wrong, on the packed tarballs
+pnpm knip           # unused files, exports and dependencies
 pnpm changeset     # record a user-facing change
 ```
 

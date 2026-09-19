@@ -24,8 +24,7 @@
     "@platform-storage/extension": "workspace:*",
     "@platform-storage/react": "workspace:*",
     "react": "catalog:",
-    "react-dom": "catalog:",
-    "zod": "catalog:"
+    "react-dom": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

@@ -7,18 +7,16 @@ Schema-first, type-safe storage for browser extensions: one schema shared across
 ## Installation
 
 ```sh
+# Install with npm
 npm install @platform-storage/extension zod
-```
 
-```sh
+# Install with pnpm
 pnpm add @platform-storage/extension zod
-```
 
-```sh
+# Install with Yarn
 yarn add @platform-storage/extension zod
-```
 
-```sh
+# Install with Bun
 bun add @platform-storage/extension zod
 ```
 
