@@ -1,6 +1,6 @@
 # @examples/extension
 
-A browser extension demonstrating [`@platform-storage/extension`](../../packages/extension), built with [WXT](https://wxt.dev). It is the only example that cannot be opened at a URL, which is what this file is for.
+A browser extension demonstrating [`@platform-storage/webextension`](../../packages/webextension), built with [WXT](https://wxt.dev). It is the only example that cannot be opened at a URL, which is what this file is for.
 
 It has three contexts — a popup, an options page and a background service worker — and they all read one storage over [the schema the browser examples use](../schema/src/schema.ts), unchanged.
 

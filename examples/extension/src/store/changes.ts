@@ -1,6 +1,6 @@
 import { appSchema } from "@examples/schema";
 import type { AppDefinition, AppKey } from "@examples/schema";
-import type { PlatformStorage } from "@platform-storage/extension";
+import type { PlatformStorage } from "@platform-storage/webextension";
 import { notifyStorageChanged } from "@platform-storage/react";
 import { browser } from "wxt/browser";
 

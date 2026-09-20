@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 /** Every published package, and the entry each one is reached through. */
-const PACKAGES = ["core", "web", "extension", "react-native", "react"];
+const PACKAGES = ["core", "web", "webextension", "react-native", "react"];
 
 const keep = process.argv.includes("--keep");
 
@@ -90,7 +90,7 @@ import assert from "node:assert/strict";
 import * as z from "zod";
 import { createStorage, defineStorageSchema, isStorageQuotaError, jsonSerializer, memoryAdapter, STORAGE_ERROR_CODE } from "@platform-storage/core";
 import { createLocalStorage, isQuotaExceeded } from "@platform-storage/web";
-import { createExtensionStorage, EXTENSION_STORAGE_AREA } from "@platform-storage/extension";
+import { createWebExtensionStorage, WEB_EXTENSION_STORAGE_AREA } from "@platform-storage/webextension";
 import { createReactNativeStorage } from "@platform-storage/react-native";
 import { STORED_VALUE_STATUS, useStorageValue } from "@platform-storage/react";
 import { readDeclaredValue } from "@platform-storage/react/server";
@@ -116,12 +116,12 @@ await assert.rejects(() => web.get("theme"), (error) => error.code === STORAGE_E
 
 assert.equal(readDeclaredValue(storage, "theme"), "light");
 assert.equal(STORAGE_ERROR_CODE.Quota, "QUOTA");
-assert.equal(EXTENSION_STORAGE_AREA.Sync, "sync");
+assert.equal(WEB_EXTENSION_STORAGE_AREA.Sync, "sync");
 assert.equal(STORED_VALUE_STATUS.Ready, "ready");
 assert.equal(isStorageQuotaError(new Error("x")), false);
 assert.equal(isQuotaExceeded({ name: "QuotaExceededError" }), true);
 assert.equal(typeof jsonSerializer.serialize, "function");
-assert.equal(typeof createExtensionStorage, "function");
+assert.equal(typeof createWebExtensionStorage, "function");
 assert.equal(typeof createReactNativeStorage, "function");
 assert.equal(typeof useStorageValue, "function");
 `;
@@ -131,7 +131,7 @@ const assert = require("node:assert/strict");
 const z = require("zod");
 const core = require("@platform-storage/core");
 const web = require("@platform-storage/web");
-const extension = require("@platform-storage/extension");
+const webExtension = require("@platform-storage/webextension");
 const reactNative = require("@platform-storage/react-native");
 const react = require("@platform-storage/react");
 const server = require("@platform-storage/react/server");
@@ -148,7 +148,7 @@ void (async () => {
 
   assert.equal(typeof web.createLocalStorage, "function");
   assert.equal(typeof web.defineStorageSchema, "function", "a platform package re-exports core");
-  assert.equal(typeof extension.createExtensionStorage, "function");
+  assert.equal(typeof webExtension.createWebExtensionStorage, "function");
   assert.equal(typeof reactNative.createReactNativeStorage, "function");
   assert.equal(typeof react.useStorageValue, "function");
   assert.equal(typeof server.readDeclaredValue, "function");
@@ -161,7 +161,7 @@ const TYPES_CHECK = `
 import * as z from "zod";
 import { createStorage, defineStorageSchema, memoryAdapter } from "@platform-storage/core";
 import type { StorageQuotaExceededError, SyncPlatformStorage } from "@platform-storage/core";
-import { createExtensionStorage } from "@platform-storage/extension";
+import { createWebExtensionStorage } from "@platform-storage/webextension";
 import { createLocalStorage } from "@platform-storage/web";
 import { readDeclaredValue } from "@platform-storage/react/server";
 
@@ -177,7 +177,7 @@ const user: { id: string; name: string } | undefined = await storage.get("user")
 const web: SyncPlatformStorage<typeof schema.definition> = createLocalStorage({ schema });
 const declared: "light" | "dark" = readDeclaredValue(storage, "theme");
 
-const area = createExtensionStorage({ schema });
+const area = createWebExtensionStorage({ schema });
 // @ts-expect-error - an extension area has no synchronous half
 area.getSync("theme");
 // @ts-expect-error - "blue" is not one of the declared values

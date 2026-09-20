@@ -6,15 +6,15 @@ import type {
   StorageAdapter,
   StorageSchemaDefinition,
 } from "@platform-storage/core";
-import { extensionStorageAdapter } from "./extension-storage-adapter";
-import type { ExtensionStorageAdapterOptions } from "./extension-storage-adapter";
+import { webExtensionStorageAdapter } from "./web-extension-storage-adapter";
+import type { WebExtensionStorageAdapterOptions } from "./web-extension-storage-adapter";
 
 /** Everything `createStorage` takes apart from the adapter, plus what the adapter itself takes. */
-export type CreateExtensionStorageOptions<Definition extends StorageSchemaDefinition> = Omit<
+export type CreateWebExtensionStorageOptions<Definition extends StorageSchemaDefinition> = Omit<
   CreateStorageOptions<Definition, StorageAdapter<JsonValue>>,
   "adapter"
 > &
-  ExtensionStorageAdapterOptions;
+  WebExtensionStorageAdapterOptions;
 
 /**
  * A storage over one WebExtension storage area, `local` unless another is named.
@@ -25,17 +25,17 @@ export type CreateExtensionStorageOptions<Definition extends StorageSchemaDefini
  * @returns A storage over that area. Asynchronous only, since an area always answers later.
  * @example
  * ```ts
- * const settings = createExtensionStorage({ schema });
- * const synced = createExtensionStorage({ schema: syncedSchema, area: "sync" });
+ * const settings = createWebExtensionStorage({ schema });
+ * const synced = createWebExtensionStorage({ schema: syncedSchema, area: "sync" });
  * ```
  */
-export function createExtensionStorage<Definition extends StorageSchemaDefinition>(
-  options: CreateExtensionStorageOptions<Definition>,
+export function createWebExtensionStorage<Definition extends StorageSchemaDefinition>(
+  options: CreateWebExtensionStorageOptions<Definition>,
 ): PlatformStorage<Definition> {
   const { area, storage, name, ...storageOptions } = options;
 
   return createStorage({
     ...storageOptions,
-    adapter: extensionStorageAdapter({ area, storage, name }),
+    adapter: webExtensionStorageAdapter({ area, storage, name }),
   });
 }

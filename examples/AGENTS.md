@@ -10,15 +10,15 @@ Every one is private and never released. They are named outside the `@platform-s
 
 ## Package map
 
-| Package                | Holds                                                                             |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| `@examples/schema`     | One schema definition, with no platform imports and no DOM types                  |
-| `@examples/ui`         | Presentational components that know nothing about storage, and the design tokens  |
-| `@examples/web`        | The panels, hooks and storages demonstrating `@platform-storage/web`              |
-| `@examples/vite-react` | A browser playground for the web package, client only                             |
-| `@examples/next`       | The same playground on the App Router, which is what runs the server path         |
-| `@examples/extension`  | A WXT extension demonstrating `@platform-storage/extension` across three contexts |
-| `@examples/expo`       | An Expo app demonstrating `@platform-storage/react-native` on a real device       |
+| Package                | Holds                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| `@examples/schema`     | One schema definition, with no platform imports and no DOM types                     |
+| `@examples/ui`         | Presentational components that know nothing about storage, and the design tokens     |
+| `@examples/web`        | The panels, hooks and storages demonstrating `@platform-storage/web`                 |
+| `@examples/vite-react` | A browser playground for the web package, client only                                |
+| `@examples/next`       | The same playground on the App Router, which is what runs the server path            |
+| `@examples/extension`  | A WXT extension demonstrating `@platform-storage/webextension` across three contexts |
+| `@examples/expo`       | An Expo app demonstrating `@platform-storage/react-native` on a real device          |
 
 ## Commands
 

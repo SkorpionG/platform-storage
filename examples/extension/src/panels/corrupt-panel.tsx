@@ -1,7 +1,7 @@
 import { appSchema, CORRUPTIONS, POLICIES } from "@examples/schema";
 import type { AppKey, PolicyName, ValueCorruption } from "@examples/schema";
 import { Badge, Button, Card, Code, Select, Value } from "@examples/ui";
-import { isPlatformStorageError } from "@platform-storage/extension";
+import { isPlatformStorageError } from "@platform-storage/webextension";
 import { useState } from "react";
 import { browser } from "wxt/browser";
 

@@ -1,7 +1,7 @@
 import type { JsonValue } from "../../src/index";
-import type { ExtensionStorageArea, ExtensionStorageNamespace } from "../../src/types";
+import type { WebExtensionStorageArea, WebExtensionStorageNamespace } from "../../src/types";
 
-interface FakeStorageArea extends ExtensionStorageArea {
+interface FakeStorageArea extends WebExtensionStorageArea {
   /** What the area is holding, for a test to assert against without going back through a storage. */
   readonly entries: ReadonlyMap<string, JsonValue>;
 }
@@ -46,7 +46,7 @@ function fakeStorageArea(initial: Readonly<Record<string, JsonValue>> = {}): Fak
   };
 }
 
-export interface FakeStorageNamespace extends ExtensionStorageNamespace {
+export interface FakeStorageNamespace extends WebExtensionStorageNamespace {
   readonly local: FakeStorageArea;
   readonly sync: FakeStorageArea;
   readonly session?: FakeStorageArea;
@@ -64,7 +64,7 @@ export function fakeStorageNamespace(
 }
 
 /** An area that rejects every call in the browser's own vocabulary, as one without the right permission does. */
-export function rejectingStorageArea(message: string): ExtensionStorageArea {
+export function rejectingStorageArea(message: string): WebExtensionStorageArea {
   return {
     get: () => Promise.reject(new Error(message)),
     set: () => Promise.reject(new Error(message)),
@@ -77,7 +77,7 @@ export function rejectingStorageArea(message: string): ExtensionStorageArea {
  *
  * The message is what a browser puts in front of a caller: an area reports a full quota by naming the limit that was passed rather than with an error type of its own.
  */
-export function fullStorageArea(message: string): ExtensionStorageArea {
+export function fullStorageArea(message: string): WebExtensionStorageArea {
   const area = fakeStorageArea();
 
   return { ...area, set: () => Promise.reject(new Error(message)) };

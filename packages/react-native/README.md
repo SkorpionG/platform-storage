@@ -190,7 +190,7 @@ A device that has run out of room is **not** told apart here, unlike on the web 
 
 ## One schema, every platform
 
-A schema knows nothing about where it is stored, so the same one can back AsyncStorage here, `localStorage` on the web through `@platform-storage/web`, and a storage area in an extension through `@platform-storage/extension`.
+A schema knows nothing about where it is stored, so the same one can back AsyncStorage here, `localStorage` on the web through `@platform-storage/web`, and a storage area in an extension through `@platform-storage/webextension`.
 
 ## License
 

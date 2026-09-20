@@ -1,6 +1,6 @@
 import { Badge, Button, Card } from "@examples/ui";
 import type { BadgeTone } from "@examples/ui";
-import { STORAGE_ERROR_CODE } from "@platform-storage/extension";
+import { STORAGE_ERROR_CODE } from "@platform-storage/webextension";
 import { clearStorageErrors, useStorageErrors } from "@platform-storage/react";
 
 function toneFor(code: string): BadgeTone {

@@ -8,7 +8,7 @@ Guide for the five published packages. Everything in [the repository guide](../A
 | -------------------------------- | --------------------------------------------------------------------------------- |
 | `@platform-storage/core`         | Schema definition, type inference, validation, serialization, engine, errors      |
 | `@platform-storage/web`          | The `localStorage` and `sessionStorage` adapters, and storage factories over them |
-| `@platform-storage/extension`    | The `local`, `sync` and `session` area adapters, and a storage factory over them  |
+| `@platform-storage/webextension` | The `local`, `sync` and `session` area adapters, and a storage factory over them  |
 | `@platform-storage/react-native` | The AsyncStorage adapter, and a storage factory over it                           |
 | `@platform-storage/react`        | React hooks over any storage, and the server-safe declared read                   |
 
@@ -36,7 +36,7 @@ These were settled deliberately. Reopen them with the maintainer rather than in 
 - **Invalid persisted data falls back by default.** The policy resolves per call, then per key, then per storage, then to `"fallback"`. It is not silent: the `onError` observer sees every failure. Use `onInvalid: "throw"` in tests and development.
 - **`clear()` removes only the keys the schema declares.** It must never wipe an origin that other code shares.
 - **Errors are identified by `code` and by brand, never by `instanceof`.** An application that resolves two copies of a package holds two copies of each class, and `instanceof` silently stops matching across them.
-- **Check a backend's own export names before naming a factory after it.** AsyncStorage exports a `createAsyncStorage` of its own, which is why the factory here is `createReactNativeStorage`, named for the platform the way `createExtensionStorage` is.
+- **Check a backend's own export names before naming a factory after it.** AsyncStorage exports a `createAsyncStorage` of its own, which is why the factory here is `createReactNativeStorage`, named for the platform the way `createWebExtensionStorage` is.
 
 ## Tests
 

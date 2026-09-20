@@ -30,7 +30,7 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const ENTRIES = [
   "packages/core/src/index.ts",
   "packages/web/src/index.ts",
-  "packages/extension/src/index.ts",
+  "packages/webextension/src/index.ts",
   "packages/react-native/src/index.ts",
   "packages/react/src/index.ts",
   "packages/react/src/server.ts",

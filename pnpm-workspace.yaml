@@ -22,7 +22,7 @@ catalog:
   "@tailwindcss/postcss": ^4.3.3
   "@tailwindcss/vite": ^4.3.3
   "@types/chrome": ^0.2.8
-  # Declares the ambient `browser` global. Used only by the extension package's conformance tests, which prove its structural storage-area interface is satisfied by every browser's real declarations.
+  # Declares the ambient `browser` global. Used only by the webextension package's conformance tests, which prove its structural storage-area interface is satisfied by every browser's real declarations.
   "@types/firefox-webext-browser": ^143.0.0
   "@types/node": ^24.13.3
   "@types/react": ^19.3.0

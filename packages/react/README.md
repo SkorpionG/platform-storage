@@ -22,7 +22,7 @@ yarn add @platform-storage/web @platform-storage/react
 bun add @platform-storage/web @platform-storage/react
 ```
 
-Swap `@platform-storage/web` for `@platform-storage/extension` or `@platform-storage/react-native` as your platform requires. React 18 or newer is a peer dependency.
+Swap `@platform-storage/web` for `@platform-storage/webextension` or `@platform-storage/react-native` as your platform requires. React 18 or newer is a peer dependency.
 
 ## Quick Start
 

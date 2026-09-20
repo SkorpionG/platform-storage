@@ -13,7 +13,7 @@ One package per platform. Each re-exports the whole core API, so it is the only 
 | Platform                                 | Package                          |
 | ---------------------------------------- | -------------------------------- |
 | Browsers and Electron renderers          | `@platform-storage/web`          |
-| Browser extensions, Chromium and Firefox | `@platform-storage/extension`    |
+| Browser extensions, Chromium and Firefox | `@platform-storage/webextension` |
 | React Native and Expo                    | `@platform-storage/react-native` |
 
 ```sh
@@ -102,7 +102,7 @@ Web storage answers immediately, so those storages also expose `getSync` and its
 ```ts
 const theme = storage.getSync("theme"); // "light" | "dark", no await
 
-const area = createExtensionStorage({ schema });
+const area = createWebExtensionStorage({ schema });
 area.getSync("theme"); // ❌ Type error: an area only ever answers later
 ```
 
@@ -111,10 +111,10 @@ area.getSync("theme"); // ❌ Type error: an area only ever answers later
 Switching platform means switching the import. The schema module itself has no DOM types and does not change.
 
 ```ts
-import { createExtensionStorage } from "@platform-storage/extension";
+import { createWebExtensionStorage } from "@platform-storage/webextension";
 import { createReactNativeStorage } from "@platform-storage/react-native";
 
-const synced = createExtensionStorage({ schema, area: "sync" });
+const synced = createWebExtensionStorage({ schema, area: "sync" });
 const onDevice = createReactNativeStorage({ schema, asyncStorage: AsyncStorage });
 ```
 
@@ -165,7 +165,7 @@ Then the same code gets written again for the browser extension, and again for t
 | --------------------------------------------------------- | ---------------------------------------------------------------------- |
 | [`@platform-storage/core`](packages/core)                 | The schema API, the storage engine, the adapter contract, the errors   |
 | [`@platform-storage/web`](packages/web)                   | The `localStorage` and `sessionStorage` adapters                       |
-| [`@platform-storage/extension`](packages/extension)       | The `local`, `sync` and `session` area adapters                        |
+| [`@platform-storage/webextension`](packages/webextension) | The `local`, `sync` and `session` area adapters                        |
 | [`@platform-storage/react-native`](packages/react-native) | The AsyncStorage adapter                                               |
 | [`@platform-storage/react`](packages/react)               | React hooks over any of them, on the client and across a server render |
 

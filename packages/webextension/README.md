@@ -1,6 +1,6 @@
-# @platform-storage/extension
+# @platform-storage/webextension
 
-[![npm version](https://img.shields.io/npm/v/@platform-storage%2Fextension.svg)](https://www.npmjs.com/package/@platform-storage/extension) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![npm version](https://img.shields.io/npm/v/@platform-storage%2Fwebextension.svg)](https://www.npmjs.com/package/@platform-storage/webextension) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 Schema-first, type-safe storage for browser extensions: one schema shared across your background service worker, content scripts, popup and options page. The extension half of [platform-storage](https://github.com/SkorpionG/platform-storage).
 
@@ -8,16 +8,16 @@ Schema-first, type-safe storage for browser extensions: one schema shared across
 
 ```sh
 # Install with npm
-npm install @platform-storage/extension zod
+npm install @platform-storage/webextension zod
 
 # Install with pnpm
-pnpm add @platform-storage/extension zod
+pnpm add @platform-storage/webextension zod
 
 # Install with Yarn
-yarn add @platform-storage/extension zod
+yarn add @platform-storage/webextension zod
 
 # Install with Bun
-bun add @platform-storage/extension zod
+bun add @platform-storage/webextension zod
 ```
 
 This package re-exports the whole `@platform-storage/core` API, so it is the only one you need. Zod is one choice among many: any [Standard Schema](https://standardschema.dev) validator works.
@@ -26,14 +26,14 @@ This package re-exports the whole `@platform-storage/core` API, so it is the onl
 
 ```ts
 import * as z from "zod";
-import { createExtensionStorage, defineStorageSchema } from "@platform-storage/extension";
+import { createWebExtensionStorage, defineStorageSchema } from "@platform-storage/webextension";
 
 const schema = defineStorageSchema({
   theme: { schema: z.enum(["light", "dark"]), default: "light" },
   user: { schema: z.object({ id: z.string(), name: z.string() }), key: "app:user" },
 });
 
-const storage = createExtensionStorage({ schema });
+const storage = createWebExtensionStorage({ schema });
 
 await storage.set("theme", "dark");
 await storage.get("theme"); // "light" | "dark"
@@ -45,7 +45,7 @@ The storage is over the `local` area unless another is named. Every method retur
 
 Everything `@platform-storage/core` exports is available here too — `defineStorageSchema`, `defineKey`, `createStorage`, the errors and the guards. See [its README](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#readme) for those. What follows is what this package adds.
 
-### `createExtensionStorage(options)`
+### `createWebExtensionStorage(options)`
 
 Builds a storage over one WebExtension storage area, with the adapter supplied for you.
 
@@ -54,7 +54,7 @@ Builds a storage over one WebExtension storage area, with the adapter supplied f
 - `options`: everything `createStorage` takes apart from `adapter`, plus the adapter's own:
   - `schema: StorageSchema` — from `defineStorageSchema`. Required.
   - `area?: "local" | "sync" | "session"` — which area to store in. Defaults to `"local"`.
-  - `storage?: () => ExtensionStorageNamespace | null | undefined` — where to find the `storage` namespace. Defaults to `resolveExtensionStorage`. Give one to go through a polyfill, or to hand a test a fake.
+  - `storage?: () => WebExtensionStorageNamespace | null | undefined` — where to find the `storage` namespace. Defaults to `resolveWebExtensionStorage`. Give one to go through a polyfill, or to hand a test a fake.
   - `name?: string` — what errors report. Defaults to the area's own name, such as `storage.local`.
   - `serializer?: Serializer<JsonValue>` — replaces the passthrough default. An area transports JSON values, so the wire type is `JsonValue`.
   - `onInvalid?: "throw" | "fallback" | "remove" | callback` — the policy for keys that declare none. Defaults to `"fallback"`.
@@ -63,14 +63,14 @@ Builds a storage over one WebExtension storage area, with the adapter supplied f
 **Returns:** `PlatformStorage<Definition>` — asynchronous only, with no synchronous half.
 
 ```ts
-const synced = createExtensionStorage({
+const synced = createWebExtensionStorage({
   schema,
   area: "sync",
   onError: (error) => console.warn(error.code, error.message),
 });
 ```
 
-### `extensionStorageAdapter(options?)`
+### `webExtensionStorageAdapter(options?)`
 
 The adapter the factory above is built from, for `createStorage` or anything else that takes an adapter.
 
@@ -80,25 +80,25 @@ The adapter the factory above is built from, for `createStorage` or anything els
 
 **Returns:** `StorageAdapter<JsonValue>`
 
-### `resolveExtensionStorage()`
+### `resolveWebExtensionStorage()`
 
 Finds the `storage` namespace in this context.
 
-**Returns:** `ExtensionStorageNamespace | undefined` — `browser.storage` where it exists, otherwise `chrome.storage`, otherwise `undefined`.
+**Returns:** `WebExtensionStorageNamespace | undefined` — `browser.storage` where it exists, otherwise `chrome.storage`, otherwise `undefined`.
 
 `browser` comes first because it is promise-based everywhere it exists, whereas `chrome` is a compatibility namespace on Firefox. Both are read off `globalThis` and narrowed by shape, so this package never depends on a browser type package.
 
-### `EXTENSION_STORAGE_AREA` and `ExtensionStorageAreaName`
+### `WEB_EXTENSION_STORAGE_AREA` and `WebExtensionStorageAreaName`
 
-The area names as an object of literals, and the union of them. `ExtensionStorageAreaName` is the type to reach for when writing a function that takes an area, since it is what `area` accepts.
+The area names as an object of literals, and the union of them. `WebExtensionStorageAreaName` is the type to reach for when writing a function that takes an area, since it is what `area` accepts.
 
 ```ts
-function storageFor(area: ExtensionStorageAreaName) {
-  return createExtensionStorage({ schema, area });
+function storageFor(area: WebExtensionStorageAreaName) {
+  return createWebExtensionStorage({ schema, area });
 }
 ```
 
-### `ExtensionStorageArea` and `ExtensionStorageNamespace`
+### `WebExtensionStorageArea` and `WebExtensionStorageNamespace`
 
 The structural declarations of an area and of the namespace. They are the common denominator of Chrome's, Firefox's and the WebExtension polyfill's own types, and conformance tests check them against all three, so no browser type package reaches your type graph.
 
@@ -111,9 +111,9 @@ Declare it once in a module with no browser types, and import it from the servic
 ```ts
 // storage.ts
 import * as z from "zod";
-import { createExtensionStorage, defineStorageSchema } from "@platform-storage/extension";
+import { createWebExtensionStorage, defineStorageSchema } from "@platform-storage/webextension";
 
-export const settings = createExtensionStorage({
+export const settings = createWebExtensionStorage({
   schema: defineStorageSchema({
     theme: { schema: z.enum(["light", "dark", "system"]), default: "system" },
     excludedSites: { schema: z.array(z.string()).default(() => []) },
@@ -133,9 +133,9 @@ const theme = await settings.get("theme"); // "light" | "dark" | "system"
 `local`, `sync` and `session` are each a storage of their own, over their own schema. That keeps a schema platform-agnostic: the same one can back `local` here, `localStorage` on the web, and AsyncStorage on a phone.
 
 ```ts
-const durable = createExtensionStorage({ schema: settingsSchema }); // local
-const synced = createExtensionStorage({ schema: syncedSchema, area: "sync" });
-const perSession = createExtensionStorage({ schema: cacheSchema, area: "session" });
+const durable = createWebExtensionStorage({ schema: settingsSchema }); // local
+const synced = createWebExtensionStorage({ schema: syncedSchema, area: "sync" });
+const perSession = createWebExtensionStorage({ schema: cacheSchema, area: "session" });
 ```
 
 `clear()` removes only the keys the schema declares, so another storage over the same area, or other code writing to it, is left alone.
@@ -147,12 +147,12 @@ The namespace is resolved on every operation, so it can come from anywhere:
 ```ts
 import browser from "webextension-polyfill";
 
-const storage = createExtensionStorage({ schema, storage: () => browser.storage });
+const storage = createWebExtensionStorage({ schema, storage: () => browser.storage });
 ```
 
 ```ts
 const fake = { local: inMemoryArea(), sync: inMemoryArea() };
-const storage = createExtensionStorage({ schema, storage: () => fake });
+const storage = createWebExtensionStorage({ schema, storage: () => fake });
 ```
 
 ### Handling a full `sync` area
@@ -160,7 +160,7 @@ const storage = createExtensionStorage({ schema, storage: () => fake });
 The `sync` area is small and rate limited, so it is where a quota is met first.
 
 ```ts
-import { isStorageQuotaError } from "@platform-storage/extension";
+import { isStorageQuotaError } from "@platform-storage/webextension";
 
 try {
   await synced.set("recentSearches", next);

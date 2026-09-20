@@ -1,6 +1,6 @@
 import { Badge, Value } from "@examples/ui";
 import { STORED_VALUE_STATUS } from "@platform-storage/react";
-import type { PlatformStorageError } from "@platform-storage/extension";
+import type { PlatformStorageError } from "@platform-storage/webextension";
 import type { StoredValueStatus } from "@platform-storage/react";
 
 /** Structural rather than `AsyncStoredValue<Definition>`, so one component serves every key's own type. */

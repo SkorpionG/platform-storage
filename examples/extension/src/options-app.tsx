@@ -21,7 +21,7 @@ export function OptionsApp() {
       <AppliedTheme />
 
       <Masthead
-        eyebrow="@platform-storage/extension"
+        eyebrow="@platform-storage/webextension"
         title="Schema-first storage, across three extension contexts"
       >
         Everything below runs against this extension&rsquo;s real storage areas. Open the popup

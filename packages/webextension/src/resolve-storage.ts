@@ -1,4 +1,4 @@
-import type { ExtensionStorageNamespace } from "./types";
+import type { WebExtensionStorageNamespace } from "./types";
 
 /** The globals an extension API lives on, in the order they are tried. */
 const HOSTS = ["browser", "chrome"] as const;
@@ -8,7 +8,7 @@ function isObject(value: unknown): value is object {
 }
 
 /** Whether a value has the shape of a `storage` namespace. Only `local` is looked for, because whether any other area exists is decided when that area is addressed. */
-function isStorageNamespace(value: unknown): value is ExtensionStorageNamespace {
+function isStorageNamespace(value: unknown): value is WebExtensionStorageNamespace {
   return isObject(value) && "local" in value && isObject(value.local);
 }
 
@@ -20,10 +20,10 @@ function isStorageNamespace(value: unknown): value is ExtensionStorageNamespace 
  * @returns The namespace, or `undefined` where this context has none. Deciding what to do about that is the caller's.
  * @example
  * ```ts
- * if (resolveExtensionStorage() === undefined) showNoticeThatNothingWillPersist();
+ * if (resolveWebExtensionStorage() === undefined) showNoticeThatNothingWillPersist();
  * ```
  */
-export function resolveExtensionStorage(): ExtensionStorageNamespace | undefined {
+export function resolveWebExtensionStorage(): WebExtensionStorageNamespace | undefined {
   for (const host of HOSTS) {
     const api: unknown = Reflect.get(globalThis, host);
 

@@ -1,5 +1,5 @@
 import { Badge, Button, Card, Code, Field, Value } from "@examples/ui";
-import { isPlatformStorageError, resolveExtensionStorage } from "@platform-storage/extension";
+import { isPlatformStorageError, resolveWebExtensionStorage } from "@platform-storage/webextension";
 import { useState } from "react";
 
 import { detached, local } from "../store/storages";
@@ -38,11 +38,11 @@ export function ResolverPanel() {
         </Field>
 
         <Field
-          label="resolveExtensionStorage()"
+          label="resolveWebExtensionStorage()"
           hint="The library's own lookup, exported so an application can ask the same question."
         >
-          <Badge tone={resolveExtensionStorage() === undefined ? "danger" : "success"}>
-            {resolveExtensionStorage() === undefined ? "undefined" : "a storage namespace"}
+          <Badge tone={resolveWebExtensionStorage() === undefined ? "danger" : "success"}>
+            {resolveWebExtensionStorage() === undefined ? "undefined" : "a storage namespace"}
           </Badge>
         </Field>
 
@@ -89,8 +89,8 @@ export function ResolverPanel() {
       <p className="mt-3 text-xs leading-relaxed text-soft">
         Load the Firefox build and this panel is how you check that <Code>browser</Code> was
         preferred: Firefox defines both globals, and only the first is used. Note also that{" "}
-        <Value value={undefined} /> from <Code>resolveExtensionStorage()</Code> is an answer rather
-        than a throw — deciding what to do about a missing API belongs to the caller.
+        <Value value={undefined} /> from <Code>resolveWebExtensionStorage()</Code> is an answer
+        rather than a throw — deciding what to do about a missing API belongs to the caller.
       </p>
     </Card>
   );

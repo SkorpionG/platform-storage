@@ -10,7 +10,7 @@ Schema definition, typed keys and values, runtime validation on both directions,
 
 The API is asynchronous, with a typed synchronous extension wherever the adapter can answer immediately. The memory adapter and `withFallback` come with it.
 
-One package per platform, each re-exporting the core so that an application installs one: `@platform-storage/web` over `localStorage` and `sessionStorage`, `@platform-storage/extension` over the `local`, `sync` and `session` areas, and `@platform-storage/react-native` over AsyncStorage.
+One package per platform, each re-exporting the core so that an application installs one: `@platform-storage/web` over `localStorage` and `sessionStorage`, `@platform-storage/webextension` over the `local`, `sync` and `session` areas, and `@platform-storage/react-native` over AsyncStorage.
 
 `@platform-storage/react` is installed alongside whichever of those a project already has. It adds hooks over any storage, plus the declared read a server render answers with.
 

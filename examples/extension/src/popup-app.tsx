@@ -28,7 +28,7 @@ export function PopupApp() {
 
       <header className="mb-3">
         <p className="font-mono text-[11px] text-sky-600 dark:text-sky-400">
-          @platform-storage/extension
+          @platform-storage/webextension
         </p>
         <h1 className="text-sm font-semibold tracking-tight">Same schema, second context</h1>
       </header>

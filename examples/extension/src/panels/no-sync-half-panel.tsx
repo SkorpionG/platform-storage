@@ -5,18 +5,18 @@ import { local } from "../store/storages";
 const REFUSED = `// @platform-storage/web hands you both halves:
 const theme = webStorage.getSync("theme");        // "light" | "dark" | "system"
 
-// @platform-storage/extension has no synchronous half, so neither line compiles.
-extensionStorage.getSync("theme");
-//               ~~~~~~~ Property 'getSync' does not exist on type
-//                       'PlatformStorage<AppDefinition>'.
+// @platform-storage/webextension has no synchronous half, so neither line compiles.
+webExtensionStorage.getSync("theme");
+//                  ~~~~~~~ Property 'getSync' does not exist on type
+//                          'PlatformStorage<AppDefinition>'.
 
-useStorageValue(extensionStorage, "theme");
-//              ~~~~~~~~~~~~~~~~ Argument of type 'PlatformStorage<AppDefinition>'
-//                               is not assignable to parameter of type
-//                               'SyncPlatformStorage<AppDefinition>'.
+useStorageValue(webExtensionStorage, "theme");
+//              ~~~~~~~~~~~~~~~~~~~ Argument of type 'PlatformStorage<AppDefinition>'
+//                                  is not assignable to parameter of type
+//                                  'SyncPlatformStorage<AppDefinition>'.
 
 // This is the one that does:
-const [theme] = useAsyncStorageValue(extensionStorage, "theme");`;
+const [theme] = useAsyncStorageValue(webExtensionStorage, "theme");`;
 
 export function NoSyncHalfPanel() {
   const half = Reflect.get(local, "getSync") === undefined ? "absent" : "present";

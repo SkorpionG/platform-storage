@@ -1,5 +1,5 @@
 import { DECLARED_PHYSICAL_KEYS } from "@examples/schema";
-import type { ExtensionStorageAreaName } from "@platform-storage/extension";
+import type { WebExtensionStorageAreaName } from "@platform-storage/webextension";
 import { subscribeToStorage } from "@platform-storage/react";
 import { useEffect, useState } from "react";
 import { browser } from "wxt/browser";
@@ -23,7 +23,7 @@ const STORAGES = { local, sync, session } as const;
 
 const EMPTY: AreaContents = Object.freeze({ entries: [], failure: undefined });
 
-async function read(area: ExtensionStorageAreaName): Promise<AreaContents> {
+async function read(area: WebExtensionStorageAreaName): Promise<AreaContents> {
   try {
     const held = await browser.storage[area].get();
 
@@ -42,7 +42,7 @@ async function read(area: ExtensionStorageAreaName): Promise<AreaContents> {
  *
  * The web inspector reads the origin synchronously and caches a snapshot for `useSyncExternalStore`. An area answers with a promise, so that pattern does not port and this keeps the answer in state instead, re-reading whenever the storage over that area reports a change.
  */
-export function useAreaContents(area: ExtensionStorageAreaName): AreaContents {
+export function useAreaContents(area: WebExtensionStorageAreaName): AreaContents {
   const [contents, setContents] = useState<AreaContents>(EMPTY);
 
   useEffect(() => {

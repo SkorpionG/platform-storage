@@ -10,24 +10,24 @@ import type {
   StorageAdapter,
   StorageOperation,
 } from "@platform-storage/core";
-import { resolveExtensionStorage } from "./resolve-storage";
-import { EXTENSION_STORAGE_AREA } from "./types";
+import { resolveWebExtensionStorage } from "./resolve-storage";
+import { WEB_EXTENSION_STORAGE_AREA } from "./types";
 import type {
-  ExtensionStorageArea,
-  ExtensionStorageAreaName,
-  ExtensionStorageNamespace,
+  WebExtensionStorageArea,
+  WebExtensionStorageAreaName,
+  WebExtensionStorageNamespace,
 } from "./types";
 
-/** What {@link extensionStorageAdapter} accepts. */
-export interface ExtensionStorageAdapterOptions {
+/** What {@link webExtensionStorageAdapter} accepts. */
+export interface WebExtensionStorageAdapterOptions {
   /** The area to store in. Defaults to `"local"`. */
-  readonly area?: ExtensionStorageAreaName | undefined;
+  readonly area?: WebExtensionStorageAreaName | undefined;
   /**
-   * Where to find the `storage` namespace. Called on every operation, and defaults to `resolveExtensionStorage`.
+   * Where to find the `storage` namespace. Called on every operation, and defaults to `resolveWebExtensionStorage`.
    *
    * Give one to go through a polyfill's `browser` object, or to hand a test a fake.
    */
-  readonly storage?: BackendSource<ExtensionStorageNamespace> | undefined;
+  readonly storage?: BackendSource<WebExtensionStorageNamespace> | undefined;
   /** Identifies the adapter in error messages. Defaults to the area's own name, such as `storage.local`. */
   readonly name?: string | undefined;
 }
@@ -35,7 +35,7 @@ export interface ExtensionStorageAdapterOptions {
 /*
   The area answers with a record of only the keys it holds, so a key holding nothing is simply absent from it. Its values are declared `unknown` for the reason the area interface gives, but what comes back is whatever a `set` put there, which is the JSON value this adapter transports; the schema validates it before any caller sees it.
 */
-function read(target: ExtensionStorageArea, key: string): Promise<JsonValue | undefined> {
+function read(target: WebExtensionStorageArea, key: string): Promise<JsonValue | undefined> {
   return target.get(key).then((found) => found[key] as JsonValue | undefined);
 }
 
@@ -77,17 +77,17 @@ function isQuotaRejection(cause: unknown): boolean {
  * @returns An asynchronous adapter over that area.
  * @example
  * ```ts
- * const adapter = extensionStorageAdapter({ area: "sync" });
+ * const adapter = webExtensionStorageAdapter({ area: "sync" });
  * ```
  */
-export function extensionStorageAdapter(
-  options: ExtensionStorageAdapterOptions = {},
+export function webExtensionStorageAdapter(
+  options: WebExtensionStorageAdapterOptions = {},
 ): StorageAdapter<JsonValue> {
-  const area = options.area ?? EXTENSION_STORAGE_AREA.Local;
-  const storage = options.storage ?? resolveExtensionStorage;
+  const area = options.area ?? WEB_EXTENSION_STORAGE_AREA.Local;
+  const storage = options.storage ?? resolveWebExtensionStorage;
   const name = options.name ?? `storage.${area}`;
 
-  const reach = (operation: StorageOperation, physicalKey: string): ExtensionStorageArea => {
+  const reach = (operation: StorageOperation, physicalKey: string): WebExtensionStorageArea => {
     const context = { adapter: name, operation, physicalKey };
     const namespace = requireBackend(storage, context);
 
@@ -98,7 +98,7 @@ export function extensionStorageAdapter(
   const run = <Value>(
     operation: StorageOperation,
     physicalKey: string,
-    action: (target: ExtensionStorageArea) => Promise<Value>,
+    action: (target: WebExtensionStorageArea) => Promise<Value>,
   ): Promise<Value> =>
     Promise.resolve()
       .then(() => action(reach(operation, physicalKey)))

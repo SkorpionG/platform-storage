@@ -1,15 +1,20 @@
 import { Badge, Card, formatValue, Select } from "@examples/ui";
-import { EXTENSION_STORAGE_AREA } from "@platform-storage/extension";
-import type { ExtensionStorageAreaName } from "@platform-storage/extension";
+import { WEB_EXTENSION_STORAGE_AREA } from "@platform-storage/webextension";
+import type { WebExtensionStorageAreaName } from "@platform-storage/webextension";
 import { useState } from "react";
 
 import { useAreaContents } from "../hooks/use-area-contents";
 
-const AREAS: ReadonlyArray<{ readonly value: ExtensionStorageAreaName; readonly label: string }> =
-  Object.values(EXTENSION_STORAGE_AREA).map((value) => ({ value, label: `storage.${value}` }));
+const AREAS: ReadonlyArray<{
+  readonly value: WebExtensionStorageAreaName;
+  readonly label: string;
+}> = Object.values(WEB_EXTENSION_STORAGE_AREA).map((value) => ({
+  value,
+  label: `storage.${value}`,
+}));
 
 export function Inspector() {
-  const [area, setArea] = useState<ExtensionStorageAreaName>(EXTENSION_STORAGE_AREA.Local);
+  const [area, setArea] = useState<WebExtensionStorageAreaName>(WEB_EXTENSION_STORAGE_AREA.Local);
   const { entries, failure } = useAreaContents(area);
 
   return (

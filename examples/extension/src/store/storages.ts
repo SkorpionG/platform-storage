@@ -1,7 +1,7 @@
 import { appSchema, DECLARED_DEFAULTS } from "@examples/schema";
 import type { AppDefinition } from "@examples/schema";
-import { createExtensionStorage } from "@platform-storage/extension";
-import type { PlatformStorage } from "@platform-storage/extension";
+import { createWebExtensionStorage } from "@platform-storage/webextension";
+import type { PlatformStorage } from "@platform-storage/webextension";
 import { recordStorageError } from "@platform-storage/react";
 
 /*
@@ -9,21 +9,21 @@ import { recordStorageError } from "@platform-storage/react";
 */
 
 /** The default area, and the one all three contexts read. */
-export const local: PlatformStorage<AppDefinition> = createExtensionStorage({
+export const local: PlatformStorage<AppDefinition> = createWebExtensionStorage({
   schema: appSchema,
   area: "local",
   onError: recordStorageError,
 });
 
 /** The same schema over the area the browser replicates between the user's signed-in profiles. Its quota is far smaller, which the quota panel is about. */
-export const sync: PlatformStorage<AppDefinition> = createExtensionStorage({
+export const sync: PlatformStorage<AppDefinition> = createWebExtensionStorage({
   schema: appSchema,
   area: "sync",
   onError: recordStorageError,
 });
 
 /** The same schema again, over an area emptied when the browser closes. Absent on Manifest V2 and before Chrome 102 or Firefox 115, where addressing it reports itself rather than crashing. */
-export const session: PlatformStorage<AppDefinition> = createExtensionStorage({
+export const session: PlatformStorage<AppDefinition> = createWebExtensionStorage({
   schema: appSchema,
   area: "session",
   onError: recordStorageError,
@@ -34,7 +34,7 @@ export const session: PlatformStorage<AppDefinition> = createExtensionStorage({
  *
  * A callback is the fourth thing `onInvalid` accepts, and it is declared here rather than per call because the storage-level layer is typed against `unknown`, so one function can serve every key. Per call the return is checked against the single key being read, which is stricter and the better choice when the key is known.
  */
-export const localRecovering: PlatformStorage<AppDefinition> = createExtensionStorage({
+export const localRecovering: PlatformStorage<AppDefinition> = createWebExtensionStorage({
   schema: appSchema,
   area: "local",
   onError: recordStorageError,
@@ -46,7 +46,7 @@ export const localRecovering: PlatformStorage<AppDefinition> = createExtensionSt
  *
  * The web examples have to hand their adapter a `Storage` that throws on access to arrange this. Here the backend source is an ordinary option, so answering with nothing is all it takes, and it is the same path a content script without the `storage` permission would take.
  */
-export const detached: PlatformStorage<AppDefinition> = createExtensionStorage({
+export const detached: PlatformStorage<AppDefinition> = createWebExtensionStorage({
   schema: appSchema,
   storage: () => undefined,
   name: "storage.local (no extension API)",

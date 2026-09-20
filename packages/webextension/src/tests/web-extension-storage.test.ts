@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as z from "zod";
 
 import { defineStorageSchema, StorageValidationError } from "../index";
-import { createExtensionStorage } from "../extension-storage";
-import { fakeStorageNamespace } from "../../tests/fakes/fake-extension-storage";
+import { createWebExtensionStorage } from "../web-extension-storage";
+import { fakeStorageNamespace } from "../../tests/fakes/fake-web-extension-storage";
 
 const schema = defineStorageSchema({
   theme: { schema: z.enum(["light", "dark"]), default: "light" },
@@ -14,10 +14,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("createExtensionStorage", () => {
+describe("createWebExtensionStorage", () => {
   it("round-trips through the local area by default, storing the value itself under the physical key", async () => {
     const namespace = fakeStorageNamespace();
-    const storage = createExtensionStorage({ schema, storage: () => namespace });
+    const storage = createWebExtensionStorage({ schema, storage: () => namespace });
 
     await storage.set("user", { id: "u1", name: "Ada" });
 
@@ -28,7 +28,7 @@ describe("createExtensionStorage", () => {
   it("finds the browser's own API when no storage is given", async () => {
     const namespace = fakeStorageNamespace();
     vi.stubGlobal("browser", { storage: namespace });
-    const storage = createExtensionStorage({ schema });
+    const storage = createWebExtensionStorage({ schema });
 
     await storage.set("theme", "dark");
 
@@ -38,8 +38,8 @@ describe("createExtensionStorage", () => {
 
   it("addresses another area when asked, so two areas are two storages over two schemas", async () => {
     const namespace = fakeStorageNamespace();
-    const local = createExtensionStorage({ schema, storage: () => namespace });
-    const synced = createExtensionStorage({ schema, storage: () => namespace, area: "sync" });
+    const local = createWebExtensionStorage({ schema, storage: () => namespace });
+    const synced = createWebExtensionStorage({ schema, storage: () => namespace, area: "sync" });
 
     await local.set("theme", "dark");
 
@@ -48,13 +48,13 @@ describe("createExtensionStorage", () => {
   });
 
   it("has no synchronous half, since an area only ever answers later", () => {
-    const storage = createExtensionStorage({ schema, storage: () => fakeStorageNamespace() });
+    const storage = createWebExtensionStorage({ schema, storage: () => fakeStorageNamespace() });
 
     expect("getSync" in storage).toBe(false);
   });
 
   it("returns the default where nothing is stored", async () => {
-    const storage = createExtensionStorage({ schema, storage: () => fakeStorageNamespace() });
+    const storage = createWebExtensionStorage({ schema, storage: () => fakeStorageNamespace() });
 
     expect(await storage.get("theme")).toBe("light");
     expect(await storage.get("user")).toBeUndefined();
@@ -63,7 +63,7 @@ describe("createExtensionStorage", () => {
   it("clears only the keys the schema declares, never the rest of the area", async () => {
     const namespace = fakeStorageNamespace();
     await namespace.local.set({ "someone-elses-key": { keep: "me" } });
-    const storage = createExtensionStorage({ schema, storage: () => namespace });
+    const storage = createWebExtensionStorage({ schema, storage: () => namespace });
 
     await storage.set("theme", "dark");
     await storage.set("user", { id: "u1", name: "Ada" });
@@ -80,7 +80,7 @@ describe("createExtensionStorage", () => {
     const datedSchema = defineStorageSchema({
       profile: { schema: z.object({ id: z.string(), seenAt: z.date() }) },
     });
-    const storage = createExtensionStorage({ schema: datedSchema, storage: () => namespace });
+    const storage = createWebExtensionStorage({ schema: datedSchema, storage: () => namespace });
 
     await expect(storage.set("profile", { id: "u1", seenAt: new Date() })).rejects.toThrow(
       expect.objectContaining({
@@ -96,7 +96,7 @@ describe("createExtensionStorage", () => {
     const namespace = fakeStorageNamespace();
     const onError = vi.fn();
     const mapSchema = defineStorageSchema({ cache: { schema: z.custom<unknown>() } });
-    const storage = createExtensionStorage({
+    const storage = createWebExtensionStorage({
       schema: mapSchema,
       storage: () => namespace,
       onError,
@@ -113,7 +113,7 @@ describe("createExtensionStorage", () => {
     const namespace = fakeStorageNamespace();
     await namespace.local.set({ theme: "purple" });
     const onError = vi.fn();
-    const storage = createExtensionStorage({
+    const storage = createWebExtensionStorage({
       schema,
       storage: () => namespace,
       onInvalid: "throw",

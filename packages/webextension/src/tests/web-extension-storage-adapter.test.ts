@@ -11,12 +11,12 @@ import {
   StorageUnavailableError,
   StorageValidationError,
 } from "../index";
-import { extensionStorageAdapter } from "../extension-storage-adapter";
+import { webExtensionStorageAdapter } from "../web-extension-storage-adapter";
 import {
   fakeStorageNamespace,
   fullStorageArea,
   rejectingStorageArea,
-} from "../../tests/fakes/fake-extension-storage";
+} from "../../tests/fakes/fake-web-extension-storage";
 
 const schema = defineStorageSchema({
   theme: { schema: z.enum(["light", "dark"]), default: "light" },
@@ -28,22 +28,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("extensionStorageAdapter", () => {
+describe("webExtensionStorageAdapter", () => {
   it("answers only asynchronously, so a storage over it has no synchronous half", () => {
-    const adapter = extensionStorageAdapter({ storage: () => fakeStorageNamespace() });
+    const adapter = webExtensionStorageAdapter({ storage: () => fakeStorageNamespace() });
 
     expect(isSyncStorageAdapter(adapter)).toBe(false);
   });
 
   it("hands values over untouched, since the area stores JSON values natively", () => {
-    const adapter = extensionStorageAdapter({ storage: () => fakeStorageNamespace() });
+    const adapter = webExtensionStorageAdapter({ storage: () => fakeStorageNamespace() });
 
     expect(adapter.serializer).toBe(passthroughSerializer);
   });
 
   it("stores an object as an object, not as text", async () => {
     const storage = fakeStorageNamespace();
-    const adapter = extensionStorageAdapter({ storage: () => storage });
+    const adapter = webExtensionStorageAdapter({ storage: () => storage });
 
     await adapter.set("app:user", { id: "u1", name: "Ada" });
 
@@ -53,14 +53,14 @@ describe("extensionStorageAdapter", () => {
 
   it("reports a missing key as undefined, since the area leaves it out of its answer", async () => {
     const storage = fakeStorageNamespace();
-    const adapter = extensionStorageAdapter({ storage: () => storage });
+    const adapter = webExtensionStorageAdapter({ storage: () => storage });
 
     expect(await adapter.get("absent")).toBeUndefined();
   });
 
   it("keeps a stored null apart from a key that holds nothing", async () => {
     const storage = fakeStorageNamespace();
-    const adapter = extensionStorageAdapter({ storage: () => storage });
+    const adapter = webExtensionStorageAdapter({ storage: () => storage });
 
     await adapter.set("nullableName", null);
 
@@ -70,7 +70,7 @@ describe("extensionStorageAdapter", () => {
 
   it("removes a key", async () => {
     const storage = fakeStorageNamespace();
-    const adapter = extensionStorageAdapter({ storage: () => storage });
+    const adapter = webExtensionStorageAdapter({ storage: () => storage });
 
     await adapter.set("theme", "dark");
     await adapter.remove("theme");
@@ -81,8 +81,11 @@ describe("extensionStorageAdapter", () => {
   it("addresses the area it was given, and local when given none", async () => {
     const storage = fakeStorageNamespace();
 
-    await extensionStorageAdapter({ storage: () => storage }).set("theme", "dark");
-    await extensionStorageAdapter({ storage: () => storage, area: "sync" }).set("theme", "light");
+    await webExtensionStorageAdapter({ storage: () => storage }).set("theme", "dark");
+    await webExtensionStorageAdapter({ storage: () => storage, area: "sync" }).set(
+      "theme",
+      "light",
+    );
 
     expect(storage.local.entries.get("theme")).toBe("dark");
     expect(storage.sync.entries.get("theme")).toBe("light");
@@ -90,7 +93,7 @@ describe("extensionStorageAdapter", () => {
   });
 
   it("resolves the namespace on every operation rather than once", async () => {
-    const adapter = extensionStorageAdapter();
+    const adapter = webExtensionStorageAdapter();
 
     await expect(adapter.get("theme")).rejects.toThrow(StorageUnavailableError);
 
@@ -102,16 +105,16 @@ describe("extensionStorageAdapter", () => {
   });
 
   it("is named after its area, which errors then report", () => {
-    expect(extensionStorageAdapter().name).toBe("storage.local");
-    expect(extensionStorageAdapter({ area: "sync" }).name).toBe("storage.sync");
-    expect(extensionStorageAdapter({ area: "session" }).name).toBe("storage.session");
-    expect(extensionStorageAdapter({ name: "settings" }).name).toBe("settings");
+    expect(webExtensionStorageAdapter().name).toBe("storage.local");
+    expect(webExtensionStorageAdapter({ area: "sync" }).name).toBe("storage.sync");
+    expect(webExtensionStorageAdapter({ area: "session" }).name).toBe("storage.session");
+    expect(webExtensionStorageAdapter({ name: "settings" }).name).toBe("settings");
   });
 });
 
 describe("an API that is not there", () => {
   it("is reported as unavailable, naming the adapter, the operation and the key", async () => {
-    const adapter = extensionStorageAdapter();
+    const adapter = webExtensionStorageAdapter();
 
     await expect(adapter.get("theme")).rejects.toThrow(StorageUnavailableError);
     await expect(adapter.set("theme", "dark")).rejects.toMatchObject({
@@ -123,7 +126,7 @@ describe("an API that is not there", () => {
   });
 
   it("reports a missing area the same way, as session is on Manifest V2", async () => {
-    const adapter = extensionStorageAdapter({
+    const adapter = webExtensionStorageAdapter({
       storage: () => fakeStorageNamespace({ session: false }),
       area: "session",
     });
@@ -135,7 +138,7 @@ describe("an API that is not there", () => {
   });
 
   it("rejects rather than throwing, so an awaiting caller never needs try", async () => {
-    const adapter = extensionStorageAdapter();
+    const adapter = webExtensionStorageAdapter();
 
     // Reaching for the area fails before any promise exists. Holding the results before awaiting them is what proves that failure arrives as a rejection rather than escaping these calls.
     const read = adapter.get("theme");
@@ -146,24 +149,24 @@ describe("an API that is not there", () => {
   });
 
   it("keeps its own error type through a storage, rather than being wrapped again", async () => {
-    const storage = createStorage({ schema, adapter: extensionStorageAdapter() });
+    const storage = createStorage({ schema, adapter: webExtensionStorageAdapter() });
 
     await expect(storage.get("theme")).rejects.toThrow(StorageUnavailableError);
   });
 
   it("says so from its probe, without touching the area", () => {
-    expect(extensionStorageAdapter().isAvailable?.()).toBe(false);
-    expect(extensionStorageAdapter({ storage: () => fakeStorageNamespace() }).isAvailable?.()).toBe(
-      true,
-    );
+    expect(webExtensionStorageAdapter().isAvailable?.()).toBe(false);
     expect(
-      extensionStorageAdapter({
+      webExtensionStorageAdapter({ storage: () => fakeStorageNamespace() }).isAvailable?.(),
+    ).toBe(true);
+    expect(
+      webExtensionStorageAdapter({
         storage: () => fakeStorageNamespace({ session: false }),
         area: "session",
       }).isAvailable?.(),
     ).toBe(false);
     expect(
-      extensionStorageAdapter({
+      webExtensionStorageAdapter({
         storage: () => {
           throw new Error("no api");
         },
@@ -180,7 +183,7 @@ describe("an area that rejects", () => {
     };
     const storage = createStorage({
       schema,
-      adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
+      adapter: webExtensionStorageAdapter({ storage: () => namespace, area: "sync" }),
     });
 
     await expect(storage.set("theme", "dark")).rejects.toThrow(StorageAdapterError);
@@ -210,7 +213,7 @@ describe("a full area", () => {
     const namespace = { ...fakeStorageNamespace(), sync: fullStorageArea(message) };
     const storage = createStorage({
       schema,
-      adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
+      adapter: webExtensionStorageAdapter({ storage: () => namespace, area: "sync" }),
     });
 
     await expect(storage.set("theme", "dark")).rejects.toMatchObject({
@@ -229,7 +232,7 @@ describe("a full area", () => {
     };
     const storage = createStorage({
       schema,
-      adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
+      adapter: webExtensionStorageAdapter({ storage: () => namespace, area: "sync" }),
     });
 
     await expect(storage.set("theme", "dark")).rejects.toMatchObject({
@@ -244,7 +247,7 @@ describe("a full area", () => {
     };
     const storage = createStorage({
       schema,
-      adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
+      adapter: webExtensionStorageAdapter({ storage: () => namespace, area: "sync" }),
     });
 
     await expect(storage.set("theme", "dark")).rejects.toMatchObject({
@@ -260,7 +263,7 @@ describe("a full area", () => {
     };
     const storage = createStorage({
       schema,
-      adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
+      adapter: webExtensionStorageAdapter({ storage: () => namespace, area: "sync" }),
     });
 
     await expect(storage.set("theme", "dark")).rejects.toMatchObject({
@@ -272,7 +275,7 @@ describe("a full area", () => {
     const namespace = { ...fakeStorageNamespace(), sync: fullStorageArea("QUOTA_BYTES exceeded") };
     const storage = createStorage({
       schema,
-      adapter: extensionStorageAdapter({ storage: () => namespace, area: "sync" }),
+      adapter: webExtensionStorageAdapter({ storage: () => namespace, area: "sync" }),
     });
 
     await expect(storage.set("theme", "dark")).rejects.toBeInstanceOf(StorageAdapterError);
@@ -280,7 +283,7 @@ describe("a full area", () => {
 
   it("leaves reads and removes alone, since only a write can run out of room", async () => {
     const namespace = { ...fakeStorageNamespace(), sync: fullStorageArea("QUOTA_BYTES exceeded") };
-    const adapter = extensionStorageAdapter({ storage: () => namespace, area: "sync" });
+    const adapter = webExtensionStorageAdapter({ storage: () => namespace, area: "sync" });
 
     await expect(adapter.get("theme")).resolves.toBeUndefined();
     await expect(adapter.remove("theme")).resolves.toBeUndefined();
@@ -293,7 +296,7 @@ describe("invalid persisted data", () => {
     await namespace.local.set({ theme: "purple" });
     const storage = createStorage({
       schema,
-      adapter: extensionStorageAdapter({ storage: () => namespace }),
+      adapter: webExtensionStorageAdapter({ storage: () => namespace }),
     });
 
     expect(await storage.get("theme")).toBe("light");
@@ -304,7 +307,7 @@ describe("invalid persisted data", () => {
     await namespace.local.set({ "app:user": "not an object" });
     const storage = createStorage({
       schema,
-      adapter: extensionStorageAdapter({ storage: () => namespace }),
+      adapter: webExtensionStorageAdapter({ storage: () => namespace }),
     });
 
     expect(await storage.get("user")).toBeUndefined();
@@ -315,7 +318,7 @@ describe("invalid persisted data", () => {
     await namespace.local.set({ theme: "purple" });
     const storage = createStorage({
       schema,
-      adapter: extensionStorageAdapter({ storage: () => namespace }),
+      adapter: webExtensionStorageAdapter({ storage: () => namespace }),
       onInvalid: "throw",
     });
 

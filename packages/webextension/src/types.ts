@@ -1,13 +1,13 @@
 /** The storage areas an extension can address. */
-export const EXTENSION_STORAGE_AREA = {
+export const WEB_EXTENSION_STORAGE_AREA = {
   Local: "local",
   Sync: "sync",
   Session: "session",
 } as const;
 
-/** Any one of the areas in {@link EXTENSION_STORAGE_AREA}. */
-export type ExtensionStorageAreaName =
-  (typeof EXTENSION_STORAGE_AREA)[keyof typeof EXTENSION_STORAGE_AREA];
+/** Any one of the areas in {@link WEB_EXTENSION_STORAGE_AREA}. */
+export type WebExtensionStorageAreaName =
+  (typeof WEB_EXTENSION_STORAGE_AREA)[keyof typeof WEB_EXTENSION_STORAGE_AREA];
 
 /**
  * The part of a WebExtension storage area this package uses.
@@ -16,7 +16,7 @@ export type ExtensionStorageAreaName =
  *
  * Values are `unknown` rather than JSON values because the polyfill declares them that way, and narrowing here would stop it conforming. The array form is `Array<string>` rather than `ReadonlyArray<string>` for the same reason: it is what every one of those declarations accepts.
  */
-export interface ExtensionStorageArea {
+export interface WebExtensionStorageArea {
   get(keys: string | Array<string>): Promise<Record<string, unknown>>;
   set(items: Record<string, unknown>): Promise<void>;
   remove(keys: string | Array<string>): Promise<void>;
@@ -25,8 +25,8 @@ export interface ExtensionStorageArea {
 /**
  * The `storage` namespace. `session` is optional because Manifest V2 and older browser versions do not have it.
  */
-export interface ExtensionStorageNamespace {
-  readonly local: ExtensionStorageArea;
-  readonly sync: ExtensionStorageArea;
-  readonly session?: ExtensionStorageArea;
+export interface WebExtensionStorageNamespace {
+  readonly local: WebExtensionStorageArea;
+  readonly sync: WebExtensionStorageArea;
+  readonly session?: WebExtensionStorageArea;
 }

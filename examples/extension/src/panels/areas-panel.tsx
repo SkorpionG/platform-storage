@@ -1,6 +1,6 @@
 import { Button, Card, Code, Field, TextField } from "@examples/ui";
 import { useAsyncStorageValue } from "@platform-storage/react";
-import type { PlatformStorage } from "@platform-storage/extension";
+import type { PlatformStorage } from "@platform-storage/webextension";
 import type { AppDefinition } from "@examples/schema";
 
 import { AsyncValue, NotReady } from "../async-value";

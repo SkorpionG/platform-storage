@@ -1,6 +1,6 @@
 import { Badge, Button, Card, Code, Field } from "@examples/ui";
-import { isPlatformStorageError } from "@platform-storage/extension";
-import type { PlatformStorage } from "@platform-storage/extension";
+import { isPlatformStorageError } from "@platform-storage/webextension";
+import type { PlatformStorage } from "@platform-storage/webextension";
 import type { AppDefinition } from "@examples/schema";
 import { useState } from "react";
 
