@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@tooling/typescript-config/base.json",
+  "compilerOptions": {
+    // These run on the Node in `.nvmrc` rather than in a browser, so the floor is the runtime's own: `lib` reaches past the packages' ES2022 for `toSorted`, and `types` pulls in the `node:` builtins they import.
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": ["src"]
+}

@@ -192,7 +192,7 @@ describe("a storage that refuses a write", () => {
 describe("a full origin", () => {
   const quotaFailures = [
     ["the standard exception", new DOMException("full", "QuotaExceededError")],
-    ["Firefox's name for it", new DOMException("full", "NS_ERROR_DOM_QUOTA_REACHED")],
+    ["the name older Firefox used", new DOMException("full", "NS_ERROR_DOM_QUOTA_REACHED")],
     ["an older browser setting only the DOM code", { name: "Error", code: 22 }],
     ["an older Firefox setting only its code", { name: "Error", code: 1014 }],
   ] as const;

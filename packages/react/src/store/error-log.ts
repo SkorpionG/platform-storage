@@ -39,6 +39,12 @@ function append(error: PlatformStorageError): void {
  * Without one, a read that falls back to its default is silent: the value quietly becomes the default and nothing says why. This collects the reasons so a component can show them.
  *
  * Failures arrive during a render, because a synchronous read happens while rendering and an invalid value fails on the spot. Publishing there would move another component's state in the middle of someone else's render, so the batch is held and flushed once the render is over.
+ *
+ * @param error - The failure, as the storage reports it.
+ * @example
+ * ```ts
+ * const storage = createLocalStorage({ schema, onError: recordStorageError });
+ * ```
  */
 export function recordStorageError(error: PlatformStorageError): void {
   queued.push(error);
@@ -57,6 +63,7 @@ export function recordStorageError(error: PlatformStorageError): void {
   });
 }
 
+/** Calls the listener whenever the log changes. Backs the `useStorageErrors` subscription. */
 export function subscribeToStorageErrors(listener: () => void): () => void {
   listeners.add(listener);
 
@@ -65,15 +72,24 @@ export function subscribeToStorageErrors(listener: () => void): () => void {
   };
 }
 
+/** The current log, as a stable reference until something is added or it is cleared. */
 export function getStorageErrors(): ReadonlyArray<StorageErrorEntry> {
   return entries;
 }
 
+/** What a server render sees: always the same empty array, since nothing has been read there. */
 export function getServerStorageErrors(): ReadonlyArray<StorageErrorEntry> {
   return NOTHING;
 }
 
-/** Empties the log, for a control that dismisses what has been read. */
+/**
+ * Empties the log, for a control that dismisses what has been read.
+ *
+ * @example
+ * ```tsx
+ * <button onClick={clearStorageErrors}>Dismiss</button>;
+ * ```
+ */
 export function clearStorageErrors(): void {
   entries = NOTHING;
   for (const listener of Array.from(listeners)) listener();

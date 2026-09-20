@@ -1,6 +1,6 @@
 # platform-storage
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/SkorpionG/platform-storage/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SkorpionG/platform-storage/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 **Schema-first, type-safe storage for every JavaScript platform.**
 
@@ -176,12 +176,20 @@ Install core directly only when you are writing your own adapter. Each package's
 > [!NOTE]
 > You may use any [Standard Schema](https://github.com/standard-schema/standard-schema) compliant validator of your choice.
 
-Schemas are consumed through the specification rather than through any one library, so [every validator that implements the spec](https://github.com/standard-schema/standard-schema?tab=readme-ov-file#what-schema-libraries-implement-the-spec) works here, Zod, Valibot and ArkType among them. None of them is a dependency of this project, and core imports no validation library at runtime: the one you already use is the one that runs.
+Schemas are consumed through the specification, not through any one library, so [every validator that implements it](https://github.com/standard-schema/standard-schema?tab=readme-ov-file#what-schema-libraries-implement-the-spec) works here — Zod, Valibot and ArkType among them.
+
+None of them is a dependency of this project, and core imports no validation library at runtime. The one you already use is the one that runs.
 
 Your validator's own features carry through without being restated. `z.number().default(0)` answers for a key that holds nothing, and `z.enum(["light", "dark"]).catch("light")` absorbs a value that no longer matches, both directly from the schema.
 
 > [!IMPORTANT]
-> A schema has to accept its own output as input, because storage is a loop: what a write validates and stores is what the next read validates again. Nearly every schema qualifies. `z.string()`, `z.enum()` and `z.object()` each return what they took, and `z.coerce.number()` accepts anything at all. A one-way transform does not: `z.string().transform(Number)` produces a number that its own schema would reject. Since `set` is typed to the value a key holds, passing that number is exactly what the types ask for, and validation then refuses it with `StorageValidationError`. Reach for `z.coerce.number()`, which accepts both sides; [`ROADMAP.md`](ROADMAP.md) tracks the per-key serializers that would lift the restriction.
+> A schema has to accept its own output as input, because storage is a loop: what a write stores is what the next read validates again.
+
+Nearly every schema qualifies. `z.string()`, `z.enum()` and `z.object()` each return what they took, and `z.coerce.number()` accepts anything at all.
+
+A one-way transform does not. `z.string().transform(Number)` produces a number its own schema would reject, and that fails at runtime rather than at compile time: `set` is typed to the value the key holds, so passing the number is what the types ask for, and validation then refuses it with `StorageValidationError`.
+
+Reach for `z.coerce.number()`, which accepts both sides. [`ROADMAP.md`](ROADMAP.md) tracks the per-key serializers that would lift the restriction.
 
 ## Development
 
@@ -193,13 +201,14 @@ pnpm typecheck
 pnpm lint
 pnpm format
 pnpm check-package # publint and Are The Types Wrong, on the packed tarballs
-pnpm knip           # unused files, exports and dependencies
+pnpm check-docs    # every published export against the documentation convention
+pnpm knip          # unused files, exports and dependencies
 pnpm changeset     # record a user-facing change
 ```
 
 `examples/` holds a working application per platform — a Vite browser app, a Next.js server-rendered one, a WXT browser extension and an Expo app — each built on the same schema module, so a change can be seen running rather than only tested. [`examples/AGENTS.md`](examples/AGENTS.md) says how to run each one.
 
-Conventions, boundaries, the settled design decisions and the traps worth knowing are in [AGENTS.md](AGENTS.md). What is deliberately deferred is in [ROADMAP.md](ROADMAP.md), and the release process is in [RELEASING.md](RELEASING.md).
+Conventions and repository-wide rules are in [AGENTS.md](AGENTS.md); the library's own boundaries, design decisions and traps are in [packages/AGENTS.md](packages/AGENTS.md). What is deliberately deferred is in [ROADMAP.md](ROADMAP.md), and the release process is in [RELEASING.md](RELEASING.md).
 
 ## License
 

@@ -23,7 +23,7 @@ export function throwingStorage(message = "QuotaExceededError"): Storage {
 /**
  * A `Storage` that reads and removes normally and refuses only a write, which is what a full origin actually looks like.
  *
- * `failure` is thrown as it is given, so a suite can hand over each of the shapes browsers use: a `DOMException` named `QuotaExceededError`, Firefox's `NS_ERROR_DOM_QUOTA_REACHED`, an older browser setting only a numeric `code`, and something that is not a quota failure at all.
+ * `failure` is thrown as it is given, so a suite can hand over each of the shapes browsers use: a `DOMException` named `QuotaExceededError`, the `NS_ERROR_DOM_QUOTA_REACHED` older Firefox used, an older browser setting only a numeric `code`, and something that is not a quota failure at all.
  */
 export function storageRefusingWrites(failure: unknown): Storage {
   const entries = new Map<string, string>();

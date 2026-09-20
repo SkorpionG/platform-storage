@@ -24,6 +24,6 @@ pre-commit:
       run: pnpm typecheck
     - name: test
       run: pnpm test
-    # Whole-workspace like the two above, and quick enough to sit beside them: both modes finish in a couple of seconds and need no network.
+    # Whole-workspace like the two above, and quick enough to sit beside them. Only the default mode: the production mode reads the built declarations, and a build on every commit is too slow for a hook, so CI runs that one.
     - name: knip
-      run: pnpm knip && pnpm knip:production
+      run: pnpm knip

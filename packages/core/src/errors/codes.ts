@@ -14,6 +14,7 @@ export const STORAGE_ERROR_CODE = {
   AsyncValidatorInSyncMode: "ASYNC_VALIDATOR_IN_SYNC_MODE",
 } as const;
 
+/** Any one of the codes in {@link STORAGE_ERROR_CODE}. */
 export type StorageErrorCode = (typeof STORAGE_ERROR_CODE)[keyof typeof STORAGE_ERROR_CODE];
 
 /**
@@ -31,6 +32,7 @@ export const STORAGE_OPERATION = {
   Clear: "clear",
 } as const;
 
+/** Any one of the operations in {@link STORAGE_OPERATION}. */
 export type StorageOperation = (typeof STORAGE_OPERATION)[keyof typeof STORAGE_OPERATION];
 
 /**

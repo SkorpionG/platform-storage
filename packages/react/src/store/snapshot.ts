@@ -21,6 +21,7 @@ interface CachedRead {
 */
 const reads = new WeakMap<object, Map<string, CachedRead>>();
 
+/** A read of one key that keeps its identity until that key's generation moves. */
 export function cachedRead<
   Definition extends StorageSchemaDefinition,
   Key extends KeyOf<Definition>,

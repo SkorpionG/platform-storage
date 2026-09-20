@@ -16,6 +16,12 @@ function isStorageNamespace(value: unknown): value is ExtensionStorageNamespace 
  * Finds the `storage` namespace in this context: `browser.storage` where it exists, otherwise `chrome.storage`.
  *
  * `browser` comes first because it is promise-based everywhere it exists, whereas `chrome` is a compatibility namespace on Firefox. Both are read off `globalThis` as unknown values and narrowed by shape, so this package never depends on a browser type package. The answer is `undefined` where neither global is present, and also where `storage` is missing from the one that is, as it is in an extension that has not asked for the `storage` permission.
+ *
+ * @returns The namespace, or `undefined` where this context has none. Deciding what to do about that is the caller's.
+ * @example
+ * ```ts
+ * if (resolveExtensionStorage() === undefined) showNoticeThatNothingWillPersist();
+ * ```
  */
 export function resolveExtensionStorage(): ExtensionStorageNamespace | undefined {
   for (const host of HOSTS) {

@@ -122,7 +122,7 @@ Whether an exception a browser threw means the origin is full.
 
 **Returns:** `boolean`
 
-Recognizes the four shapes browsers use: the standard `QuotaExceededError`, Firefox's `NS_ERROR_DOM_QUOTA_REACHED`, and the legacy numeric codes 22 and 1014. The adapters apply this themselves, so reach for it only where you touch `localStorage` directly; for an error this library raised, `isStorageQuotaError` is the one to use.
+Recognizes the four shapes browsers use: the standard `QuotaExceededError` that current browsers raise, the `NS_ERROR_DOM_QUOTA_REACHED` older Firefox raised, and the legacy numeric codes 22 and 1014. The adapters apply this themselves, so reach for it only where you touch `localStorage` directly; for an error this library raised, `isStorageQuotaError` is the one to use.
 
 ## Examples
 

@@ -70,11 +70,16 @@ Publishing from a dirty tree publishes whatever is lying around, since the tarba
 ```sh
 pnpm install
 pnpm format:check
-pnpm knip && pnpm knip:production
+pnpm knip && pnpm check-docs
 pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm check-package
+pnpm knip:production
 ```
 
-These are the checks CI runs, in the same order. `check-package` is the one worth knowing: it packs each package exactly as `pnpm publish` would, then runs [publint](https://publint.dev) and [Are the Types Wrong](https://arethetypeswrong.github.io) over the resulting tarball. Together they catch the packaging faults that no test can see, because they only appear once a consumer installs the published artifact rather than the workspace: entry points that resolve to a file the tarball does not contain, a `require` path that lands on ESM, declarations that disappear under `node16` resolution.
+These are the checks CI runs, in the same order. `check-docs` is the one that reads comments rather than code: it holds every published export to the documentation convention in `AGENTS.md`.
+
+`check-package` is the one worth knowing. It packs each package exactly as `pnpm publish` would, then runs [publint](https://publint.dev) and [Are the Types Wrong](https://arethetypeswrong.github.io) over the resulting tarball.
+
+Together they catch what no test can see, because it only appears once a consumer installs the published artifact rather than the workspace: an entry point resolving to a file the tarball does not contain, a `require` path landing on ESM, declarations disappearing under `node16` resolution.
 
 Then, once per release rather than on every change:
 
@@ -83,9 +88,13 @@ pnpm verify-tarballs
 pnpm audit --prod
 ```
 
-`verify-tarballs` goes a step further than `check-package`: it installs the packed tarballs into a throwaway project **with npm**, imports them as ESM and requires them as CommonJS, and typechecks a consumer against the published declarations under both `bundler` and `node16` resolution. Everything else here resolves `workspace:*` to `src`, so this is the only thing that runs what a consumer actually receives. It is not in CI because it installs from the registry and takes far longer than the rest; it is cheap enough to run before a release and worth doing every time.
+`verify-tarballs` goes a step further than `check-package`: it installs the packed tarballs into a throwaway project **with npm**, imports them as ESM and requires them as CommonJS, and typechecks a consumer against the published declarations under both `bundler` and `node16` resolution. Everything else here resolves `workspace:*` to `src`, so this is the only thing that runs what a consumer actually receives.
 
-`pnpm audit` reads the whole lockfile, which includes the example applications and their toolchains. Those are private and never published, so an advisory there does not block a release. What blocks a release is an advisory reaching something under `packages/`, whose runtime dependencies are deliberately almost nothing: core depends on `@standard-schema/spec`, and every other package depends only on core.
+CI runs it on a push to `main` and skips it on pull requests, since it installs from the registry and takes far longer than the rest. Run it here anyway: it is what confirms the exact tree you are about to publish.
+
+`pnpm audit` reads the whole lockfile, which includes the example applications and their toolchains. Those are private and never published, so an advisory there does not block a release.
+
+What blocks a release is an advisory reaching something under `packages/`. Their runtime dependencies are deliberately almost nothing: core depends on `@standard-schema/spec`, and every other package depends only on core.
 
 ### 3. Confirm what is about to go out
 

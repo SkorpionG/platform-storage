@@ -8,6 +8,10 @@ import type { KeyOptions } from "./key-definition";
  *
  * Reach for this when a key has an `onInvalid` callback, or when it is worth naming and sharing on its own. A key with only a `default` is fully checked either way, so the inline form is the shorter path.
  *
+ * @param schema - Any [Standard Schema](https://standardschema.dev) validator, such as a Zod, Valibot or ArkType schema.
+ * @param options - `key` to rename what the backend stores under, `default` for what a read answers with when nothing is stored, and `onInvalid` for this key's own invalid-data policy.
+ * @returns A key definition to place in {@link defineStorageSchema}.
+ * @example
  * ```ts
  * const theme = defineKey(z.enum(["light", "dark"]), {
  *   default: "light",

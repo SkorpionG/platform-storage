@@ -82,6 +82,8 @@ Read the relevant one before changing something here that looks arbitrary, and a
 
 - **A demo has to obey the rule it is demonstrating.** The library's whole claim is that a missing backend is reported and never a crash, so demo code that reaches a platform API directly has to look for it rather than assume it. The extension's change relay assumed `browser.storage` and threw on a page that had none, blanking the whole playground.
 - **Say which of "still reading" and "the read failed" is meant.** Branching on `status === "ready"` alone and rendering one fixed caption for everything else tells the reader a failed read is still in flight, which is the distinction an asynchronous storage exists to keep. A placeholder has to be handed the read, the way `NotReady` in `@examples/extension` is, so it can report the error code instead.
+- **`@examples/ui` splits on the `"use client"` line.** `controls.tsx` and `code-block.tsx` carry the directive and the presentational files deliberately do not, which is what lets a panel with no hooks in it render on a server. `packages/AGENTS.md` records why the directive is needed at all.
+- **`@examples/web` caches its origin snapshot against a revision counter.** A `getSnapshot` has to answer with the same reference until something changes, and both `getSync` and a factory default answer fresh every call, so reading either straight through never settles. The counter is stable for exactly as long as nothing has been written.
 
 ### The extension
 

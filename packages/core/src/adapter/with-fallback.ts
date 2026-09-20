@@ -9,6 +9,17 @@ import type { StorageAdapter, SyncStorageAdapter } from "./adapter";
  * The choice is made on first use rather than at construction, because a storage is often built while a module is loading and long before anything reads from it. It is then kept, so every operation reaches the same backend and a value cannot be written to one and read from the other.
  *
  * The result is synchronous only when both halves are, since the type has to describe whichever one is chosen.
+ *
+ * @param primary - The backend to prefer. Its `isAvailable` decides; an adapter without one is treated as available.
+ * @param fallback - Used when the primary is not available. It must transport the same wire type.
+ * @returns One adapter over both. Synchronous only when both halves are.
+ * @example
+ * ```ts
+ * const storage = createStorage({
+ *   schema,
+ *   adapter: withFallback(localStorageAdapter(), memoryAdapter()),
+ * });
+ * ```
  */
 export function withFallback<Wire>(
   primary: SyncStorageAdapter<Wire>,

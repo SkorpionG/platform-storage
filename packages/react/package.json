@@ -4,15 +4,18 @@
   "description": "React hooks for platform-storage: read and write schema-validated storage from a component, on the client and across a server render.",
   "keywords": [
     "hooks",
+    "key-value",
     "react",
     "react-hooks",
     "schema",
     "ssr",
+    "standard-schema",
     "storage",
     "type-safe",
     "typescript",
     "use-sync-external-store",
-    "validation"
+    "validation",
+    "zod"
   ],
   "homepage": "https://github.com/SkorpionG/platform-storage/tree/main/packages/react#readme",
   "bugs": {

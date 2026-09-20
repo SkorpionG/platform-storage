@@ -2,13 +2,17 @@
 "@platform-storage/core": minor
 ---
 
-Declare a storage schema once, and every read and write is validated at runtime and typed at compile time.
+Declare a storage schema once. Every read and write is then validated at runtime and typed at compile time.
 
-- `defineStorageSchema` maps each logical key to its validator, the key its backend stores under, its default, and its own invalid-data policy. Both the key union and the value types are inferred from that one object, so nothing is restated at a call site.
-- Any [Standard Schema](https://standardschema.dev) validator works, so Zod, Valibot and ArkType are all usable and none of them is a dependency. Nothing here imports a validation library at runtime.
-- `createStorage` returns an asynchronous API, and additionally exposes `getSync` and its siblings when the adapter can answer immediately. Application code is written once and still reads without waiting where the platform allows it.
-- Persisted data outlives the code that wrote it, so a value that no longer matches its schema falls back to the key's default rather than breaking the read. It is not silent: the `onError` observer sees every failure. The policy resolves per call, then per key, then per storage, and `"throw"`, `"remove"` and a callback returning a replacement are the alternatives.
-- A missing value is always `undefined` and never `null`, because a schema may legitimately store `null`. Values are stored bare, exactly as the schema produced them, with no envelope wrapped around them. A backend that transports JSON values refuses a write it could not hold, such as a `Date` or a `Map`, naming the part of the value at fault rather than letting the backend store something else in its place.
+- `defineStorageSchema` maps each key to its validator, the name its backend stores under, its default, and its own invalid-data policy.
+- Keys and value types are both inferred from that one object, so nothing is restated at a call site.
+- Any [Standard Schema](https://standardschema.dev) validator works: Zod, Valibot, ArkType. None of them is a dependency, and nothing here imports one at runtime.
+- `createStorage` returns an asynchronous API, and adds `getSync` and its siblings when the adapter can answer immediately.
+- A stored value that no longer matches its schema falls back to the key's default rather than breaking the read.
+- Falling back is never silent: the `onError` observer sees every failure.
+- The invalid-data policy resolves per call, then per key, then per storage. `"throw"`, `"remove"` and a callback returning a replacement are the alternatives.
+- A missing value is always `undefined`, never `null`, because a schema may legitimately store `null`.
+- Values are stored bare, exactly as the schema produced them, with no envelope around them.
 - `clear()` removes only the keys the schema declares, so it can never wipe an origin shared with other code.
-- Every error extends `PlatformStorageError` and carries a stable `code`. `StorageQuotaExceededError` extends `StorageAdapterError` for the one backend failure an application can usually act on, so catching the general one still catches it. Prefer the `isPlatformStorageError`, `isStorageValidationError` and `isStorageQuotaError` guards to `instanceof`, which stops matching across two resolved copies of the package.
-- Adapter authors get the `StorageAdapter` contract, `defineSyncAdapter` to derive the asynchronous half from the synchronous one, `requireBackend` for a backend that may not be there, `withFallback` to pair two backends, and `memoryAdapter`.
+- Every error extends `PlatformStorageError` and carries a stable `code`. Prefer `isPlatformStorageError` to `instanceof`, which stops matching across two resolved copies of the package.
+- Adapter authors get the `StorageAdapter` contract, `defineSyncAdapter`, `requireBackend`, `withFallback` and `memoryAdapter`.

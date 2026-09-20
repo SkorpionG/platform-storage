@@ -24,6 +24,9 @@ export type CreateReactNativeStorageOptions<Definition extends StorageSchemaDefi
  *
  * Every method returns a promise, because AsyncStorage only ever answers later: there is no synchronous half here. Named for the platform rather than the backend because AsyncStorage itself exports a `createAsyncStorage`, and two functions of that name in one file would be a trap.
  *
+ * @param options - The `schema`, the `asyncStorage` instance to store through, and optionally `onInvalid` and `onError`.
+ * @returns A storage over that instance. Asynchronous only.
+ * @example
  * ```ts
  * import AsyncStorage from "@react-native-async-storage/async-storage";
  *

@@ -32,6 +32,11 @@ import type { StorageIo } from "./storage-io";
  *
  * The result exposes the synchronous methods too when the adapter can answer immediately, so application code can be written once and still read without waiting where the platform allows it.
  *
+ * Most applications reach for a platform factory instead, such as `createLocalStorage`. Use this one to pair a schema with an adapter of your own.
+ *
+ * @param options - The `schema`, the `adapter` to store through, and optionally `onInvalid` for the storage-wide invalid-data policy and `onError` to observe every failure.
+ * @returns A storage over that schema. It carries the synchronous half as well when the adapter can answer immediately.
+ * @example
  * ```ts
  * const storage = createStorage({ schema, adapter: memoryAdapter() });
  *

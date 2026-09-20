@@ -19,6 +19,16 @@ import type { SyncStorageWriter } from "../types/hooks";
  * Use it where a component writes a key it never displays, so that it is not re-rendered by every change to a value it does not show.
  *
  * A write the schema refuses throws before anything is announced, because nothing changed.
+ *
+ * @param storage - A storage whose backend answers immediately, such as one from `createLocalStorage`.
+ * @param key - Which key to write. Completed from the schema.
+ * @returns `set` and `remove` for that key.
+ * @example
+ * ```tsx
+ * const writer = useStorageWriter(storage, "lastSeen");
+ *
+ * <button onClick={() => writer.set(Date.now())}>Mark seen</button>;
+ * ```
  */
 export function useStorageWriter<
   Definition extends StorageSchemaDefinition,
@@ -46,6 +56,9 @@ export function useStorageWriter<
  *
  * On a server there is nothing to read, so the render falls back to what the schema alone answers with, and React is handed that same value for its first pass in the browser. That is what keeps the two in agreement; the stored value arrives the moment hydration ends, as a repaint rather than a mismatch.
  *
+ * @param storage - A storage whose backend answers immediately, such as one from `createLocalStorage`.
+ * @param key - Which key to read. Completed from the schema.
+ * @returns The value, and the pair of writers for that key.
  * @example
  * ```tsx
  * const [theme, writer] = useStorageValue(storage, "theme");

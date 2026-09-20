@@ -14,6 +14,7 @@ import type { BackendSource, StorageOperation, SyncStorageAdapter } from "@platf
  */
 export type WebStorageSource = BackendSource<Storage>;
 
+/** What the web adapters accept. */
 export interface WebStorageAdapterOptions {
   /** Identifies the adapter in error messages. */
   readonly name?: string | undefined;
@@ -24,7 +25,7 @@ const PROBE_KEY = "__platform_storage_probe__";
 /**
  * The names and legacy codes browsers report an exhausted origin allowance under.
  *
- * `QuotaExceededError` is the standard one. Firefox raises `NS_ERROR_DOM_QUOTA_REACHED` instead, and older browsers set only the numeric `code`: 22 in the DOM specification, 1014 in Firefox. All four are checked because a caller that wants to evict and retry has to recognize the case wherever it runs.
+ * `QuotaExceededError` is the standard one, and what current Chromium, Firefox and WebKit all raise. Older Firefox raised `NS_ERROR_DOM_QUOTA_REACHED`, and older browsers set only the numeric `code`: 22 in the DOM specification, 1014 in Firefox. All four are checked because a caller that wants to evict and retry has to recognize the case wherever it runs.
  */
 const QUOTA_NAMES: ReadonlySet<string> = new Set([
   "QuotaExceededError",
@@ -36,6 +37,17 @@ const QUOTA_CODES: ReadonlySet<number> = new Set([22, 1014]);
  * Whether the browser refused a write because the origin is full, rather than because it refuses writes at all.
  *
  * Safari in private browsing raises `QuotaExceededError` for every write, with an allowance of zero. The two are indistinguishable from the exception alone, which is why `isWebStorageAvailable` probes before a storage is ever chosen.
+ *
+ * @param cause - Whatever the browser threw.
+ * @returns `true` when it says the origin is full.
+ * @example
+ * ```ts
+ * try {
+ *   localStorage.setItem("k", big);
+ * } catch (error) {
+ *   if (isQuotaExceeded(error)) evictSomething();
+ * }
+ * ```
  */
 export function isQuotaExceeded(cause: unknown): boolean {
   if (typeof cause !== "object" || cause === null) return false;
@@ -51,6 +63,13 @@ export function isQuotaExceeded(cause: unknown): boolean {
  * Reports whether a web storage object can actually be written to.
  *
  * The check writes and removes a probe key, because presence is not availability: Safari in private browsing and a sandboxed iframe both expose a `Storage` object whose `setItem` throws.
+ *
+ * @param getStorage - Reaches for the storage. It may throw, which counts as unavailable.
+ * @returns `true` when a write succeeded.
+ * @example
+ * ```ts
+ * if (!isWebStorageAvailable(() => window.localStorage)) showNoticeThatNothingWillPersist();
+ * ```
  */
 export function isWebStorageAvailable(getStorage: WebStorageSource): boolean {
   try {
@@ -73,6 +92,14 @@ export function isWebStorageAvailable(getStorage: WebStorageSource): boolean {
  * The storage is reached through `getStorage` on every operation rather than once at construction, so an adapter built while a module loads still works, and one that cannot be reached reports `StorageUnavailableError` rather than crashing.
  *
  * A refused write is left in the browser's own vocabulary for the engine to wrap. The exception is a full origin, which this adapter names itself, because the browsers disagree about how they report one and a caller wanting to evict and retry should not have to know that.
+ *
+ * @param getStorage - Reaches for the storage, on every operation.
+ * @param options - `name` to change what error messages call it. Defaults to `"web-storage"`.
+ * @returns A synchronous adapter over that storage.
+ * @example
+ * ```ts
+ * const adapter = webStorageAdapter(() => window.localStorage, { name: "localStorage" });
+ * ```
  */
 export function webStorageAdapter(
   getStorage: WebStorageSource,

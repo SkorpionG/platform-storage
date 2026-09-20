@@ -22,8 +22,9 @@
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "check-package": "turbo run check-package",
+    "check-docs": "node tooling/scripts/src/check-docs.js",
     "knip": "knip",
-    "knip:production": "knip --production --strict --workspace '@platform-storage/*'",
+    "knip:production": "turbo run build --filter=@platform-storage/* && knip --production --strict --workspace '@platform-storage/*'",
     "verify-tarballs": "node tooling/scripts/src/verify-tarballs.js",
     "format": "pnpm format:comments:fix && oxfmt",
     "format:check": "pnpm format:comments && oxfmt --check",
@@ -39,7 +40,6 @@
     "skills:update": "pnpm dlx skills update"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "catalog:",
     "@changesets/cli": "catalog:",
     "knip": "catalog:",
     "lefthook": "catalog:",
@@ -50,5 +50,5 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "pnpm@11.20.0"
+  "packageManager": "pnpm@12.5.1"
 }

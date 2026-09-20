@@ -1,6 +1,11 @@
 # AGENTS.md
 
-Guide for agents and contributors working on `platform-storage`.
+Guide for agents and contributors working on `platform-storage`. This file holds what applies to the whole repository. Two others go deeper:
+
+- [`packages/AGENTS.md`](packages/AGENTS.md) — the five published packages: what each one is, the boundaries between them, the settled API decisions, and the traps that only apply to library code.
+- [`examples/AGENTS.md`](examples/AGENTS.md) — the demonstration apps: how they share code, the tooling they need, and how to run each one.
+
+Read the matching one before changing anything under `packages/` or `examples/`.
 
 ## What this is
 
@@ -8,23 +13,13 @@ A schema-first, type-safe, cross-platform key-value storage abstraction. You dec
 
 The repository is a pnpm + Turborepo monorepo. Adapters are thin; nearly all of the behavior lives in the core package.
 
-## Package map
+## Where things live
 
-| Package                          | Holds                                                                             |
-| -------------------------------- | --------------------------------------------------------------------------------- |
-| `@platform-storage/core`         | Schema definition, type inference, validation, serialization, engine, errors      |
-| `@platform-storage/web`          | The `localStorage` and `sessionStorage` adapters, and storage factories over them |
-| `@platform-storage/extension`    | The `local`, `sync` and `session` area adapters, and a storage factory over them  |
-| `@platform-storage/react-native` | The AsyncStorage adapter, and a storage factory over it                           |
-| `@platform-storage/react`        | React hooks over any storage, and the server-safe declared read                   |
-| `tooling/*`                      | Private, shared TypeScript, oxlint, vitest and formatting configuration           |
-| `examples/*`                     | Demonstrations of the published packages. Every one is private and never released |
-
-Every platform package depends only on core and re-exports it, so an application installs one package. Platform packages never depend on each other.
-
-`@platform-storage/react` is not one of them. It exports hooks and nothing else, because a consumer already has a platform package for the schema and the errors, and it is installed alongside one rather than instead of one.
-
-The demonstration apps have conventions, tooling and traps of their own, and [`examples/AGENTS.md`](examples/AGENTS.md) is where those live: how the three sharing layers work, why `tooling/typescript/react.json` and `tooling/oxlint/react.json` exist, what Tailwind has to be told about a sibling package, and how to run each app. Read it before changing anything under `examples/`.
+| Path        | Holds                                                                          |
+| ----------- | ------------------------------------------------------------------------------ |
+| `packages/` | The five published packages. One core, three platform adapters, one for React  |
+| `examples/` | Demonstration apps. Every one is private and never released                    |
+| `tooling/`  | Shared TypeScript, oxlint, vitest and formatting config, and workspace scripts |
 
 ## Commands
 
@@ -39,6 +34,7 @@ The demonstration apps have conventions, tooling and traps of their own, and [`e
 | Format            | `pnpm format` / `pnpm format:check`                 |
 | Comment wrapping  | `pnpm format:comments` / `pnpm format:comments:fix` |
 | Packaging checks  | `pnpm check-package`                                |
+| API documentation | `pnpm check-docs`                                   |
 | Unused code       | `pnpm knip` / `pnpm knip:production`                |
 | Consumer check    | `pnpm verify-tarballs`                              |
 | One package       | `pnpm --filter @platform-storage/core test`         |
@@ -48,11 +44,9 @@ The demonstration apps have conventions, tooling and traps of their own, and [`e
 | Version the set   | `pnpm version-packages`                             |
 | Publish           | `pnpm release`                                      |
 
-Root scripts only delegate to `turbo run`. Task logic belongs in the package that owns it, which is what lets turbo parallelize and cache per package. The exceptions are the tools that read the whole workspace in one pass — the formatters and knip — which have no per-package task to delegate to.
+Root scripts only delegate to `turbo run`. Task logic belongs in the package that owns it, which is what lets turbo parallelize and cache per package. The exceptions are the tools that read the whole workspace in one pass — the formatters, knip and `check-docs` — which have no per-package task to delegate to.
 
-## Conventions
-
-### Code
+## Code
 
 - Functional and declarative. No classes, with one exception: `Error` subclasses, which have to be classes to be catchable by type.
 - `interface` for object shapes, `type` for unions, aliases and mapped types.
@@ -61,61 +55,113 @@ Root scripts only delegate to `turbo run`. Task logic belongs in the package tha
 - No `any`. `unknown` plus a narrowing check instead.
 - Guard clauses and early returns over nesting.
 
-### Prose is never hard-wrapped
+## Writing
 
-In Markdown and in code comments, keep each paragraph and each list item on a single line. No line breaks inside a sentence or a paragraph. Wrapping is the editor's job, and a hard-wrapped paragraph makes a search miss any phrase split across two lines, while every small edit rewraps the rest of it into diff noise. This applies to commit messages too. Tables and fenced code blocks are unaffected, as is anything indented past the paragraph margin inside a comment.
+Everything below applies to Markdown, code comments and commit messages alike.
 
-`pnpm format:comments` reports every paragraph that wraps and `pnpm format:comments:fix` joins them. oxfmt does not format comment interiors and leaves Markdown prose as it finds it, so this pass owns them; `pnpm format` runs both.
+- **Prose is never hard-wrapped.** Keep each paragraph and each list item on one line. Wrapping is the editor's job: a hard-wrapped paragraph makes a search miss any phrase split across two lines, and every small edit rewraps the rest into diff noise. Tables and fenced code blocks are unaffected, as is anything indented past the paragraph margin inside a comment. `pnpm format:comments` reports what wraps and `pnpm format:comments:fix` joins it; oxfmt leaves comment interiors and Markdown prose alone, so that pass owns them.
+- **Spelling is American.** `color`, `behavior`, `serialize`, `normalize`, `labeled`, `canceled`. In prose, comments and identifiers alike, since the platform APIs this library wraps are spelled that way themselves. No tool checks it.
+- **Say the thing, then stop.** Lead with what something is, not how it works. Link to a specification or to MDN rather than explaining it — a comment that teaches the platform has stopped being a comment.
+- **One reason per paragraph, and a paragraph is a few sentences.** A comment earns its length by the number of reasons it gives, not by how thoroughly it gives one. When a second reason arrives, start a new paragraph. If a paragraph runs past roughly four lines on screen, it is doing more than one job.
+- **A comment says why, never what the code already says.** State the rule, not the incident that produced it, and never leave a comment describing an approach that was replaced: a reader cannot tell whether it documents the code or contradicts it. Avoid numbers that drift.
 
-### Spelling is American
+### Documenting the public API
 
-`color`, `behavior`, `serialize`, `normalize`, `labeled`, `canceled`. Not `colour`, `behaviour`, `serialise`, `normalise`, `labelled`, `cancelled`. In prose, comments and identifiers alike, since the platform APIs this library wraps are spelled American themselves. No tool checks it; it is on review, unlike the ban on `enum`, which the compiler now catches.
+Every value a package entry point exports carries the same block: a one-line summary, a short paragraph of why, then the tags. `pnpm check-docs` enforces it, so drift fails CI rather than review.
 
-### Comments
+````ts
+/**
+ * A storage over `localStorage`.
+ *
+ * Web storage answers immediately, so the result carries the synchronous half as well: a first render can read `getSync` without a loading state.
+ *
+ * @param options - The `schema`, and optionally `onInvalid` and `onError`. The adapter is supplied for you.
+ * @returns A storage carrying both halves of the API.
+ * @example
+ * ```ts
+ * const storage = createLocalStorage({ schema });
+ *
+ * await storage.set("theme", "dark");
+ * const theme = storage.getSync("theme");
+ * ```
+ */
+````
 
-A comment says **why**, never what the code already says. State the rule, not the incident that produced it, and do not leave a comment describing an approach that was replaced: a reader cannot tell whether it documents the code or contradicts it. Avoid numbers that drift. Keep JSDoc on public API to what it guarantees and the one non-obvious reason it works that way.
+- `@param` for every parameter, saying what it is and what happens when it is left out. `@returns` for anything that returns a value; a constructor needs none. `@throws` where a caller can trigger one. `@example` always, and short — one call, not a tour.
+- Examples across the packages read as one set: the same `schema`, the same key names. A reader moving between two of them should not have to learn a new cast of characters.
+- A type or an interface needs the description alone.
+- **The README entry and the doc block have to agree.** Both are the contract, and neither is a summary of the other. Change one and change the other in the same commit.
 
-**One reason per paragraph, and a paragraph is a few sentences.** A comment earns its length by the number of reasons it gives, not by how thoroughly it gives one. When a second reason arrives, start a new paragraph rather than extending the sentence — a clause bolted onto the end of an already-long one is how a comment stops being read. Prose here is not hard-wrapped, so length is invisible while writing it and obvious to whoever reads it next; if a paragraph runs past roughly four lines on screen, it is doing more than one job.
+### Documenting everything else
 
-Trim to the reason. Naming the mechanism is the comment's work; walking through its consequences usually is not, and neither is the cost of an approach nobody is choosing between.
+An internal module gets a one-line block, or a short paragraph where the reason is not obvious. No tags and no example: the reader is already in the file.
 
-### Tests
+```ts
+/** Names the key in a message, and the physical key too when the two differ. */
+```
 
-- **A test lives in a `tests/` folder beside the code it covers**: `src/schema/tests/define-key.test.ts` next to `src/schema/define-key.ts`. Moving or renaming a module takes its tests with it, and there is no parallel tree to keep in step.
-- **Every module with runtime behavior has a suite named for it**, whether or not the entry point publishes it. An internal module such as `src/storage/pipeline.ts` is covered directly rather than only through whatever calls it, because a suite reached through the engine tests the engine's use of it and not the module's own contract.
-- **A module that declares only types gets a `*.test-d.ts` instead, or nothing.** Nothing is the right answer where the compiler already proves the whole of what the module says; a `.test-d.ts` is worth writing where a type encodes a rule, such as a union derived from a constant or a conditional result type.
-- **Every published entry point has an `index.test-d.ts`** asserting what it exports, and asserting that the engine internals stay unpublished. That second half is what keeps an accidental `export *` from freezing an internal into the contract.
-- The package's own top-level `tests/` folder holds only what belongs to no single module: shared fixtures, shared fakes, and cross-cutting suites such as the one binding `STORAGE_OPERATION` to every interface that exposes an operation, or the one covering the synchronous half across adapters and schemas alike.
-- Test files never ship: `files: ["dist"]` decides what is published, and the bundler only follows what the entry point imports.
-- `*.test.ts` for runtime behavior, `*.test-d.ts` for type-level assertions with `expectTypeOf`. Both run under `pnpm test`; a type regression fails the build like any other bug.
-- Active-voice test titles that name the behavior, such as "returns the default when no value is stored" rather than "test default".
-- Fakes live in the package's top-level `tests/fakes/`, shared rather than redeclared per suite. Prefer a fake that behaves like the real backend (including its quirks, such as AsyncStorage returning `null`) over a mock.
-- This library's whole purpose is surviving bad persisted data, so a change to read behavior needs a test that stores something invalid.
+## Commits and changesets
 
-### Changes
+Every user-facing change needs a changeset: `pnpm changeset`. All five published packages share one version, so a changeset on any of them versions the set. `RELEASING.md` covers when one is needed and how to choose the bump.
 
-Every user-facing change needs a changeset: `pnpm changeset`. All five published packages share one version, so a changeset on any of them versions the set. `RELEASING.md` covers when one is needed, what to write in it, and how to choose the bump.
+Commits follow [Conventional Commits](https://www.conventionalcommits.org): a `type: subject` line in the imperative mood, then a body of bullets.
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org): a `type: subject` line in the imperative mood, and a body of bullet points where the change is worth explaining. The subject says what the commit does; each bullet says what changed and, where it is not obvious, why. Prose is not hard-wrapped here either, so a bullet stays on one line however long it runs.
+- One bullet per change, one line each, and as short as it can be while still saying something. A long list of short bullets reads far better than a short list of long ones.
+- Say what changed, and why only where the why is not obvious from the what.
+- Group under `Adds:` and `Fixes:` only when a commit does both, or when the list runs past roughly eight bullets. A single-purpose commit takes a flat list.
+- Never name a gitignored file.
 
-## Boundaries
+```text
+fix(web): recognize every quota shape
 
-- **Never let a platform's own package reach a consumer.** `@types/chrome`, `@types/firefox-webext-browser`, `@types/webextension-polyfill` and `@react-native-async-storage/async-storage` are development dependencies used only by conformance tests. `src` declares the platform APIs it uses structurally. If a conformance test starts failing, the structural declaration has drifted from a real API and needs widening to the common denominator of all of them, not narrowing to one.
-- **Core knows nothing about any platform.** It depends on the adapter contract and on Standard Schema, and imports no browser, Node or React Native API.
-- **Core never imports a validation library at runtime.** Schemas are consumed through Standard Schema, so Zod, Valibot and ArkType all work and none is a dependency.
+- Add the two legacy numeric codes, 22 and 1014.
+- Keep the older Firefox name alongside the standard one.
+- Assert each shape in the adapter tests.
+```
+
+```text
+chore: prepare the release metadata
+
+Adds:
+
+- A CI badge in the root README.
+- The same base keywords on every package.
+
+Fixes:
+
+- `RELEASING.md` said CI skips the tarball check. It runs on every push to `main`.
+```
+
+## Things to note
+
+Read the relevant one before changing something that looks arbitrary, and add to the list when something proves expensive to work out. Library-only traps live in [`packages/AGENTS.md`](packages/AGENTS.md).
+
+### What is committed and what is not
+
 - **`demos/`, `.docs/` and `.specstory/` are local-only.** They are ignored by git and hold reference material and working notes. Never cite, name or copy from them in source, comments, documentation or commit messages.
 - **`.agents/` and `.claude/` hold vendored skills.** They are committed but authored elsewhere, and the formatter ignores them. Do not edit them by hand.
 
-## Design decisions worth knowing
+### Workspace dependencies
 
-These were settled deliberately. Reopen them with the maintainer rather than in passing.
+- **A development dependency drags its peers in.** pnpm installs missing peers automatically, and AsyncStorage's are React and the whole React Native toolchain, all for one type assertion. An override in `pnpm-workspace.yaml`, of the form `"<package>>react": "-"`, drops them.
+- **That override matches its parent by name, so it needs a version too.** It rewrites the named package's manifest for **every** consumer, not only the one that wanted the peer gone — so once a real application depends on the same package, the peer it genuinely needs is missing and resolves only through pnpm's implicit hoisting. Write the selector as `"<package>@<range>>react": "-"` and the two copies stay independent. `examples/AGENTS.md` records the case that caught it.
 
-- **Missing is `undefined`, never `null`.** A schema may legitimately store `null`, so `null` cannot also mean absence.
-- **The API is asynchronous everywhere.** Adapters that can act synchronously additionally expose `getSync` and friends, unlocked at the type level, so application code can be written once and still support an SSR-safe synchronous read where the backend allows one.
-- **Adapters own their serializer and their wire type.** Web and React Native transport strings; extension storage areas transport JSON values natively. Encoding a string for the latter would double-encode it, waste the `sync` quota, and break interoperability with data other code already wrote.
-- **Values are stored bare, with no envelope.** What the backend holds is exactly what the schema produced, with nothing wrapped around it. `ROADMAP.md` records why that shape was chosen.
-- **Invalid persisted data falls back by default.** The policy resolves per call, then per key, then per storage, then to `"fallback"`. It is not silent: the `onError` observer sees every failure. Use `onInvalid: "throw"` in tests and development.
-- **`clear()` removes only the keys the schema declares.** It must never wipe an origin that other code shares.
+### Linting and formatting
+
+- **oxlint's `ignorePatterns` is not inherited through `extends`.** It only takes effect in the config a file actually resolves to, so it belongs in the root `.oxlintrc.json` rather than in `tooling/oxlint/base.json`. This hid for a long time because oxlint already skips anything gitignored, and every path the key named was gitignored; `.agents` is the first that is committed, and so the first where the key had to work.
+- **A comment matcher has to exclude the triple slash.** `format-comments` matched `//` and treated the third slash of a `/// <reference … />` directive as content, rewrapping it into `// / <reference … />` and silently destroying it. Nothing warns, because the result is still a valid comment. Its matchers use `\/\/(?!\/)` for that reason.
+- **A bulleted list inside a blockquote gets joined into one line.** `format-comments` reads consecutive `>` lines as one wrapped paragraph, so a `> - …` list comes back as a single bullet and the list is gone. Keep a callout to prose, and put the list after it.
+- **A workspace script writes with `process.stdout.write`, not `console`.** `no-console` is on everywhere, including `tooling/`, and a script that reports to a terminal is not an exception worth carving out.
+- **knip runs twice, and the second run is the one that protects consumers.** `pnpm knip` covers the whole workspace, tests included. `pnpm knip:production` checks only the published packages' shipped code, in strict mode, against `dependencies` alone, so a package cannot import something only its `devDependencies` provide. Strict is scoped to `@platform-storage/*` because a bundled example app correctly keeps its build tools in `devDependencies`.
+- **Strict mode reads the build, so `knip:production` builds first.** A type-only import counts as a published dependency only if the built declarations carry it, and knip finds those by following `publishConfig.types` into `dist`. With no build it sees no published types and reports a genuine dependency such as `@standard-schema/spec` as unused. That is also why the commit hook runs only the default mode, and CI runs this one after its build.
+- **knip cannot see two things here, and `knip.jsonc` tells it.** Vitest reads type-level suites from `typecheck.include`, which the plugin does not follow, so `*.test-d.ts` files are named as entries. And every package extends the oxlint config by relative path, so `@tooling/oxlint-config` looks unused while being what puts that config in turbo's graph.
+- **A fixer that a git hook drives is handed paths, not asked to find them.** An exclusion applied only where a tool walks the tree is bypassed the moment lefthook passes `{staged_files}`, and for a rewriting tool that means editing files this repository does not author — which then conflicts with lefthook's stash of unstaged changes and leaves the commit unfinishable. `format-comments` applies its exclusions to both paths for that reason.
+
+### Editor tooling
+
+- **A `// @ts-check` file with no `tsconfig.json` is checked against the editor's defaults**, not against this repository's. A workspace script then fails on `toSorted` and on its own `node:` imports, and every binding downstream of the failure is reported as an implicit `any`, which points at the wrong line. `tooling/scripts` has a config of its own for that reason: `lib` at ES2023 and `types: ["node"]`, matching the Node it actually runs on.
+- **A `$schema` path inside a config file resolves against that file's own URI.** Opening one from git history therefore looks for the schema under `git:` and fails. The mapping lives in `.vscode/settings.json` under `json.schemas` instead, whose paths resolve against the workspace root, and points at the copy in `node_modules` so there is no version to keep in step.
+- **A config file may hold comments even where the editor says it may not.** `tsc` and oxlint both accept them, and the configs here use them to explain a setting beside the setting itself, but the editor decides a file is JSONC from its name and knows `tsconfig.json` rather than the shared bases packages extend. The tools stay happy and only the editor complains, so the fix is a `files.associations` entry in `.vscode/settings.json`, not the removal of the comment.
 
 ## Releasing
 
@@ -128,68 +174,3 @@ No package sets `publishConfig.provenance`, because npm issues a provenance stat
 ## Deferred work
 
 `ROADMAP.md` records what was cut from v0.1 and the direction each item would take. It stays deliberately short of a specification: an entry says what the thing is and what makes it awkward, not what its API will be, so that nothing there reads as a promise. When scope is cut, add it there rather than leaving it in a conversation.
-
-## Traps
-
-Read the relevant one before changing something here that looks arbitrary, and add to the list when something proves expensive to work out.
-
-### Types
-
-- **A default type argument switches off contextual typing for that parameter.** Giving `defineKey` a default such as `const Options extends KeyOptions<Schema> = Record<never, never>` silently stops the options argument from being checked against the schema. There is a comment on the function saying so; it has no default, and it must not gain one.
-- **A callback written inline in `defineStorageSchema` cannot be type-checked.** The object is inferred and then constrained against a type derived from itself, so the callback gets no expectation to meet and its literal return widens to `string`. `defineKey(schema, options)` is the checked form, because taking the schema as its own argument means it is known before the options are read. Splitting `onInvalid` into two fields does not help; nor does dropping `const`.
-- **A constraint that inspects its own type parameter is rejected outright** as a circular constraint. `defineStorageSchema` gets away with it only because its conditional tests `Definition[Key]` rather than `Definition`.
-- **Zod's `.catch()` takes the value type as its input, not `unknown`.** A catch schema therefore does not drop `undefined` from a read: it governs invalid data, not absent data. Pair it with a `default` to cover both.
-- **`exactOptionalPropertyTypes` rejects assigning `undefined` to an optional property**, which is why public option types spell `| undefined` explicitly.
-- **`erasableSyntaxOnly` is what keeps the codebase functional**, not review. It rejects every construct that emits runtime code from a type position, which is the whole of the `enum` rule and more besides. Prove a change to it still bites by adding an `enum` and watching the build fail.
-- **`noPropertyAccessFromIndexSignature` means a record is read with a bracket**, so `record["self"]` rather than `record.self` wherever the key is not declared. It reads worse and is worth it: dotted access to a key nothing declares is how a typo becomes `undefined` at runtime.
-- `noImplicitReturns` and `noUncheckedSideEffectImports` are on as well, and neither has ever fired here; they are guards rather than corrections.
-- TypeScript is pinned to the 6.x line. `latest` on npm is the Go-native 7.x port, which the declaration-emit and typecheck tooling here is not validated against.
-
-### Platforms
-
-- **Widen a structural declaration to the common denominator; narrow at the adapter instead.** The extension storage area's values stay `unknown` because the WebExtension polyfill declares them that way, and narrowing them to JSON values stops it conforming even though Chrome and Firefox still would. The one narrowing lives at the adapter's read boundary, where the schema validates the value straight afterwards.
-- **`Reflect.get(globalThis, name)` reads a global as `unknown`** whatever type packages the compilation includes. That is what lets the extension resolver stay structural inside a package whose tests load `@types/chrome` and the Firefox declarations globally.
-- **The web adapters read the storage off `window`, never `globalThis`.** Node exposes a `localStorage` of its own, and a server has to look unavailable so `withFallback` moves on rather than writing somewhere no browser will ever read.
-- **Resolve a backend on every operation, never once at construction.** A storage is usually built while a module loads, long before anything reads from it, and in a context that may not have the backend yet. `requireBackend` is the shared way to do it.
-- **A module importing a client-only React hook needs `"use client"`, even in a package no server ever renders.** Under the `react-server` condition `react` does not export `useState`, `useEffect` or `useSyncExternalStore` at all, so such a module fails to build the moment a Server Component reaches it through a barrel. `@examples/ui` splits on exactly this line: `controls.tsx` and `code-block.tsx` carry the directive and the presentational files deliberately do not, which is what lets a panel with no hooks in it render on a server.
-- **An `Error` does not survive the Server Components boundary.** React's serialization substitutes its own error object for yours, so the subclass, the `code` and the brand are gone by the time a client component could read them. Read what is wanted while the error is still itself and hand a plain object across.
-- **A storage built while a module loads is shared by every request that server handles.** Safe only where nothing writes during a render; an application that writes needs one built per request.
-- **A `getSnapshot` handed to `useSyncExternalStore` has to return the same reference until something changes.** `getSync` deserializes on every call and a factory default answers fresh even for a key holding nothing, so a snapshot reading either straight through never settles and React stops the render with `Maximum update depth exceeded`. `@examples/web` caches against its revision counter, which is stable for exactly as long as nothing has written.
-
-### Dependencies
-
-- **Shared runtime code goes in core, never in a private package.** `tsdown` keeps dependencies external, so a platform bundle imports what it depends on rather than inlining it. A private `@tooling/*` package would be unresolvable for a consumer at install time, and bundling it instead would put a second copy inside every platform package. Core is already a dependency of all three platform packages and is re-exported by each.
-- **Check a backend's own export names before naming a factory after it.** AsyncStorage exports a `createAsyncStorage` of its own, which is why the factory here is `createReactNativeStorage`, named for the platform the way `createExtensionStorage` is.
-- **A development dependency drags its peers in.** pnpm installs missing peers automatically, and AsyncStorage's are React and the whole React Native toolchain, all for one type assertion. An override in `pnpm-workspace.yaml`, of the form `"<package>>react": "-"`, drops them.
-- **That override matches its parent by name, so it needs a version too.** It rewrites the named package's manifest for **every** consumer, not only the one that wanted the peer gone — so once a real application depends on the same package, the peer it genuinely needs is missing and resolves only through pnpm's implicit hoisting. Write the selector as `"<package>@<range>>react": "-"` and the two copies stay independent. `examples/AGENTS.md` records the case that caught it.
-
-### Packaging
-
-- **In-repo `exports` point at `src`; `publishConfig` swaps them for `dist` on publish.** That is what lets the editor, `tsc` and vitest resolve workspace packages to source while consumers get the build. It works only through `pnpm pack` and `pnpm publish`, never `npm pack`, because npm does not apply `publishConfig`.
-- **Nothing in this repository consumes the built packages, so `pnpm verify-tarballs` is what does.** Every example resolves `workspace:*` to source, which means a broken `exports` map, a missing subpath or a declaration that vanishes under `node16` passes the whole suite. That script builds and packs all five, installs them with npm into a throwaway project, and imports, requires and typechecks against them. `publint` and `attw` read a tarball; this one runs it. It belongs in CI on a push to `main` and in the release checklist, and deliberately not in the commit hook or on a pull request: it installs from the registry, so it is slow and fails offline, and what it guards changes far less often than the code does.
-- **pnpm puts the workspace-root `LICENSE` into every package tarball**, so no package needs a copy of its own. `README.md`, `LICENSE`, `package.json` and `CHANGELOG.md` are included whatever `files` says, but only when they are in the package directory — and the license is the one that is not.
-- **A workspace package therefore reaches a bundler as source, and source transforms apply to it.** A consumer's build sees `dist` and treats it as a dependency; an app in this repository sees `src` at a path outside `node_modules`, so anything filtering on that path treats library code as its own. A framework transform that rewrites free identifiers is the case that bites, since library code is written against no such convention. Keep such a transform scoped to the app, never widened to make the library survive it; `examples/AGENTS.md` records the one that has happened.
-- **Declaration maps are off deliberately.** They point at `src`, which `files` does not publish, so shipping them would hand every consumer a map to nothing. JavaScript source maps stay on.
-- **A bundler emits `"use client"` only for a chunk whose own entry module carries it.** A directive on a module the entry merely re-exports is dropped, the build succeeds, and nothing warns; the package is then server code to every framework that reads the directive. `packages/react/src/index.ts` carries it for that reason, and a test asserts it is the first line. The rule under **Platforms** is the source-level counterpart, with a different fix.
-- **Errors are identified by `code` and by brand, never by `instanceof`.** An application that resolves two copies of a package holds two copies of each class, and `instanceof` silently stops matching across them.
-
-### Writing tests
-
-- **Prove a new type assertion actually bites** by temporarily breaking the thing it guards. A `@ts-expect-error` case passes just as happily when it fails for a reason nobody intended.
-- `expectTypeOf(fn).parameter(0)` resolves to `never` for a generic method. Assert against the schema type instead.
-- `expect(fn).toThrow(expect.objectContaining({ ... }))` checks an error's own fields, so asserting on a synchronous throw needs no capture helper and no `expect.assertions` count.
-- A `// @vitest-environment node` docblock at the top of one suite runs it without a DOM inside a package whose config is happy-dom. That is how the web package proves its server behavior without a second config.
-- **A fake backend must be held in a variable, not built inside the source function.** Returning a fresh fake on every call sends a write and the following read to different backends, because the source really is called per operation.
-
-### Linting and formatting
-
-- **oxlint's `ignorePatterns` is not inherited through `extends`.** It only takes effect in the config a file actually resolves to, so it belongs in the root `.oxlintrc.json` rather than in `tooling/oxlint/base.json`. This hid for a long time because oxlint already skips anything gitignored, and every path the key named was gitignored; `.agents` is the first that is committed, and so the first where the key had to work.
-- **A comment matcher has to exclude the triple slash.** `format-comments` matched `//` and treated the third slash of a `/// <reference … />` directive as content, rewrapping it into `// / <reference … />` and silently destroying it. Nothing warns, because the result is still a valid comment. Its matchers use `\/\/(?!\/)` for that reason; the repository had no such directive until an Expo app needed one.
-- **knip runs twice, and the second run is the one that protects consumers.** `pnpm knip` covers the whole workspace, tests included. `pnpm knip:production` checks only the published packages' shipped code, in strict mode, against `dependencies` alone, so a package cannot import something only its `devDependencies` provide. Strict is scoped to `@platform-storage/*` because a bundled example app correctly keeps its build tools in `devDependencies`.
-- **knip cannot see two things here, and `knip.jsonc` tells it.** Vitest reads type-level suites from `typecheck.include`, which the plugin does not follow, so `*.test-d.ts` files are named as entries. And every package extends the oxlint config by relative path, so `@tooling/oxlint-config` looks unused while being what puts that config in turbo's graph.
-- **A fixer that a git hook drives is handed paths, not asked to find them.** An exclusion applied only where a tool walks the tree is bypassed the moment lefthook passes `{staged_files}`, and for a rewriting tool that means editing files this repository does not author — which then conflicts with lefthook's stash of unstaged changes and leaves the commit unfinishable. `format-comments` applies its exclusions to both paths for that reason.
-
-### Editor tooling
-
-- **A `$schema` path inside a config file resolves against that file's own URI.** Opening one from git history therefore looks for the schema under `git:` and fails. The mapping lives in `.vscode/settings.json` under `json.schemas` instead, whose paths resolve against the workspace root, and points at the copy in `node_modules` so there is no version to keep in step.
-- **A config file may hold comments even where the editor says it may not.** `tsc` and oxlint both accept them, and the configs here use them to explain a setting beside the setting itself, but the editor decides a file is JSONC from its name and knows `tsconfig.json` rather than the shared bases packages extend. The tools stay happy and only the editor complains, so the fix is a `files.associations` entry in `.vscode/settings.json`, not the removal of the comment.

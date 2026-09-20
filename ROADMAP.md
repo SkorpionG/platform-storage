@@ -1,16 +1,24 @@
 # Roadmap
 
-What is deliberately out of scope for now, and the direction each item would take. Nothing here is a commitment or a date; the list exists so that cut scope is recorded rather than remembered.
+What is deliberately out of scope for now, and the direction each item would take.
+
+Nothing here is a commitment or a date. The list exists so that cut scope is recorded rather than remembered.
 
 ## v0.1 — the current target
 
-Schema definition, typed keys and values, runtime validation on read and write, automatic serialization, typed errors, the layered invalid-data policy, and an asynchronous API with a typed synchronous extension wherever the adapter can answer immediately. The memory adapter and `withFallback` come with it.
+Schema definition, typed keys and values, runtime validation on both directions, automatic serialization, typed errors, and the layered invalid-data policy.
 
-One package per platform, each re-exporting the core so that an application installs one: `@platform-storage/web` over `localStorage` and `sessionStorage`, `@platform-storage/extension` over the `local`, `sync` and `session` areas, and `@platform-storage/react-native` over AsyncStorage. `@platform-storage/react` is installed alongside whichever of those a project already has, and adds hooks over any storage plus the declared read a server render answers with.
+The API is asynchronous, with a typed synchronous extension wherever the adapter can answer immediately. The memory adapter and `withFallback` come with it.
+
+One package per platform, each re-exporting the core so that an application installs one: `@platform-storage/web` over `localStorage` and `sessionStorage`, `@platform-storage/extension` over the `local`, `sync` and `session` areas, and `@platform-storage/react-native` over AsyncStorage.
+
+`@platform-storage/react` is installed alongside whichever of those a project already has. It adds hooks over any storage, plus the declared read a server render answers with.
 
 ## Why values are stored bare
 
-What a backend holds is exactly what the schema produced, with nothing wrapped around it, so a key stays readable by code that never loaded this library and nothing is spent storing a wrapper. It also leaves room to move: anything added later can treat an unwrapped value as the earliest version it knows, and adopt data already stored without a migration of its own. Everything below is written against that.
+What a backend holds is exactly what the schema produced, with nothing wrapped around it. A key therefore stays readable by code that never loaded this library, and nothing is spent storing a wrapper.
+
+It also leaves room to move. Anything added later can treat an unwrapped value as the earliest version it knows, and adopt data already stored without a migration of its own. Everything below is written against that.
 
 ## Next
 
@@ -20,7 +28,9 @@ A key could name the stored names it used to have, so a read finding nothing at 
 
 ### Change subscription
 
-Watching a key, over the `storage` event on the web, `storage.onChanged` in extensions, and an in-process emitter elsewhere. It needs an optional capability on the adapter contract, because the backends genuinely differ: an extension reports changes made by other contexts, the web event fires only in _other_ tabs, and AsyncStorage reports nothing at all. Anything useful built on it will want the previous value beside the new one.
+Watching a key, over the `storage` event on the web, `storage.onChanged` in extensions, and an in-process emitter elsewhere.
+
+It needs an optional capability on the adapter contract, because the backends genuinely differ: an extension reports changes made by other contexts, the web event fires only in _other_ tabs, and AsyncStorage reports nothing at all. Anything useful built on it will want the previous value beside the new one.
 
 Until it lands, nothing reports a change made in another tab or another extension context, so an application only ever sees the writes it made itself.
 
@@ -30,13 +40,17 @@ Reading, writing and removing several keys at once, each keeping its own type in
 
 ### Namespace prefix
 
-A prefix on the keys a storage stores under, so one origin can hold several unrelated storages without their names colliding. Two things it has to get right: a key needs a way out of the prefix, for addressing a name something else owns; and adopting a prefix renames everything already stored, which cannot be done silently, so it would lean on the rename above.
+A prefix on the keys a storage stores under, so one origin can hold several unrelated storages without their names colliding.
+
+Two things it has to get right. A key needs a way out of the prefix, for addressing a name something else owns. And adopting a prefix renames everything already stored, which cannot be done silently, so it would lean on the rename above.
 
 ### Versioned keys and migrations
 
 The largest deferred piece, and the reason several decisions look the way they do.
 
-A key could declare the shapes it has had and a function from each to the next, so a value written by an older release is brought forward on read instead of failing validation. Versioning would belong to the key rather than the storage, so one schema can hold versioned and unversioned keys together. A versioned key has to record its version somewhere, and that is the one place the bare-value rule gives way — for that key alone.
+A key could declare the shapes it has had, and a function from each to the next, so a value written by an older release is brought forward on read instead of failing validation.
+
+Versioning would belong to the key rather than the storage, so one schema can hold versioned and unversioned keys together. A versioned key has to record its version somewhere, and that is the one place the bare-value rule gives way — for that key alone.
 
 What matters in the design: each step typed against the shape before it rather than against `unknown`, no way to express a missing step, a malformed chain caught where it is declared rather than when old data turns up, and validation at every step before anything is written back. The errors would extend the existing hierarchy.
 
@@ -54,7 +68,9 @@ The adapter contract cannot enumerate keys, deliberately: positional enumeration
 
 ### Per-key serializers
 
-A serializer on the key definition, overriding the adapter's. Two motivations: storing a bare enum string so other code can read the key without this library, and lifting the requirement that a schema accept its own output as input. A schema such as `z.string().transform(Number)` cannot be used today, because `set` is typed to the value the key holds and validation then rejects that value as input. Separating the stored form from the validated form is what would make a one-way transform work.
+A serializer on the key definition, overriding the adapter's. Two motivations: storing a bare enum string so other code can read the key without this library, and lifting the requirement that a schema accept its own output as input.
+
+A schema such as `z.string().transform(Number)` cannot be used today: `set` is typed to the value the key holds, and validation then rejects that value as input. Separating the stored form from the validated form is what would make a one-way transform work.
 
 ### Parameterized keys
 
@@ -88,7 +104,11 @@ A writer takes a value, never a function of the previous one, so a component tha
 
 ### A per-call policy through the hooks
 
-The synchronous read takes a per-call invalid-data policy and the hooks do not. Adding an options parameter naively would be a trap: an object written at a call site is new on every render, and a function has no identity that can be compared at all, so neither can take part in the cache that keeps a snapshot stable. An answer has to give the policy a stable identity. Until there is one, policy belongs where it already works — on the key, or on the storage, declared outside React.
+The synchronous read takes a per-call invalid-data policy and the hooks do not.
+
+Adding an options parameter naively would be a trap: an object written at a call site is new on every render, and a function has no identity that can be compared at all, so neither can take part in the cache that keeps a snapshot stable. An answer has to give the policy a stable identity.
+
+Until there is one, policy belongs where it already works — on the key, or on the storage, declared outside React.
 
 ### A per-request error log
 
@@ -106,7 +126,9 @@ oxlint gains type-aware rules through a companion tracking the TypeScript 7 line
 
 ### Checking an inline `onInvalid` callback
 
-A callback written inline inside `defineStorageSchema` has its return trusted rather than checked: the object is inferred and then constrained against a type derived from itself, so the callback gets no usable expectation to meet. `defineKey(schema, options)` is the checked form and covers the case today.
+A callback written inline inside `defineStorageSchema` has its return trusted rather than checked. The object is inferred and then constrained against a type derived from itself, so the callback gets no usable expectation to meet.
+
+`defineKey(schema, options)` is the checked form and covers the case today.
 
 ### Isolated declarations
 

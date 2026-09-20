@@ -41,6 +41,15 @@ function declaredTwin<Definition extends StorageSchemaDefinition>(
  * This is everything a server can honestly answer with, and it is what the browser's first render has to agree with. It comes from a storage over an empty backend rather than from a list of defaults, so the schema answers exactly as it does for a real read and a default that moves moves here with it.
  *
  * Synchronous on every platform, including the ones whose own reads are not: the empty backend is memory, whatever the real storage is.
+ *
+ * @param storage - Any storage. Only its schema is read; its backend is never touched.
+ * @param key - Which key to answer for.
+ * @returns The key's declared default, or `undefined` where it has none.
+ * @example
+ * ```tsx
+ * // In a Server Component.
+ * const theme = readDeclaredValue(storage, "theme");
+ * ```
  */
 export function readDeclaredValue<
   Definition extends StorageSchemaDefinition,

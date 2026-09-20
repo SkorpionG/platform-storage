@@ -15,6 +15,18 @@ export type BackendContext = Omit<StorageAdapterErrorOptions, "cause" | "message
  * Resolves a backend handle, or reports that the backend is not there.
  *
  * Adapters call this on every operation rather than once at construction, because a storage is usually built while a module is loading and long before anything reads from it. Resolving late is what lets an adapter be built in a context that has no backend, report `StorageUnavailableError` rather than crashing, and start working if the backend appears later.
+ *
+ * @param source - Reaches for the backend. May throw, or answer with `null` or `undefined`.
+ * @param context - Names the adapter and the operation, so the error says which storage was unreachable.
+ * @returns The handle, once it is known to be there.
+ * @throws {StorageUnavailableError} When the source throws or answers with nothing.
+ * @example
+ * ```ts
+ * const storage = requireBackend(() => window.localStorage, {
+ *   adapter: "localStorage",
+ *   operation: STORAGE_OPERATION.Get,
+ * });
+ * ```
  */
 export function requireBackend<Handle>(
   source: BackendSource<Handle>,

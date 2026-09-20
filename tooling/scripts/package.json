@@ -4,11 +4,18 @@
   "private": true,
   "license": "MIT",
   "bin": {
+    "check-docs": "./src/check-docs.js",
     "format-comments": "./src/format-comments.js",
     "verify-tarballs": "./src/verify-tarballs.js"
   },
   "type": "module",
   "scripts": {
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@tooling/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
   }
 }

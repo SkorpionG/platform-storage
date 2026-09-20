@@ -57,6 +57,14 @@ export function generationOf(storage: object, key: string): number {
  * The writers call it themselves, so an application only reaches for it after a change the library never saw: a `clear()`, or a write made straight past it to the backend.
  *
  * Named for the event rather than for the counter behind it, so that when the library grows a real change subscription this keeps its meaning and its signature.
+ *
+ * @param storage - The storage that changed.
+ * @param key - Which key changed. Leave it out after a `clear()`, or any change that could have moved several.
+ * @example
+ * ```ts
+ * await storage.clear();
+ * notifyStorageChanged(storage);
+ * ```
  */
 export function notifyStorageChanged<Definition extends StorageSchemaDefinition>(
   storage: PlatformStorage<Definition>,
@@ -82,6 +90,15 @@ export function notifyStorageChanged<Definition extends StorageSchemaDefinition>
  * Calls the listener whenever the key changes, or whenever anything does when no key is named.
  *
  * The value hooks use it for the key they read. Reach for it directly to follow a storage as a whole, which is what a panel showing everything stored needs and what no key-shaped hook can serve.
+ *
+ * @param storage - The storage to follow.
+ * @param listener - Called after each change. It takes no arguments: read what you need from the storage.
+ * @param key - Follow one key. Leave it out to hear about every change.
+ * @returns Stops listening.
+ * @example
+ * ```ts
+ * useEffect(() => subscribeToStorage(storage, refresh), [refresh]);
+ * ```
  */
 export function subscribeToStorage<Definition extends StorageSchemaDefinition>(
   storage: PlatformStorage<Definition>,

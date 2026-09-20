@@ -44,6 +44,8 @@ function answersImmediately<Definition extends StorageSchemaDefinition>(
  *
  * Declare it beside the schema, not inside a component: it builds hooks, it is not one.
  *
+ * @param storage - The storage to bind to. Its shape decides which half of the API the hooks serve.
+ * @returns `useValue` and `useWriter`, already bound to that storage.
  * @example
  * ```ts
  * export const { useValue, useWriter } = createStorageHooks(storage);

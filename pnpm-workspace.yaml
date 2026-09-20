@@ -11,7 +11,6 @@ allowBuilds:
 # Every shared dependency version lives here so the packages cannot drift apart.
 catalog:
   "@arethetypeswrong/cli": ^0.18.5
-  "@changesets/changelog-github": ^1.0.0
   "@changesets/cli": ^3.0.1
   # Used only by the React Native package's conformance test, which proves its structural `AsyncStorageLike` is satisfied by the real AsyncStorage. `src` never imports it.
   "@react-native-async-storage/async-storage": ^3.1.1

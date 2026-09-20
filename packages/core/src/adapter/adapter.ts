@@ -38,7 +38,20 @@ export interface SyncStorageAdapter<Wire = unknown> extends StorageAdapter<Wire>
 /** The wire type an adapter transports. */
 export type WireOf<Adapter> = Adapter extends StorageAdapter<infer Wire> ? Wire : never;
 
-/** Whether an adapter can answer immediately, and so can back the synchronous half of the API. */
+/**
+ * Whether an adapter can answer immediately, and so can back the synchronous half of the API.
+ *
+ * Narrows the adapter, so the synchronous methods are reachable inside the branch.
+ *
+ * @param adapter - Any adapter.
+ * @returns `true` when it implements `getSync`, `setSync` and `removeSync`.
+ * @example
+ * ```ts
+ * if (isSyncStorageAdapter(adapter)) {
+ *   const raw = adapter.getSync("theme");
+ * }
+ * ```
+ */
 export function isSyncStorageAdapter<Wire>(
   adapter: StorageAdapter<Wire>,
 ): adapter is SyncStorageAdapter<Wire> {
@@ -67,6 +80,19 @@ export interface SyncAdapterDefinition<Wire> {
  * Builds a full adapter from its synchronous half, so each operation is written once.
  *
  * The generated asynchronous methods start from a resolved promise, which turns a synchronous throw into a rejection: a caller awaiting `get` should never have to also wrap it in `try`.
+ *
+ * @param definition - The synchronous operations, the adapter's name, and the serializer it transports through. `hasSync` and `isAvailable` are optional.
+ * @returns An adapter carrying both halves, ready for `createStorage`.
+ * @example
+ * ```ts
+ * const adapter = defineSyncAdapter({
+ *   name: "memory",
+ *   serializer: jsonSerializer,
+ *   getSync: (key) => store.get(key),
+ *   setSync: (key, value) => void store.set(key, value),
+ *   removeSync: (key) => void store.delete(key),
+ * });
+ * ```
  */
 export function defineSyncAdapter<Wire>(
   definition: SyncAdapterDefinition<Wire>,

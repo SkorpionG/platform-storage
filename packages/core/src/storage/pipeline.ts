@@ -17,6 +17,7 @@ export interface EntryContext {
   readonly serializer: Serializer<unknown>;
 }
 
+/** What reading the wire produced: nothing stored, a value, or a failure. */
 export type DeserializeResult =
   | { readonly kind: "missing" }
   | { readonly kind: "deserialized"; readonly value: unknown }
@@ -46,6 +47,7 @@ export function deserializeWire(entry: EntryContext, wire: unknown): Deserialize
   }
 }
 
+/** What converting a value for the backend produced. */
 export type SerializeResult =
   | { readonly kind: "serialized"; readonly wire: unknown }
   | { readonly kind: "invalid"; readonly error: StorageSerializationError };
@@ -72,6 +74,7 @@ export function serializeValue(entry: EntryContext, value: unknown): SerializeRe
   }
 }
 
+/** What checking a value against its schema produced. */
 export type ValidateResult =
   | { readonly kind: "valid"; readonly value: unknown }
   | { readonly kind: "invalid"; readonly issues: ReadonlyArray<SchemaIssue> };

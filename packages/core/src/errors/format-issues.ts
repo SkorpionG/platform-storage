@@ -15,7 +15,18 @@ function formatPath(path: SchemaIssue["path"]): string {
     .join(".");
 }
 
-/** Renders validation issues as one line, for an error message. */
+/**
+ * Renders validation issues as one line, for an error message.
+ *
+ * Each issue reads as `path: message`, and issues with no path contribute their message alone.
+ *
+ * @param issues - What a Standard Schema validator reported.
+ * @returns One line, or `"no reason given"` when the list is empty.
+ * @example
+ * ```ts
+ * formatIssues(result.issues); // "name: Invalid input: expected string"
+ * ```
+ */
 export function formatIssues(issues: ReadonlyArray<SchemaIssue>): string {
   if (issues.length === 0) return "no reason given";
 

@@ -41,14 +41,16 @@ function isStandardSchema(value: unknown): value is StandardSchemaV1 {
  *
  * Keys and value types both come from this one object, so nothing has to be restated: the editor completes the keys, `get` returns the schema's output, and `set` refuses anything else.
  *
+ * @param definition - Each logical key mapped to its definition: a `schema`, and optionally `key`, `default` and `onInvalid`. Use {@link defineKey} for a key whose `onInvalid` is a callback.
+ * @returns A frozen, checked schema to hand to a storage factory.
+ * @throws {StorageSchemaError} If an entry has no Standard Schema validator, or two keys resolve to the same physical key.
+ * @example
  * ```ts
  * const schema = defineStorageSchema({
  *   theme: { schema: z.enum(["light", "dark"]), default: "light" },
  *   user: { schema: userSchema, key: "app:user" },
  * });
  * ```
- *
- * @throws {StorageSchemaError} If an entry has no Standard Schema validator, or two keys resolve to the same physical key.
  */
 export function defineStorageSchema<
   const Definition extends StorageSchemaDefinition & ValidateDefinition<Definition>,

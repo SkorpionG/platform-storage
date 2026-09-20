@@ -18,6 +18,7 @@ import type {
   ExtensionStorageNamespace,
 } from "./types";
 
+/** What {@link extensionStorageAdapter} accepts. */
 export interface ExtensionStorageAdapterOptions {
   /** The area to store in. Defaults to `"local"`. */
   readonly area?: ExtensionStorageAreaName | undefined;
@@ -71,6 +72,13 @@ function isQuotaRejection(cause: unknown): boolean {
  * The namespace is resolved on every operation rather than once at construction, so an adapter built while a module loads works in whichever context it ends up in. A context with no extension API, and an area the browser does not have, both report `StorageUnavailableError` rather than crashing.
  *
  * A rejected call is left in the browser's own vocabulary for the engine to wrap. The exception is a full area, which this adapter names itself: an area reports one in its message rather than with an error type, so reading that is the adapter's job rather than the caller's.
+ *
+ * @param options - `area` to store in, `name` for error messages, and `namespace` to supply the extension API yourself, which is what a polyfill or a test fake does.
+ * @returns An asynchronous adapter over that area.
+ * @example
+ * ```ts
+ * const adapter = extensionStorageAdapter({ area: "sync" });
+ * ```
  */
 export function extensionStorageAdapter(
   options: ExtensionStorageAdapterOptions = {},

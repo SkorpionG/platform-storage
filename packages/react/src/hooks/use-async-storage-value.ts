@@ -15,6 +15,16 @@ import type { AsyncStorageWriter, AsyncStoredValue } from "../types/hooks";
  * Writes to one key of a storage that only answers later, and tells everything reading it.
  *
  * Each promise settles exactly as the storage's own does, so a refused write is still a rejection and is not reported as a success. Nothing is announced when one fails, because nothing changed.
+ *
+ * @param storage - Any storage, including one that only answers later.
+ * @param key - Which key to write. Completed from the schema.
+ * @returns `set` and `remove` for that key, each returning a promise.
+ * @example
+ * ```tsx
+ * const writer = useAsyncStorageWriter(storage, "lastSeen");
+ *
+ * <button onClick={() => void writer.set(Date.now())}>Mark seen</button>;
+ * ```
  */
 export function useAsyncStorageWriter<
   Definition extends StorageSchemaDefinition,
@@ -44,6 +54,9 @@ export function useAsyncStorageWriter<
  *
  * A write does not send it back to `"loading"`. The value already on screen stays there until the next read arrives, so nothing flashes.
  *
+ * @param storage - Any storage, including one that only answers later.
+ * @param key - Which key to read. Completed from the schema.
+ * @returns The read, as `{ status, value, error }`, and the pair of writers for that key.
  * @example
  * ```tsx
  * const [result, writer] = useAsyncStorageValue(storage, "theme");

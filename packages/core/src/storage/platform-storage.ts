@@ -5,6 +5,7 @@ import type { StorageSchema, StorageSchemaDefinition } from "../schema/storage-s
 import type { Serializer } from "../serializer/serializer";
 import type { OnInvalid } from "./invalid-policy";
 
+/** What a single `get` accepts, on top of the key. */
 export interface GetOptions<Definition> {
   /**
    * Overrides the key's and the storage's policy for this read alone.
@@ -14,6 +15,7 @@ export interface GetOptions<Definition> {
   readonly onInvalid?: OnInvalid<GetResult<Definition>> | undefined;
 }
 
+/** What {@link createStorage} accepts. */
 export interface CreateStorageOptions<
   Definition extends StorageSchemaDefinition,
   Adapter extends StorageAdapter<unknown>,
@@ -32,6 +34,11 @@ export interface CreateStorageOptions<
   readonly onError?: ((error: PlatformStorageError) => void) | undefined;
 }
 
+/**
+ * A storage over one schema: the asynchronous half, which every backend can serve.
+ *
+ * Every method is typed against the schema, so the editor completes the keys and a wrong value is refused before it is written.
+ */
 export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
   readonly schema: StorageSchema<Definition>;
   readonly adapter: StorageAdapter<unknown>;
@@ -67,9 +74,11 @@ export interface SyncStorageMethods<Definition extends StorageSchemaDefinition> 
   clearSync(): void;
 }
 
+/** A storage whose backend can also answer immediately, so it carries `getSync` and its siblings as well. */
 export type SyncPlatformStorage<Definition extends StorageSchemaDefinition> =
   PlatformStorage<Definition> & SyncStorageMethods<Definition>;
 
+/** Which of the two storage shapes {@link createStorage} answers with, decided by whether the adapter can answer immediately. */
 export type CreateStorageResult<
   Definition extends StorageSchemaDefinition,
   Adapter extends StorageAdapter<unknown>,

@@ -17,6 +17,7 @@ export const INVALID_POLICY = {
   Remove: "remove",
 } as const;
 
+/** Any one of the policies in {@link INVALID_POLICY}. */
 export type InvalidPolicy = (typeof INVALID_POLICY)[keyof typeof INVALID_POLICY];
 
 /** Everything known about a value that failed to load, handed to an `onInvalid` callback. */
@@ -35,6 +36,7 @@ export interface InvalidContext {
 /** Returns the value to use in place of the invalid one. Synchronous, so it can serve a synchronous read too. */
 export type OnInvalidCallback<Value> = (context: InvalidContext) => Value;
 
+/** What a key, a storage or a single call accepts for its invalid-data policy: a named policy or a callback returning the replacement. */
 export type OnInvalid<Value> = InvalidPolicy | OnInvalidCallback<Value>;
 
 /**

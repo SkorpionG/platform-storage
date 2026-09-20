@@ -5,6 +5,7 @@ export const EXTENSION_STORAGE_AREA = {
   Session: "session",
 } as const;
 
+/** Any one of the areas in {@link EXTENSION_STORAGE_AREA}. */
 export type ExtensionStorageAreaName =
   (typeof EXTENSION_STORAGE_AREA)[keyof typeof EXTENSION_STORAGE_AREA];
 
