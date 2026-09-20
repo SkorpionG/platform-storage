@@ -1,6 +1,6 @@
 {
   "name": "@platform-storage/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Schema-first, type-safe key-value storage: define your storage once, get validation and TypeScript inference on every read and write.",
   "keywords": [
     "key-value",

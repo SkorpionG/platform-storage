@@ -1,6 +1,6 @@
 {
   "name": "@platform-storage/react",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "React hooks for platform-storage: read and write schema-validated storage from a component, on the client and across a server render.",
   "keywords": [
     "hooks",

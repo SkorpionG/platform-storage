@@ -1,6 +1,6 @@
 {
   "name": "@platform-storage/webextension",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Schema-first, type-safe WebExtension storage for Chrome and Firefox: define your storage once, get validation and TypeScript inference across background, content and popup contexts.",
   "keywords": [
     "browser-extension",
