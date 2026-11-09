@@ -26,17 +26,27 @@ export function chain<Value, Next>(
   return isPromiseLike(value) ? Promise.resolve(value).then(next) : next(value);
 }
 
+/** Lets go of a promise nothing will wait for, so that its rejection is not reported as unhandled. */
+export function discardPromise(promise: PromiseLike<unknown>): void {
+  void Promise.resolve(promise).catch(() => undefined);
+}
+
 /**
  * Runs a step whose failure must not fail the operation around it, on either path.
  *
- * For a step whose failure has already reached `onError`, such as a backend call, so there is nothing left to do with it here.
+ * For a step whose failure has already reached `onError`, such as a backend call, so there is nothing left to do with it here beyond `onFailure`.
  */
-export function ignoreFailure(run: () => MaybePromise<void>): MaybePromise<void> {
+export function ignoreFailure(
+  run: () => MaybePromise<void>,
+  onFailure?: (() => void) | undefined,
+): MaybePromise<void> {
   try {
     const result = run();
 
-    return isPromiseLike(result) ? Promise.resolve(result).catch(() => undefined) : result;
+    return isPromiseLike(result) ? Promise.resolve(result).catch(() => onFailure?.()) : result;
   } catch {
+    onFailure?.();
+
     return undefined;
   }
 }

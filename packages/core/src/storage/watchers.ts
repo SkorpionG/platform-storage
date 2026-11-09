@@ -31,6 +31,10 @@ export interface WatcherDependencies {
   readonly report: (error: PlatformStorageError) => PlatformStorageError;
   /** What a read of this wire value would answer with. Reports what is invalid and never throws for it. */
   decode(key: string, wire: unknown): MaybePromise<unknown>;
+  /** Whether a read of this key can rewrite it without changing its value. */
+  repairs(key: string): boolean;
+  /** Whether going from one stored form to the other is exactly what a read's repair would have done. */
+  isRepairEcho(key: string, oldWire: unknown, newWire: unknown): MaybePromise<boolean>;
   /** What the key reads as now, without changing anything stored. */
   readCurrent(key: string): MaybePromise<unknown>;
 }
@@ -49,7 +53,7 @@ export interface Watchers {
 
 /** Builds the listeners for one storage. It reaches the backend only while someone is listening. */
 export function createWatchers(dependencies: WatcherDependencies): Watchers {
-  const { adapter, owners, report, decode, readCurrent } = dependencies;
+  const { adapter, owners, report, decode, repairs, isRepairEcho, readCurrent } = dependencies;
   const byKey = new Map<string, Set<WatchListener>>();
   const anyChange = new Set<ChangeListener>();
   const outbox: Array<() => MaybePromise<void>> = [];
@@ -166,17 +170,57 @@ export function createWatchers(dependencies: WatcherDependencies): Watchers {
     };
   }
 
+  function decodeAndDeliver(
+    key: string,
+    recipients: ReadonlyArray<WatchListener>,
+    previous: PreviousWire,
+    newWire: unknown,
+  ): MaybePromise<void> {
+    return chain(decode(key, previous.known ? previous.wire : undefined), (oldValue) =>
+      chain(decode(key, newWire), (newValue) => {
+        deliver(key, recipients, oldValue, newValue, previous.known);
+      }),
+    );
+  }
+
   function changed(key: string, previous: PreviousWire, newWire: unknown): void {
     const recipients = recipientsOf(key);
 
     enqueue([
       announcement(key),
+      (): MaybePromise<void> => decodeAndDeliver(key, recipients, previous, newWire),
+    ]);
+  }
+
+  /* An answer that cannot be worked out counts as a change: one extra read costs nothing, and a change gone missing leaves a reader stale. */
+  function echoes(key: string, oldWire: unknown, newWire: unknown): MaybePromise<boolean> {
+    try {
+      const answer = isRepairEcho(key, oldWire, newWire);
+
+      return isPromiseLike(answer) ? Promise.resolve(answer).catch(() => false) : answer;
+    } catch {
+      return false;
+    }
+  }
+
+  /*
+    A read somewhere saved the form it already answered with, so the key's value has not moved and nobody should hear of it.
+
+    One job rather than two, because whether to announce depends on the answer. The recipients are still fixed on arrival, and a failure to decode comes after the announcement, so it cannot cost one.
+  */
+  function changedUnlessRepaired(key: string, oldWire: unknown, newWire: unknown): void {
+    const recipients = recipientsOf(key);
+    const announce = announcement(key);
+
+    enqueue([
       (): MaybePromise<void> =>
-        chain(decode(key, previous.known ? previous.wire : undefined), (oldValue) =>
-          chain(decode(key, newWire), (newValue) => {
-            deliver(key, recipients, oldValue, newValue, previous.known);
-          }),
-        ),
+        chain(echoes(key, oldWire, newWire), (echo) => {
+          if (echo) return undefined;
+
+          announce();
+
+          return decodeAndDeliver(key, recipients, { known: true, wire: oldWire }, newWire);
+        }),
     ]);
   }
 
@@ -206,8 +250,20 @@ export function createWatchers(dependencies: WatcherDependencies): Watchers {
 
     const owner = owners.get(change.key);
 
-    if (owner !== undefined)
-      changed(owner, { known: true, wire: change.oldValue }, change.newValue);
+    if (owner === undefined) return;
+
+    /*
+      Only a value being replaced can be a repair.
+
+      Writes announced here go through `wrote`, which never asks: only a backend's own report can be the echo of one.
+    */
+    if (change.oldValue !== undefined && change.newValue !== undefined && repairs(owner)) {
+      changedUnlessRepaired(owner, change.oldValue, change.newValue);
+
+      return;
+    }
+
+    changed(owner, { known: true, wire: change.oldValue }, change.newValue);
   }
 
   /* Synchronous on purpose: a Manifest V3 service worker only wakes for listeners registered in its first turn. */

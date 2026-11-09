@@ -63,6 +63,16 @@ export const KEY_NOTES: { readonly [Key in AppKey]: KeyNote } = {
     readType: "string | undefined",
     note: "Optional in the schema rather than through a default. Unlike display name, a write of `undefined` is accepted and removes the entry.",
   },
+  layout: {
+    label: "Layout",
+    readType: '{ density: "compact" | "comfortable" }',
+    note: "Declared with `defineVersions`, so it is stored as `{ v, d }` and a value left by an older release is brought forward when it is read.",
+  },
+  accent: {
+    label: "Accent",
+    readType: '"blue" | "green"',
+    note: "Declares `recover`, so a value the schema rejects can be repaired and saved while the key stays bare for anything else reading it.",
+  },
 };
 
 interface CorruptionBase {

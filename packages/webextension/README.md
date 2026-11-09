@@ -174,7 +174,7 @@ An area says so by naming the limit it passed — `QUOTA_BYTES`, `QUOTA_BYTES_PE
 
 ## Values are stored as objects
 
-Extension storage areas hold JSON values natively, so values are handed over untouched rather than stringified. That keeps them readable by code that stored the key without this library, and it does not spend the `storage.sync` quota twice over.
+Extension storage areas hold JSON values natively, so values are handed over untouched rather than stringified. That keeps them readable by code that stored the key without this library, and it does not spend the `storage.sync` quota twice over. A key that declares versions is the exception: it holds a `{ v, d }` object, so other code reading it has to know that shape.
 
 Because nothing is encoded on the way in, a value outside JSON is refused rather than stored as something else. A `Date` or a `Map` would come back as a string or an empty object, so a write carrying one throws `StorageSerializationError` naming the part of the value at fault.
 

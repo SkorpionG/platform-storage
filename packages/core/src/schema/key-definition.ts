@@ -2,6 +2,13 @@ import type { OnInvalid } from "../storage/invalid-policy";
 import type { SchemaInput, SchemaOutput, StandardSchemaV1 } from "../types/standard-schema";
 import type { Immutable } from "../types/utils";
 
+/** One shape a key has had. Every version after the first says how to reach it from the one before. */
+export interface KeyVersion {
+  readonly schema: StandardSchemaV1;
+  /** Brings a value of the previous version forward. The parameter is `never` so that a step typed against any one version fits here; each is only ever handed that version's output. */
+  readonly up?: ((previous: never) => unknown) | undefined;
+}
+
 /**
  * One entry in a storage schema: what a key holds, where it is stored, and what to do when either expectation is not met.
  */
@@ -39,6 +46,18 @@ export interface KeyDefinition<
    * A policy name is always checked. A callback written inline inside `defineStorageSchema` has its return value trusted rather than checked, because there the definition and the rule it must satisfy are being worked out from each other and the callback gets no usable expectation to meet. Declare the key with `defineKey(schema, options)` to have the callback checked; passing one to a single `get` call is checked too, since nothing is being inferred there.
    */
   readonly onInvalid?: OnInvalid<Result> | undefined;
+
+  /**
+   * Repairs a stored value the schema rejects, and has the repair written back.
+   *
+   * Receives the stored value as `unknown`, or the stored text where it could not even be parsed. Answer `undefined` when it cannot be repaired, and the invalid-data policy decides as usual. Synchronous, so it can serve a synchronous read too.
+   *
+   * Written inline inside `defineStorageSchema`, its return value is trusted at compile time as `onInvalid`'s is, and still validated when it runs. Declare the key with `defineKey` or `.options` to have it checked.
+   */
+  readonly recover?: ((raw: unknown) => Result | undefined) | undefined;
+
+  /** Every shape this key has had, oldest first, with `schema` as the last of them. Written by `defineVersions`. */
+  readonly versions?: ReadonlyArray<KeyVersion> | undefined;
 }
 
 /**
@@ -57,6 +76,8 @@ export interface KeyOptions<Schema extends StandardSchemaV1, InvalidResult = Sch
   readonly default?: Immutable<SchemaOutput<Schema>> | undefined;
   /** Overrides the storage-wide invalid-data policy for this key alone. */
   readonly onInvalid?: OnInvalid<InvalidResult> | undefined;
+  /** Repairs a stored value the schema rejects, and has the repair written back. Answer `undefined` when it cannot be repaired. */
+  readonly recover?: ((raw: unknown) => InvalidResult | undefined) | undefined;
 }
 
 /** The logical keys a schema declares. */

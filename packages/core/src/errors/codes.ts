@@ -12,6 +12,8 @@ export const STORAGE_ERROR_CODE = {
   UnknownKey: "UNKNOWN_KEY",
   InvalidSchema: "INVALID_SCHEMA",
   AsyncValidatorInSyncMode: "ASYNC_VALIDATOR_IN_SYNC_MODE",
+  Migration: "MIGRATION",
+  UnknownVersion: "UNKNOWN_VERSION",
 } as const;
 
 /** Any one of the codes in {@link STORAGE_ERROR_CODE}. */

@@ -1,5 +1,6 @@
 import { ClearPanel } from "./panels/clear-panel";
 import { CorruptPanel } from "./panels/corrupt-panel";
+import { MigrationPanel } from "./panels/migration-panel";
 import { SchemaPanel } from "./panels/schema-panel";
 import { SessionPanel } from "./panels/session-panel";
 import { SyncPanel } from "./panels/sync-panel";
@@ -18,6 +19,7 @@ export function CommonPanels({ schemaSource }: CommonPanelsProps) {
       <SchemaPanel source={schemaSource} />
       <ValuesPanel />
       <CorruptPanel />
+      <MigrationPanel />
       <SyncPanel />
       <ClearPanel />
       <UnavailablePanel />

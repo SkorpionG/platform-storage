@@ -63,6 +63,8 @@ The key's value and its writer, read during the render.
 const [theme, writer] = useStorageValue(storage, "theme"); // "light" | "dark"
 ```
 
+A [versioned key](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#versioned-keys) is migrated and saved by the read during the render. Saving announces nothing, so it causes no extra render.
+
 ### `useStorageWriter(storage, key)`
 
 The writer alone, for a component that writes a key it never displays and should not re-render when it changes.

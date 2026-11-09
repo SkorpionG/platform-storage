@@ -43,7 +43,7 @@ storage.getSync("theme"); // "light" | "dark", read during a render
 
 Web storage answers immediately, so the storage also carries the synchronous half. `createSessionStorage` is the same over `sessionStorage`: each is a storage of its own, so one schema can back both without either seeing the other's values.
 
-Values are stored as JSON text under the physical key, with nothing wrapped around them. `clear()` removes only the keys the schema declares, never the rest of an origin that other code shares.
+Values are stored as JSON text under the physical key, with nothing wrapped around them unless the key declares versions. `clear()` removes only the keys the schema declares, never the rest of an origin that other code shares.
 
 ## API Usage
 

@@ -1,5 +1,10 @@
 import { StorageSchemaError } from "../errors/errors";
-import type { StorageSerializationError, StorageValidationError } from "../errors/errors";
+import type {
+  StorageMigrationError,
+  StorageSerializationError,
+  StorageValidationError,
+  UnknownStorageVersionError,
+} from "../errors/errors";
 import type { SchemaIssue } from "../types/standard-schema";
 import type { MaybePromise } from "../types/utils";
 import { chain } from "./maybe-promise";
@@ -7,9 +12,9 @@ import { chain } from "./maybe-promise";
 /**
  * What a read does when the stored value does not match its schema.
  *
- * - `"throw"` rejects with the validation error.
+ * - `"throw"` rejects with the error that caused the failure.
  * - `"fallback"` returns the declared default, then the schema's own default, then `undefined`, and leaves the stored value where it is rather than destroying data it could not read.
- * - `"remove"` deletes the stored value and resolves as `"fallback"` does. A value written since the read is left alone.
+ * - `"remove"` deletes the stored value and resolves as `"fallback"` does. A value written since the read is left alone, and so is a value this code cannot judge: one from a newer version, or one a failing migration step could not bring forward.
  */
 export const INVALID_POLICY = {
   Throw: "throw",
@@ -26,11 +31,15 @@ export interface InvalidContext {
   readonly key: string;
   /** The key the backend actually stores under. */
   readonly physicalKey: string;
-  /** The value exactly as the backend returned it, before validation. */
+  /** The value exactly as the backend returned it, before validation. A versioned key's value comes without its envelope. */
   readonly raw: unknown;
   /** Why it failed. Wire data that could not even be deserialized reports a single issue. */
   readonly issues: ReadonlyArray<SchemaIssue>;
-  readonly error: StorageValidationError | StorageSerializationError;
+  readonly error:
+    | StorageValidationError
+    | StorageSerializationError
+    | StorageMigrationError
+    | UnknownStorageVersionError;
 }
 
 /** Returns the value to use in place of the invalid one. Synchronous, so it can serve a synchronous read too. */

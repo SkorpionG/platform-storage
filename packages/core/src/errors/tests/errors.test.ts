@@ -8,15 +8,72 @@ import {
   PlatformStorageError,
   STORAGE_ERROR_CODE,
   StorageAdapterError,
+  StorageMigrationError,
   StorageQuotaExceededError,
   StorageSchemaError,
   StorageSerializationError,
   StorageUnavailableError,
   StorageValidationError,
   UnknownStorageKeyError,
+  UnknownStorageVersionError,
 } from "../../index";
 
 const issue = { message: "expected one of light, dark" };
+
+describe("StorageMigrationError", () => {
+  const options = {
+    key: "user",
+    physicalKey: "user",
+    fromVersion: 1,
+    toVersion: 2,
+    raw: { id: 1 },
+  };
+
+  it("names the step, and the issues its result failed on", () => {
+    const error = new StorageMigrationError({ ...options, issues: [issue] });
+
+    expect(error.name).toBe("StorageMigrationError");
+    expect(error.code).toBe(STORAGE_ERROR_CODE.Migration);
+    expect(error.message).toContain("from version 1 to 2");
+    expect(error.message).toContain("expected one of light, dark");
+    expect(error.issues).toEqual([issue]);
+    expect(error.raw).toEqual({ id: 1 });
+    expect(isPlatformStorageError(error)).toBe(true);
+  });
+
+  it("says the step threw when no result exists, and keeps what it threw", () => {
+    const cause = new Error("boom");
+    const error = new StorageMigrationError({ ...options, physicalKey: "app:user", cause });
+
+    expect(error.message).toContain("the step threw");
+    expect(error.message).toContain("app:user");
+    expect(error.issues).toEqual([]);
+    expect(error.cause).toBe(cause);
+    expect(error.fromVersion).toBe(1);
+    expect(error.toVersion).toBe(2);
+  });
+});
+
+describe("UnknownStorageVersionError", () => {
+  it("says which version was stored and how far this code reaches", () => {
+    const error = new UnknownStorageVersionError({
+      key: "user",
+      physicalKey: "user",
+      storedVersion: 5,
+      latestVersion: 2,
+      raw: "x",
+    });
+
+    expect(error.name).toBe("UnknownStorageVersionError");
+    expect(error.code).toBe(STORAGE_ERROR_CODE.UnknownVersion);
+    expect(error.message).toContain("version 5");
+    expect(error.message).toContain("up to 2");
+    expect(error.storedVersion).toBe(5);
+    expect(error.latestVersion).toBe(2);
+    expect(error.raw).toBe("x");
+    expect(isPlatformStorageError(error)).toBe(true);
+  });
+});
 
 describe("error hierarchy", () => {
   it("gives every error a name matching its class, so a stack trace reads plainly", () => {

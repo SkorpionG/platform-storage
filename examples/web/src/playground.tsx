@@ -41,8 +41,8 @@ export function Playground({ eyebrow, title, intro, schemaSource, leading }: Pla
       <footer className="mx-auto max-w-7xl px-6 pb-10 pt-2">
         <p className="text-xs leading-relaxed text-faint">
           Every panel here reads through <Code>@platform-storage/react</Code>, so nothing on this
-          page counts its own writes. Cross-tab and cross-context changes are still invisible,
-          because no backend reports them yet; that one is on the roadmap.
+          page counts its own writes, and a change made in another tab reaches every panel by
+          itself.
         </p>
       </footer>
     </div>

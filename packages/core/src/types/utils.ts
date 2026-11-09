@@ -8,8 +8,8 @@ export type MaybePromise<Value> = Value | Promise<Value>;
  */
 export type Immutable<Value> = Value extends (...args: Array<never>) => unknown
   ? Value
-  : Value extends ReadonlyArray<infer Element>
-    ? ReadonlyArray<Immutable<Element>>
+  : Value extends ReadonlyArray<unknown>
+    ? { readonly [Index in keyof Value]: Immutable<Value[Index]> }
     : Value extends object
       ? { readonly [Key in keyof Value]: Immutable<Value[Key]> }
       : Value;

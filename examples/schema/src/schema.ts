@@ -1,6 +1,8 @@
-import { defineStorageSchema } from "@platform-storage/core";
+import { defineKey, defineStorageSchema, defineVersions } from "@platform-storage/core";
 import type { KeyOf } from "@platform-storage/core";
 import * as z from "zod";
+
+const accentSchema = z.enum(["blue", "green"]);
 
 /**
  * One schema, shared by every example on every platform.
@@ -25,6 +27,19 @@ export const appSchema = defineStorageSchema({
   },
   lastDismissed: { schema: z.string().nullable(), default: null },
   nickname: { schema: z.string().optional() },
+  layout: defineVersions(z.object({ compact: z.boolean() }))
+    .next(z.object({ density: z.enum(["compact", "comfortable"]) }), (previous) => ({
+      density: previous.compact ? "compact" : "comfortable",
+    }))
+    .options({ default: { density: "comfortable" } }),
+  accent: defineKey(accentSchema, {
+    default: "blue",
+    recover: (raw) => {
+      const repaired = accentSchema.safeParse(String(raw).toLowerCase());
+
+      return repaired.success ? repaired.data : undefined;
+    },
+  }),
 });
 
 export type AppDefinition = typeof appSchema.definition;

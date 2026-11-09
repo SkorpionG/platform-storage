@@ -165,6 +165,22 @@ const schema = defineStorageSchema({
 });
 ```
 
+### 10. Change a stored shape without writing a migration pass
+
+Declare the shapes a key has had. Each step is typed against the version before it, and a value left by an older release is brought forward the first time it is read.
+
+```ts
+const layout = defineVersions(z.object({ compact: z.boolean() }))
+  .next(z.object({ density: z.enum(["compact", "comfortable"]) }), (previous) => ({
+    density: previous.compact ? "compact" : "comfortable",
+  }))
+  .options({ default: { density: "comfortable" } });
+
+const schema = defineStorageSchema({ layout });
+```
+
+Data newer than the running code is never deleted or overwritten by a read. For a key other code also reads, `recover` repairs a rejected value and saves it while the key stays bare.
+
 ## Why
 
 Key-value storage APIs have no idea what you intend to keep in them, so every project rebuilds the same scaffolding:

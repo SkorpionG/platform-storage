@@ -23,18 +23,22 @@ export type { StorageErrorCode, StorageOperation, ValueOperation } from "./error
 export {
   PlatformStorageError,
   StorageAdapterError,
+  StorageMigrationError,
   StorageQuotaExceededError,
   StorageSchemaError,
   StorageSerializationError,
   StorageUnavailableError,
   StorageValidationError,
   UnknownStorageKeyError,
+  UnknownStorageVersionError,
 } from "./errors/errors";
 export type {
   StorageAdapterErrorOptions,
+  StorageMigrationErrorOptions,
   StorageSerializationErrorOptions,
   StorageValidationErrorOptions,
   UnknownStorageKeyErrorOptions,
+  UnknownStorageVersionErrorOptions,
 } from "./errors/errors";
 export { formatIssues } from "./errors/format-issues";
 export {
@@ -46,11 +50,14 @@ export {
 export { defineKey } from "./schema/define-key";
 export { defineStorageSchema } from "./schema/define-storage-schema";
 export type { ValidateDefinition } from "./schema/define-storage-schema";
+export { defineVersions } from "./schema/define-versions";
+export type { VersionChain, VersionedKey } from "./schema/define-versions";
 export type {
   GetResult,
   KeyDefinition,
   KeyOf,
   KeyOptions,
+  KeyVersion,
   SetValue,
 } from "./schema/key-definition";
 export { isStorageSchema, SCHEMA_BRAND } from "./schema/storage-schema";

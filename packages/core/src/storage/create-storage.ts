@@ -3,6 +3,7 @@ import type { StorageAdapter } from "../adapter/adapter";
 import { STORAGE_ERROR_CODE, STORAGE_OPERATION } from "../errors/codes";
 import {
   StorageSchemaError,
+  StorageSerializationError,
   StorageValidationError,
   UnknownStorageKeyError,
 } from "../errors/errors";
@@ -10,11 +11,12 @@ import type { PlatformStorageError } from "../errors/errors";
 import type { GetResult, KeyOf } from "../schema/key-definition";
 import type { StorageSchemaDefinition } from "../schema/storage-schema";
 import type { Serializer } from "../serializer/serializer";
+import type { SchemaIssue } from "../types/standard-schema";
 import type { MaybePromise } from "../types/utils";
 import { copyValue } from "./copy-value";
 import { applyInvalidPolicy, resolveOnInvalid } from "./invalid-policy";
 import type { InvalidContext, OnInvalid } from "./invalid-policy";
-import { chain, expectSync, ignoreFailure, isPromiseLike } from "./maybe-promise";
+import { chain, discardPromise, expectSync, ignoreFailure, isPromiseLike } from "./maybe-promise";
 import { decodeWire, isSameWire, resolveMissing, serializeValue, validateValue } from "./pipeline";
 import type { DecodeResult, EntryContext, ExecutionMode } from "./pipeline";
 import type {
@@ -26,6 +28,7 @@ import type {
 } from "./platform-storage";
 import { createAsyncIo, createSyncIo } from "./storage-io";
 import type { StorageIo } from "./storage-io";
+import { isSameValue } from "./same-value";
 import { createWatchers } from "./watchers";
 import type { PreviousWire, Watchers } from "./watchers";
 import { createWriteQueue } from "./write-queue";
@@ -36,7 +39,7 @@ interface Located {
   readonly wire: unknown;
 }
 
-type InvalidDecode = Extract<DecodeResult, { readonly kind: "invalid" }>;
+type FailedDecode = Extract<DecodeResult, { readonly kind: "invalid" | "newer" }>;
 
 /** What a write is replacing, and which name it was found under. */
 type LocatedPrevious = PreviousWire & { readonly foundAt?: string };
@@ -48,6 +51,15 @@ interface Repair {
   /** Set where the read already has its answer, so a failure here should not cost the caller that answer. */
   readonly bestEffort: boolean;
   carryOut(io: StorageIo): MaybePromise<void>;
+  /** Work that may have to wait, done before the stored data is checked so that anything landing meanwhile is seen. Answers whether to go on. */
+  readonly prepare?: (() => MaybePromise<boolean>) | undefined;
+  /** Told when a best-effort repair could not be carried out. */
+  readonly onFailure?: (() => void) | undefined;
+}
+
+/** The replacement a key's `recover` produced, already validated. */
+interface Recovered {
+  readonly value: unknown;
 }
 
 interface ReadOutcome {
@@ -55,6 +67,8 @@ interface ReadOutcome {
   readonly repair: Repair | undefined;
   /** What the read found, so a write following it need not look again. */
   readonly wire: unknown;
+  /** Set where the value answered with stands in for stored data this code cannot judge, so nothing derived from it may replace that data. */
+  readonly refusal?: FailedDecode["error"] | undefined;
 }
 
 function previousNames(entry: EntryContext): ReadonlyArray<string> {
@@ -113,10 +127,15 @@ function readPrevious(io: StorageIo, entry: EntryContext): MaybePromise<LocatedP
   }
 }
 
+/* The data may be perfectly good and this code the problem: it is newer than the code, or a step in the chain is broken. A later release can still read it, so it must survive this one. */
+function cannotBeJudged(decoded: FailedDecode): boolean {
+  return decoded.kind === "newer" || decoded.error.code === STORAGE_ERROR_CODE.Migration;
+}
+
 function invalidContext(
   entry: EntryContext,
   physicalKey: string,
-  decoded: InvalidDecode,
+  decoded: FailedDecode,
 ): InvalidContext {
   return {
     key: entry.key,
@@ -125,6 +144,121 @@ function invalidContext(
     issues: decoded.issues,
     error: decoded.error,
   };
+}
+
+/*
+  Newer data is out of reach, because a repair written over it would replace data a later release can still read. A value a broken step could not carry is within reach: declaring `recover` is saying what to do with it.
+
+  A `recover` that fails is reported beside the failure it was asked to mend, which the caller still reports.
+*/
+function attemptRecover(
+  mode: ExecutionMode,
+  entry: EntryContext,
+  located: EntryContext,
+  decoded: DecodeResult,
+  tell: (error: PlatformStorageError) => unknown,
+): MaybePromise<Recovered | undefined> {
+  const { recover } = entry.definition;
+
+  if (decoded.kind !== "invalid" || recover === undefined) return undefined;
+
+  const refused = (
+    issues: ReadonlyArray<SchemaIssue>,
+    raw: unknown,
+    cause?: unknown,
+  ): undefined => {
+    tell(
+      new StorageValidationError({
+        key: entry.key,
+        physicalKey: located.physicalKey,
+        operation: STORAGE_OPERATION.Get,
+        issues,
+        raw,
+        cause,
+      }),
+    );
+
+    return undefined;
+  };
+
+  let repaired: unknown;
+
+  try {
+    repaired = recover(decoded.raw);
+  } catch (cause) {
+    return refused([{ message: "`recover` threw." }], decoded.raw, cause);
+  }
+
+  if (repaired === undefined) return undefined;
+
+  if (isPromiseLike(repaired)) {
+    discardPromise(repaired);
+
+    return refused(
+      [{ message: "`recover` returned a promise. It has to be synchronous." }],
+      decoded.raw,
+    );
+  }
+
+  return chain(validateValue(entry.definition.schema, repaired, mode), (validated) =>
+    validated.kind === "valid" ? { value: validated.value } : refused(validated.issues, repaired),
+  );
+}
+
+/** What saving a value would store, or why it must not be saved. */
+type WriteBackForm =
+  | { readonly kind: "ready"; readonly wire: unknown }
+  | { readonly kind: "refused"; readonly error: PlatformStorageError };
+
+/*
+  A save has to read back valid, current and as the same value. A schema need not accept its own output, or answer the same for it, and replacing good data with something that reads differently is worse than leaving it behind. The values are compared as values, because a `Date` and its text, or a `Map` and an empty object, store identically.
+
+  Nothing represents `undefined`: a backend may drop the field, leaving something that is no longer an envelope.
+*/
+function writeBackForm(
+  mode: ExecutionMode,
+  entry: EntryContext,
+  value: unknown,
+): MaybePromise<WriteBackForm> {
+  const refused = (cause?: unknown): WriteBackForm => ({
+    kind: "refused",
+    error: new StorageSerializationError({
+      key: entry.key,
+      physicalKey: entry.physicalKey,
+      direction: "serialize",
+      raw: value,
+      cause,
+    }),
+  });
+
+  if (value === undefined) return refused();
+
+  const serialized = serializeValue(entry, value);
+
+  if (serialized.kind === "invalid") return { kind: "refused", error: serialized.error };
+
+  return chain(decodeWire(entry, serialized.wire, mode), (decoded) =>
+    decoded.kind === "valid" && !decoded.behind && isSameValue(decoded.value, value)
+      ? { kind: "ready", wire: serialized.wire }
+      : refused("error" in decoded ? decoded.error : undefined),
+  );
+}
+
+/* Quiet, because the same data is decoded again if this turns out to be a real change, and that pass is the one that reports. */
+function repairedForm(entry: EntryContext, wire: unknown): MaybePromise<unknown> {
+  const saved = (value: unknown): MaybePromise<unknown> =>
+    chain(writeBackForm("async", entry, value), (form) =>
+      form.kind === "ready" ? form.wire : undefined,
+    );
+
+  return chain(decodeWire(entry, wire, "async"), (decoded) => {
+    if (decoded.kind === "valid") return decoded.behind ? saved(decoded.value) : undefined;
+
+    return chain(
+      attemptRecover("async", entry, entry, decoded, () => undefined),
+      (recovered) => (recovered === undefined ? undefined : saved(recovered.value)),
+    );
+  });
 }
 
 /**
@@ -170,31 +304,40 @@ export function createStorage<
 
   const asyncIo = createAsyncIo(adapter, report);
   const syncIo = isSyncStorageAdapter(adapter) ? createSyncIo(adapter, report) : undefined;
-  /* For a read and the write that depends on it. Through the synchronous methods where there are any, so nothing from the synchronous half can land between the two unless a validator makes them wait. */
+  /*
+    For a read and the write that depends on it. Through the synchronous methods where there are any, so nothing from the synchronous half can land between the two unless a validator makes them wait.
+
+    A step, a `recover` or a validator can still write to the key from inside the read, which is why a repair checks the stored data on this path as well.
+  */
   const atomicIo = syncIo ?? asyncIo;
   const queue = createWriteQueue();
 
   /* Keys whose old names are known to be empty, so that frequent writes do not each spend a backend call rediscovering it, which the `sync` area's rate limit would notice. */
   const swept = new Set<string>();
 
-  /* A read's answer without a read's side effects: a callback supplies its replacement, and every named policy reads as the fallback, because a watcher never throws or deletes. */
+  /* Each key's write-back that failed, with the stored data it failed for, so that a full backend or the `sync` area's rate limit is not hit again by every read of data that has not changed. */
+  const failedWriteBacks = new Map<string, unknown>();
+
+  /* A read's answer without a read's side effects: `recover` answers without its result being saved, a callback supplies its replacement, and every named policy reads as the fallback, because a watcher never throws or deletes. */
   function decodeForWatcher(key: string, wire: unknown): MaybePromise<unknown> {
     const entry = entryFor(key);
 
     return chain(decodeWire(entry, wire, "async"), (decoded) => {
       if (decoded.kind === "valid") return decoded.value;
 
-      if (decoded.kind === "invalid") {
+      if (decoded.kind === "missing") return resolveMissing(entry, "async");
+
+      return chain(attemptRecover("async", entry, entry, decoded, report), (recovered) => {
+        if (recovered !== undefined) return recovered.value;
+
         report(decoded.error);
 
         const policy = resolveOnInvalid(undefined, entry.definition.onInvalid, options.onInvalid);
 
-        if (typeof policy === "function") {
-          return policy(invalidContext(entry, entry.physicalKey, decoded));
-        }
-      }
-
-      return resolveMissing(entry, "async");
+        return typeof policy === "function"
+          ? policy(invalidContext(entry, entry.physicalKey, decoded))
+          : resolveMissing(entry, "async");
+      });
     });
   }
 
@@ -203,6 +346,16 @@ export function createStorage<
     owners: new Map(schema.keys.map((key) => [entryFor(key).physicalKey, key])),
     report,
     decode: decodeForWatcher,
+    repairs: (key) => {
+      const { versions, recover } = entryFor(key).definition;
+
+      return versions !== undefined || recover !== undefined;
+    },
+    isRepairEcho: (key, oldWire, newWire) =>
+      chain(
+        repairedForm(entryFor(key), oldWire),
+        (repaired) => repaired !== undefined && isSameWire(repaired, newWire),
+      ),
     readCurrent: (key) =>
       chain(locate(atomicIo, entryFor(key)), ({ wire }) => decodeForWatcher(key, wire)),
   });
@@ -285,11 +438,87 @@ export function createStorage<
     return chain(io.set(entry.physicalKey, wire), () => sweep(io, entry));
   }
 
-  function recover(
+  /*
+    Answers with no repair where this same stored data has already failed.
+
+    The stored form is worked out when the repair is carried out, so a read whose repair is dropped does no work for it and a failure there costs the read nothing.
+  */
+  function writeBack(
+    mode: ExecutionMode,
+    entry: EntryContext,
+    found: Located,
+    value: unknown,
+    tidy: (io: StorageIo) => MaybePromise<void>,
+  ): Repair | undefined {
+    if (failedWriteBacks.has(entry.key)) {
+      if (isSameWire(failedWriteBacks.get(entry.key), found.wire)) return undefined;
+
+      failedWriteBacks.delete(entry.key);
+    }
+
+    const remember = (): void => {
+      failedWriteBacks.set(entry.key, found.wire);
+    };
+
+    let newWire: unknown;
+
+    return {
+      foundAt: found.physicalKey,
+      wire: found.wire,
+      bestEffort: true,
+      prepare: () =>
+        chain(writeBackForm(mode, entry, value), (form) => {
+          if (form.kind === "ready") {
+            newWire = form.wire;
+
+            return true;
+          }
+
+          remember();
+          report(form.error);
+
+          return false;
+        }),
+      carryOut: (repairIo): MaybePromise<void> =>
+        chain(repairIo.set(entry.physicalKey, newWire), () => tidy(repairIo)),
+      onFailure: remember,
+    };
+  }
+
+  function answerFailure(
     mode: ExecutionMode,
     entry: EntryContext,
     located: EntryContext,
-    decoded: InvalidDecode,
+    decoded: FailedDecode,
+    wire: unknown,
+    perCall: OnInvalid<unknown> | undefined,
+  ): MaybePromise<ReadOutcome> {
+    return chain(attemptRecover(mode, entry, located, decoded, report), (recovered) =>
+      recovered === undefined
+        ? applyPolicy(mode, entry, located, decoded, wire, perCall)
+        : {
+            value: recovered.value,
+            wire,
+            /* Under an old name, only that name: one tried later may still hold something better than a salvage. */
+            repair: writeBack(
+              mode,
+              entry,
+              { physicalKey: located.physicalKey, wire },
+              recovered.value,
+              (repairIo) =>
+                located.physicalKey === entry.physicalKey
+                  ? undefined
+                  : ignoreFailure(() => repairIo.remove(located.physicalKey)),
+            ),
+          },
+    );
+  }
+
+  function applyPolicy(
+    mode: ExecutionMode,
+    entry: EntryContext,
+    located: EntryContext,
+    decoded: FailedDecode,
     wire: unknown,
     perCall: OnInvalid<unknown> | undefined,
   ): MaybePromise<ReadOutcome> {
@@ -297,11 +526,14 @@ export function createStorage<
 
     const policy = resolveOnInvalid(perCall, entry.definition.onInvalid, options.onInvalid);
     const context = invalidContext(entry, located.physicalKey, decoded);
+    const protectedData = cannotBeJudged(decoded);
 
     let repair: Repair | undefined;
 
     const value = applyInvalidPolicy(policy, context, {
       remove: () => {
+        if (protectedData) return;
+
         repair = {
           foundAt: located.physicalKey,
           wire,
@@ -316,7 +548,12 @@ export function createStorage<
       fallback: () => resolveMissing(entry, mode),
     });
 
-    return chain(value, (resolved) => ({ value: resolved, repair, wire }));
+    return chain(value, (resolved) => ({
+      value: resolved,
+      repair,
+      wire,
+      refusal: protectedData ? decoded.error : undefined,
+    }));
   }
 
   /** Answers with the value, and with whatever stored data the read found needs changing, leaving the caller to decide when that happens. */
@@ -330,8 +567,8 @@ export function createStorage<
       const located = physicalKey === entry.physicalKey ? entry : { ...entry, physicalKey };
 
       return chain(decodeWire(located, wire, mode), (decoded): MaybePromise<ReadOutcome> => {
-        if (decoded.kind === "invalid") {
-          return recover(mode, entry, located, decoded, wire, perCall);
+        if (decoded.kind === "invalid" || decoded.kind === "newer") {
+          return answerFailure(mode, entry, located, decoded, wire, perCall);
         }
 
         if (decoded.kind === "missing") {
@@ -340,6 +577,17 @@ export function createStorage<
             repair: undefined,
             wire,
           }));
+        }
+
+        if (decoded.behind) {
+          /* The new form replaces the old one, rather than a copy of it moving, because the old one is exactly what is out of date. */
+          return {
+            value: decoded.value,
+            wire,
+            repair: writeBack(mode, entry, { physicalKey, wire }, decoded.value, (repairIo) =>
+              physicalKey === entry.physicalKey ? undefined : sweep(repairIo, entry),
+            ),
+          };
         }
 
         return {
@@ -366,16 +614,22 @@ export function createStorage<
   ): MaybePromise<unknown> {
     if (repair === undefined) return value;
 
-    const attempt = (): MaybePromise<void> =>
-      mode === "sync"
-        ? repair.carryOut(atomicIo)
-        : queue.run(entry.key, () =>
-            chain(stillHolds(atomicIo, entry, repair), (holds) =>
+    const land = (): MaybePromise<void> =>
+      chain(repair.prepare?.() ?? true, (ready) =>
+        ready
+          ? chain(stillHolds(atomicIo, entry, repair), (holds) =>
               holds ? repair.carryOut(atomicIo) : undefined,
-            ),
-          );
+            )
+          : undefined,
+      );
 
-    return chain(repair.bestEffort ? ignoreFailure(attempt) : attempt(), () => value);
+    const attempt = (): MaybePromise<void> =>
+      mode === "sync" ? land() : queue.run(entry.key, land);
+
+    return chain(
+      repair.bestEffort ? ignoreFailure(attempt, repair.onFailure) : attempt(),
+      () => value,
+    );
   }
 
   function runGet(
@@ -447,6 +701,8 @@ export function createStorage<
     The updater is given a copy because a default, an `onInvalid` replacement or a backend may share the value it read, and nothing should change until the result has passed validation and serialization.
 
     The updater's parameter is `never` so that one taking any key's value can be passed here. Each is only ever handed the value its own key just read as.
+
+    Refused where the read could only stand in for the stored data, because the write would then replace that data with something worked out from a default.
   */
   function runUpdate(
     io: StorageIo,
@@ -457,9 +713,14 @@ export function createStorage<
     const entry = entryFor(key);
 
     return inTurn(mode, key, () =>
-      chain(read(io, mode, entry, undefined), ({ value, wire }) =>
-        writeValue(io, mode, entry, updater(copyValue(value) as never), { known: true, wire }),
-      ),
+      chain(read(io, mode, entry, undefined), ({ value, wire, refusal }) => {
+        if (refusal !== undefined) throw refusal;
+
+        return writeValue(io, mode, entry, updater(copyValue(value) as never), {
+          known: true,
+          wire,
+        });
+      }),
     );
   }
 

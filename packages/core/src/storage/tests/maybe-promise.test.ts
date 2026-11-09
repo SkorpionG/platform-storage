@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { chain, expectSync, ignoreFailure, isPromiseLike } from "../maybe-promise";
+import { chain, discardPromise, expectSync, ignoreFailure, isPromiseLike } from "../maybe-promise";
 
 describe("isPromiseLike", () => {
   it("recognizes a native promise", () => {
@@ -87,6 +87,25 @@ describe("expectSync", () => {
   });
 });
 
+describe("discardPromise", () => {
+  it("consumes a rejection, including one from a foreign thenable", async () => {
+    const reject = vi.fn();
+
+    discardPromise(Promise.reject(new Error("dropped")));
+    discardPromise({
+      then: (_resolve: unknown, onRejected: (reason: unknown) => void) => {
+        reject();
+        onRejected(new Error("dropped"));
+      },
+    } as PromiseLike<unknown>);
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(reject).toHaveBeenCalledOnce();
+  });
+});
+
 describe("ignoreFailure", () => {
   it("answers immediately when the step does", () => {
     expect(ignoreFailure(() => undefined)).toBeUndefined();
@@ -98,6 +117,33 @@ describe("ignoreFailure", () => {
         throw new Error("refused");
       }),
     ).toBeUndefined();
+  });
+
+  it("says so when a step throws", () => {
+    const onFailure = vi.fn();
+
+    ignoreFailure(() => {
+      throw new Error("refused");
+    }, onFailure);
+
+    expect(onFailure).toHaveBeenCalledOnce();
+  });
+
+  it("says so when a step rejects", async () => {
+    const onFailure = vi.fn();
+
+    await ignoreFailure(() => Promise.reject(new Error("refused")), onFailure);
+
+    expect(onFailure).toHaveBeenCalledOnce();
+  });
+
+  it("says nothing when a step succeeds", async () => {
+    const onFailure = vi.fn();
+
+    ignoreFailure(() => undefined, onFailure);
+    await ignoreFailure(() => Promise.resolve(), onFailure);
+
+    expect(onFailure).not.toHaveBeenCalled();
   });
 
   it("waits for a step that answers later", async () => {

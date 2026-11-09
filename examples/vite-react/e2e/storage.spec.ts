@@ -54,6 +54,85 @@ test("a value moves from its old name the first time it is read", async ({ page 
   expect(stored).toEqual({ moved: JSON.stringify({ id: "u1", name: "Ada" }), left: null });
 });
 
+test("a value from before the key had versions is migrated and saved", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    window.localStorage.setItem("layout", JSON.stringify({ compact: true }));
+  });
+  await page.reload();
+
+  await expect(page.getByLabel("Layout reads as")).toContainText("compact");
+
+  const stored = await page.evaluate(() => window.localStorage.getItem("layout"));
+
+  expect(stored).toBe(JSON.stringify({ v: 2, d: { density: "compact" } }));
+  await expect(page.getByLabel("Layout stored as")).toContainText('"v":2');
+});
+
+test("a migration made while the page is open is shown and saved", async ({ page }) => {
+  await page.goto("/");
+
+  await page
+    .locator("div.rounded-lg", { hasText: "From before the key had versions" })
+    .getByRole("button", { name: "Plant it" })
+    .click();
+
+  await expect(page.getByLabel("Layout reads as")).toContainText("compact");
+  await expect(page.getByLabel("Layout stored as")).toContainText('"v":2');
+});
+
+test("a value written in another tab is migrated by the tab following it", async ({
+  context,
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByLabel("Layout reads as")).toContainText("comfortable");
+
+  const other = await context.newPage();
+
+  await other.goto("/");
+  await other.evaluate(() => {
+    window.localStorage.setItem("layout", JSON.stringify({ compact: true }));
+  });
+
+  await expect(page.getByLabel("Layout reads as")).toContainText("compact");
+
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem("layout")))
+    .toBe(JSON.stringify({ v: 2, d: { density: "compact" } }));
+});
+
+test("data from a newer release falls back and is left stored", async ({ page }) => {
+  const newer = JSON.stringify({ v: 9, d: { density: "tight" } });
+
+  await page.goto("/");
+  await page.evaluate((text) => {
+    window.localStorage.setItem("layout", text);
+  }, newer);
+  await page.reload();
+
+  await expect(page.getByLabel("Layout reads as")).toContainText("comfortable");
+  await expect(page.getByText("UNKNOWN_VERSION", { exact: true }).first()).toBeVisible();
+
+  const stored = await page.evaluate(() => window.localStorage.getItem("layout"));
+
+  expect(stored).toBe(newer);
+});
+
+test("text that was never JSON is repaired by recover and saved bare", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    window.localStorage.setItem("accent", "GREEN");
+  });
+  await page.reload();
+
+  await expect(page.getByLabel("Accent reads as")).toContainText("green");
+
+  const stored = await page.evaluate(() => window.localStorage.getItem("accent"));
+
+  expect(stored).toBe('"green"');
+});
+
 test("a full origin is reported as a quota error", async ({ page }) => {
   await page.goto("/");
 

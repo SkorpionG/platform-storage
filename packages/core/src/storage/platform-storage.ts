@@ -66,6 +66,8 @@ export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
    * Reads the way `get` does, so `updater` receives the default where nothing is stored. It receives its own copy, so it may change plain objects, arrays, dates, maps and sets in place. Anything else, such as a class instance, is handed over as it is.
    *
    * A throw from `updater` rejects and writes nothing, and a result that validation or serialization refuses leaves the stored value as it was.
+   *
+   * Rejects without calling `updater` where a versioned key holds data from a newer version, or a migration step failed and `recover` could not repair the value, because the result would replace data this code cannot read.
    */
   update<Key extends KeyOf<Definition>>(
     key: Key,
@@ -89,7 +91,9 @@ export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
    *
    * Reports writes made through this storage and changes from other tabs or extension contexts. It cannot report a second storage over the same `localStorage` in one document, and a write of an identical value may or may not be reported.
    *
-   * Invalid data arrives as a read would answer it, from an `onInvalid` callback or otherwise the fallback, with `onError` told. A watcher never writes, removes or throws.
+   * Invalid data arrives as a read would answer it, from `recover`, an `onInvalid` callback or otherwise the fallback, with `onError` told. A watcher never writes, removes or throws.
+   *
+   * A read saving a migration or a `recover` result is not a change, because the key's value has not moved, so it is not reported. One saved under a new name after being found under an old one can arrive as the key going from empty to its value.
    *
    * Each listener gets its own copy of plain objects, arrays, dates, maps and sets. Anything else, such as a class instance, is handed over as it is. A listener hears only changes that arrive after it started listening, and a write still under way when it starts counts.
    *
@@ -102,6 +106,8 @@ export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
 
   /**
    * Says which key changed, without reading anything, and `undefined` where anything may have.
+   *
+   * A read saving a migration or a `recover` result is not a change, so it is not reported.
    *
    * @returns Stops listening.
    */

@@ -1,0 +1,44 @@
+name: E2E
+
+# The unit suites cannot reach a browser's own `storage` event or its real quota. A workflow of its own, and not on pull requests, because it downloads three browsers.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The job only reads the repository. Stated here so that a change to the repository's default cannot widen it.
+permissions:
+  contents: read
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  browsers:
+    name: Real browsers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Install the browsers
+        run: pnpm --filter @examples/vite-react exec playwright install --with-deps chromium firefox webkit
+
+      - name: Run the browser suite
+        run: pnpm test:e2e

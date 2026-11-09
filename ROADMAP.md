@@ -8,7 +8,7 @@ Nothing here is a commitment or a date. The list exists so that cut scope is rec
 
 What a backend holds is exactly what the schema produced, with nothing wrapped around it. A key therefore stays readable by code that never loaded this library, and nothing is spent storing a wrapper.
 
-It also leaves room to move. Anything added later can treat an unwrapped value as the earliest version it knows, and adopt data already stored without a migration of its own. Everything below is written against that.
+A key that declares versions is the one exception, because it has to record its version somewhere. It stores `{ v, d }`, and a value with no envelope reads as its first version, which is what lets an existing key adopt versions with no migration of its own.
 
 ## Next
 
@@ -18,27 +18,39 @@ Reading, writing and removing several keys at once, each keeping its own type in
 
 ### Namespace prefix
 
-A prefix on the keys a storage stores under, so one origin can hold several unrelated storages without their names colliding.
+A prefix on the keys a storage stores under, so one origin can hold several unrelated storages without their names colliding. It would belong to the storage rather than to the schema or a key, since one schema can back several storages.
 
 Two things it has to get right. A key needs a way out of the prefix, for addressing a name something else owns. And adopting a prefix renames everything already stored, which cannot be done silently, so it would lean on `readFrom`.
 
-### Versioned keys and migrations
+An option to read each key's unprefixed name automatically would make that adoption one line. It has to be opt-in and temporary: on a shared origin the unprefixed name may belong to other code, and adopting it would take that value and delete it.
 
-The largest deferred piece, and the reason several decisions look the way they do.
+### A fallback without leaving the platform factories
 
-A key could declare the shapes it has had, and a function from each to the next, so a value written by an older release is brought forward on read instead of failing validation.
+A platform factory such as `createLocalStorage` cannot take a fallback, so working where the backend is missing means dropping down to `createStorage` and `withFallback`. Accepting a list of adapters would shorten that call without reaching the factories. A list also needs its wire types checked against each other, and `withFallback` can only say which of two halves it chose.
 
-Versioning would belong to the key rather than the storage, so one schema can hold versioned and unversioned keys together. A versioned key has to record its version somewhere, and that is the one place the bare-value rule gives way — for that key alone.
+### Choosing what `clear` removes
 
-What matters in the design: each step typed against the shape before it rather than against `unknown`, no way to express a missing step, a malformed chain caught where it is declared rather than when old data turns up, and validation at every step before anything is written back. The errors would extend the existing hierarchy.
+`clear()` removes the keys the schema declares and their old names, which is the safe default and stays one. An explicit target, or a list of them added together in one call, could narrow or widen that. The possible targets:
 
-### Recovering a value by hand
+| Target       | Removes                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------- |
+| `declared`   | The default. Every name the schema lists: current names and `readFrom` names, and unprefixed names being read |
+| `readFrom`   | Only the names listed in `readFrom`                                                                           |
+| `unprefixed` | Only each key's name without the namespace prefix                                                             |
+| `undeclared` | Stored names the schema does not list                                                                         |
+| `everything` | The whole backend, including data other code owns. Cannot be combined with another target                     |
 
-The escape hatch beside the above, for a key that has to stay readable by other code: a function receiving the stored value as `unknown`, returning a replacement, and having it written back. No type safety, deliberately. Close to what an `onInvalid` callback already does, except that the result would persist.
+The default has to include old names, because a read finding a value under one would otherwise bring back what `clear` just removed.
+
+Anything wider than `declared` can delete another program's data on a shared origin, so it has to be asked for by name. `undeclared` and `everything` need an adapter's optional `keys`, and `unprefixed` needs the namespace prefix first.
+
+### Migrating everything up front
+
+Versioned keys migrate when they are read, so a key nothing reads stays as it was. A pass over the whole storage at startup, and a way to inspect a stored version, would serve tooling and tests. It has to define what happens when one key fails partway through.
 
 ### Migrations across keys
 
-Splitting one key into two, merging two into one, or moving a value between them. None is key-local, so it needs a pass over the whole storage rather than a lazy per-key one, and somewhere to record how far that pass has run. Later than versioned keys, and separate from them.
+Splitting one key into two, merging two into one, or moving a value between them. None is key-local, so it needs a pass over the whole storage rather than a lazy per-key one, and somewhere to record how far that pass has run. Separate from versioned keys, which each see one key at a time.
 
 ### Devtools
 
@@ -52,7 +64,9 @@ A schema such as `z.string().transform(Number)` cannot be used today: `set` is t
 
 ### Parameterized keys
 
-A key whose stored name is computed from arguments, for a value kept per entity rather than once. It adds a parameter to the operations and a second type parameter to the key definition.
+A key whose stored name is computed from one or more arguments, such as a user id and a workspace id, for a value kept per entity rather than once. It adds parameters to the operations and a second type parameter to the key definition.
+
+Much of the engine assumes a fixed list of names. `clear` removes what the schema lists, so it would have to discover instances through an adapter's optional `keys`. A change arriving from a backend names a stored key, which has to be matched back to a template and its arguments. A hook's identity has to include the arguments.
 
 ### Richer serializers
 

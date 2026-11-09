@@ -55,10 +55,11 @@ Declares what a storage holds, and returns a checked, frozen schema object. Both
   - `readFrom?: ReadonlyArray<string>` — names this key used to be stored under. See [Renaming a stored key](#renaming-a-stored-key).
   - `default?: Output` — what a read returns when nothing is stored. Declaring one removes `undefined` from the result type.
   - `onInvalid?: "throw" | "fallback" | "remove" | ((context) => Output)` — overrides the storage's policy for this key.
+  - `recover?: (raw: unknown) => Output | undefined` — repairs a stored value the schema rejects, and has the repair written back. Answer `undefined` when it cannot be repaired.
 
 **Returns:** `StorageSchema<Definition>`
 
-**Throws:** `StorageSchemaError` if an entry has no Standard Schema validator, if `readFrom` is not an array or names a current stored name, or if two keys resolve to the same stored key or claim the same old one.
+**Throws:** `StorageSchemaError` if an entry has no Standard Schema validator, if its `recover` is not a function, if its version chain is malformed, if `readFrom` is not an array or names a current stored name, or if two keys resolve to the same stored key or claim the same old one.
 
 ```ts
 const schema = defineStorageSchema({
@@ -69,12 +70,12 @@ const schema = defineStorageSchema({
 
 ### `defineKey(schema, options?)`
 
-Declares one key with everything about it checked against its schema. Reach for this when a key has an `onInvalid` callback, or when it is worth naming and sharing on its own.
+Declares one key with everything about it checked against its schema. Reach for this when a key has an `onInvalid` or `recover` callback, or when it is worth naming and sharing on its own.
 
 **Parameters:**
 
 - `schema`: the Standard Schema validator.
-- `options?`: `key`, `readFrom`, `default` and `onInvalid`, as above.
+- `options?`: `key`, `readFrom`, `default`, `onInvalid` and `recover`, as above.
 
 **Returns:** a key definition, to be placed in a `defineStorageSchema` object.
 
@@ -87,6 +88,29 @@ const theme = defineKey(z.enum(["light", "dark"]), {
 });
 
 const schema = defineStorageSchema({ theme });
+```
+
+### `defineVersions(schema)`
+
+Declares a key by the shapes it has had, so a value written by an older release is brought forward when it is read. A chain rather than a numbered list, so a missing step cannot be written down and each step is typed against the version before it.
+
+**Parameters:**
+
+- `schema`: the first version. For an existing key, the schema it has today.
+
+**Returns:** a chain, which is a key definition as it stands:
+
+- `.next(schema, up)` adds a version. `up` receives the previous version's output and returns this version's. It is synchronous, because a synchronous read has to be able to run it.
+- `.options(options)` finishes the key with `key`, `readFrom`, `default`, `onInvalid` and `recover`, all checked against the latest version. There is no `.next` after it.
+
+A value stored before the key had versions reads as version 1, so the schema a key already has becomes the first version and no separate migration is needed.
+
+```ts
+const user = defineVersions(z.object({ id: z.string() }))
+  .next(userSchema, (previous) => ({ ...previous, name: "Unknown" }))
+  .options({ key: "app:user" });
+
+const schema = defineStorageSchema({ user });
 ```
 
 ### `createStorage(options)`
@@ -125,7 +149,7 @@ Validates and writes. Stores what the schema produced, so a coercion is persiste
 
 #### `update(key, updater): Promise<void>`
 
-Works out the next value from the current one and stores it, as one step. `updater` is synchronous and receives what `get` would answer with, so the key's default where nothing is stored. Throwing from it rejects and writes nothing, and a result that validation or serialization refuses leaves the stored value as it was.
+Works out the next value from the current one and stores it, as one step. `updater` is synchronous and receives what `get` would answer with, so the key's default where nothing is stored. Throwing from it rejects and writes nothing, and a result that validation or serialization refuses leaves the stored value as it was. It rejects without calling `updater` where a versioned key holds data from a newer version or a migration step failed, because the result would replace data this code cannot read.
 
 `updater` receives its own copy, so it may change plain objects, arrays, dates, maps and sets in place. Anything else, such as a class instance, is handed over as it is.
 
@@ -309,10 +333,11 @@ const stop = storage.watch("theme", ({ oldValue, newValue }) => {
 
 `watch` reports writes made through this storage and changes from other tabs or extension contexts, and each is delivered once, in order. Delivery connects during the first call, so a Manifest V3 service worker can register in its first turn.
 
-- Invalid data arrives as a read would answer it, from an `onInvalid` callback or otherwise the fallback, and `onError` hears about it. A watcher never writes, removes or throws, and a listener that throws is reported through `onError` while the others still run.
+- Invalid data arrives as a read would answer it, from `recover`, an `onInvalid` callback or otherwise the fallback, and `onError` hears about it. A watcher never writes, removes or throws, and a listener that throws is reported through `onError` while the others still run.
 - Each listener gets its own copy of plain objects, arrays, dates, maps and sets, so it may change them. Anything else, such as a class instance, is handed over as it is.
 - A listener hears only changes that arrive after it started listening. A write still under way when it starts counts, with `oldValueKnown` `false`.
 - A key's stored old names are not reported, and moving a value from one is not a change. In a context the backend tells, the move can arrive as the key going from empty to its value, and overwriting a value still under an old name reports the old value as empty.
+- A read saving a migration or a `recover` is not a change either, so neither `watch` nor `onChange` hears of it, in this context or another. Between two contexts on different releases, or with a step that gives a different answer each time, the save can arrive as one extra change, and one saved under a new name after a `readFrom` hit can arrive as the key going from empty to its value.
 - Another tab clearing all of `localStorage` says nothing about what it replaced, so `oldValueKnown` is `false` and `oldValue` is what an empty key reads as.
 - A second storage over the same `localStorage` in one document hears nothing, because the browser does not tell a page about its own writes. A write of an identical value may or may not be reported.
 - AsyncStorage reports nothing, so React Native hears writes made through the same storage only.
@@ -331,8 +356,80 @@ When the current name holds nothing, a read tries the old names in order. A valu
 
 - Invalid data under an old name goes through the usual invalid-data policy, which reports the old name. `"remove"` deletes only that name, so one tried later can still answer.
 - If the move fails, the read still returns the value, `onError` hears about it, and the old value stays for the next read to try.
+- A [versioned key](#versioned-keys) found under an old name runs its chain, and the latest version is what gets written to the current name.
 - `has` counts the old names, and `set`, `remove` and `clear` clear them.
 - Delete the entry once the old names no longer matter. Keeping it costs only an extra lookup when the key is empty.
+
+## Versioned keys
+
+A key declared with `defineVersions` stores its version beside its value, as `{ "v": 2, "d": value }`. Every other key stays bare. A read brings an older value forward one step at a time, validating against each version on the way, answers with the latest shape, and saves it so the chain does not run again.
+
+Saving never costs the read its answer. If the backend refuses, the read still returns the migrated value, `onError` hears about it, and the save is not tried again until the stored data changes or the page reloads. A value written since the read is never overwritten. If the result would not read back as the latest version and the same value, as with a schema that rejects its own output or changes it again, the save is skipped and reported, and the original stays.
+
+To move an existing key onto versions, its current schema becomes version 1. Nothing else has to run: a stored value that is not an envelope counts as version 1.
+
+```ts
+// Before: stored bare, as {"compact":true}.
+const prefs = defineKey(prefsV1, { default: { compact: false } });
+
+// After: the old schema is untouched and becomes version 1.
+const prefs = defineVersions(prefsV1)
+  .next(prefsV2, (previous) => ({ density: previous.compact ? "compact" : "comfortable" }))
+  .options({ default: { density: "comfortable" } });
+```
+
+- Never edit an old version's schema. It describes data already on people's devices.
+- Version 1 has to describe what is really stored, because that is what the first step is handed. [`recover`](#recovering-a-value-by-hand) catches the leftovers.
+- If the stored name is changing too, add `readFrom`.
+- An envelope is exactly the fields `v` and `d`, with `v` a positive integer. An old bare object with exactly those two fields reads as an envelope, and normally fails validation there.
+- Anything reading the key without this library has to understand the envelope, or the key can use `recover` instead and stay bare.
+- A version's schema has to accept its own output and answer the same for it, as every key's schema does. A transform that would change a saved value again leaves the old form stored, and the step runs on every read.
+- A top-level catch-all such as `z.array(...).catch([])` or `z.unknown()` on a later version accepts whatever a faulty step returns, so a step's mistake goes unnoticed. A `.catch` on a single field does not have that effect.
+
+Some stored data cannot be judged by the code reading it, and a read never destroys that data:
+
+| What was found                | What a read does                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| A version newer than the code | Answers through the invalid-data policy and reports `UnknownStorageVersionError` |
+| A step that throws or fails   | Answers through the invalid-data policy and reports `StorageMigrationError`      |
+
+In both cases `"remove"` falls back instead of deleting and `update` rejects, so a rollback or a faulty release leaves the value for a later release to read. `set`, `remove` and `clear` still work, since those replace the value on purpose. A value failing the schema of its own version is ordinary corruption, and every policy applies to it as usual.
+
+A step can run in two contexts at once, so keep steps pure. On a backend with no synchronous calls, another context can write between a read's check and its save.
+
+A context still on code from before the key had versions sees an envelope as invalid data. Under `"remove"` it would delete it, so drop that policy a release before adopting versions.
+
+## Recovering a value by hand
+
+`recover` repairs a stored value the schema rejects and saves the repair. It is for a key other code also reads, which has to stay bare, and for data no version describes: another program's writes, a removed enum member, text that was never JSON.
+
+```ts
+const prefs = defineKey(prefsSchema, {
+  recover: (raw) => {
+    if (typeof raw !== "object" || raw === null) return undefined;
+
+    return { compact: "dense" in raw && raw.dense === true };
+  },
+});
+```
+
+It receives the stored value as `unknown`, or the stored text where that could not be parsed. Under a versioned key it receives the value without its envelope.
+
+- Its result is validated against the key's latest schema, then written back, bare on an ordinary key and as the latest version on a versioned one.
+- Answer `undefined` when the value cannot be repaired, and the invalid-data policy decides as usual.
+- It runs after a version chain, on what the chain could not bring forward, and its saved result replaces that data. It never runs on data newer than the code.
+- It takes precedence over `onInvalid`. A repair is not a failure, so `onError` hears nothing. A `recover` that throws or returns something invalid is reported, and the policy runs.
+- It is synchronous, so a synchronous read can use it, and a `watch` listener sees its result without anything being saved.
+- Found under an old name, only that name is removed once the repair is saved, so a later one is left for you to clean up.
+
+|              | `defineVersions`                     | `recover`                  |
+| ------------ | ------------------------------------ | -------------------------- |
+| Stored as    | `{ v, d }`                           | Bare                       |
+| Runs when    | The stored version is behind         | The value fails validation |
+| Types        | Each step knows the previous version | None, deliberately         |
+| Saves result | Yes                                  | Yes                        |
+
+`onInvalid` decides only what one read answers, and also works per call and per storage, so it never writes anything but the deletion `"remove"` asks for.
 
 ## Defaults
 
@@ -349,12 +446,12 @@ A declared default is returned as given rather than copied. Where each read shou
 
 Persisted data outlives the code that wrote it, so a read has to decide what a value that no longer matches its schema means. The policy resolves narrowest-first: what the call asked for, then the key, then the storage, then the built-in default.
 
-| Policy       | What a read does                                                                          |
-| ------------ | ----------------------------------------------------------------------------------------- |
-| `"fallback"` | Returns the default, leaving the stored value in place. The built-in default.             |
-| `"throw"`    | Rejects with `StorageValidationError`.                                                    |
-| `"remove"`   | Deletes the stored value and falls back, leaving alone a value written since the read.    |
-| A callback   | Returns whatever it gives back, having been handed the key, the raw value and the issues. |
+| Policy       | What a read does                                                                                                                               |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"fallback"` | Returns the default, leaving the stored value in place. The built-in default.                                                                  |
+| `"throw"`    | Rejects with the error that caused it, usually `StorageValidationError`.                                                                       |
+| `"remove"`   | Deletes the stored value and falls back, leaving alone a value written since the read, or one [a versioned key cannot judge](#versioned-keys). |
+| A callback   | Returns whatever it gives back, having been handed the key, the raw value and the issues.                                                      |
 
 Falling back is not silent: the storage-level `onError` observer sees every failure whichever policy runs. Use `onInvalid: "throw"` in tests and development.
 
@@ -370,15 +467,17 @@ Writes to one key made through one storage run in the order they were started, a
 
 Every error extends `PlatformStorageError` and carries a `code`.
 
-| Error                       | Code             | Raised when                                          |
-| --------------------------- | ---------------- | ---------------------------------------------------- |
-| `StorageValidationError`    | `VALIDATION`     | A value does not match its schema                    |
-| `StorageSerializationError` | `SERIALIZATION`  | A value cannot be converted to or from its wire form |
-| `StorageAdapterError`       | `ADAPTER`        | The backend itself failed                            |
-| `StorageQuotaExceededError` | `QUOTA`          | The backend has run out of room                      |
-| `StorageUnavailableError`   | `UNAVAILABLE`    | The backend is not there at all                      |
-| `UnknownStorageKeyError`    | `UNKNOWN_KEY`    | A key the schema does not declare                    |
-| `StorageSchemaError`        | `INVALID_SCHEMA` | The schema, or the way it is used, is wrong          |
+| Error                        | Code              | Raised when                                          |
+| ---------------------------- | ----------------- | ---------------------------------------------------- |
+| `StorageValidationError`     | `VALIDATION`      | A value does not match its schema                    |
+| `StorageSerializationError`  | `SERIALIZATION`   | A value cannot be converted to or from its wire form |
+| `StorageAdapterError`        | `ADAPTER`         | The backend itself failed                            |
+| `StorageQuotaExceededError`  | `QUOTA`           | The backend has run out of room                      |
+| `StorageUnavailableError`    | `UNAVAILABLE`     | The backend is not there at all                      |
+| `UnknownStorageKeyError`     | `UNKNOWN_KEY`     | A key the schema does not declare                    |
+| `StorageSchemaError`         | `INVALID_SCHEMA`  | The schema, or the way it is used, is wrong          |
+| `StorageMigrationError`      | `MIGRATION`       | A step in a version chain failed                     |
+| `UnknownStorageVersionError` | `UNKNOWN_VERSION` | A stored value is newer than any declared version    |
 
 `StorageQuotaExceededError` and `StorageUnavailableError` both extend `StorageAdapterError`, so catching that one still catches both. A full backend is worth telling apart because it is the one failure an application can usually act on: evict something and the same write succeeds. Recognizing it is each adapter's job, since only the adapter knows how its own platform reports one, and a platform that gives no usable signal reports the general `ADAPTER` code instead.
 

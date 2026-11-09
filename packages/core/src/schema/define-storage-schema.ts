@@ -1,6 +1,6 @@
 import { StorageSchemaError } from "../errors/errors";
 import type { StandardSchemaV1 } from "../types/standard-schema";
-import type { KeyDefinition, KeyOf, KeyOptions } from "./key-definition";
+import type { KeyDefinition, KeyOf, KeyOptions, KeyVersion } from "./key-definition";
 import { SCHEMA_BRAND } from "./storage-schema";
 import type { StorageSchema, StorageSchemaDefinition } from "./storage-schema";
 
@@ -34,6 +34,47 @@ function isStandardSchema(value: unknown): value is StandardSchemaV1 {
     "version" in standard &&
     standard.version === 1
   );
+}
+
+/* A mistake here should fail on the first import, not on a user's machine when old data finally turns up. Only code the types did not check can reach these. */
+function checkVersions(key: string, entry: KeyDefinition): void {
+  const { versions } = entry;
+
+  if (versions === undefined) return;
+
+  if (!Array.isArray(versions) || versions.length === 0) {
+    throw new StorageSchemaError(
+      `The "${key}" entry's \`versions\` is not a list of versions. Declare the key with \`defineVersions\`.`,
+    );
+  }
+
+  (versions as ReadonlyArray<KeyVersion | null>).forEach((version, index) => {
+    const number = index + 1;
+
+    if (!isStandardSchema(version?.schema)) {
+      throw new StorageSchemaError(
+        `Version ${String(number)} of "${key}" has no Standard Schema validator.`,
+      );
+    }
+
+    if (index === 0 && version.up !== undefined) {
+      throw new StorageSchemaError(
+        `Version 1 of "${key}" has a migration, but there is no earlier version for it to start from.`,
+      );
+    }
+
+    if (index > 0 && typeof version.up !== "function") {
+      throw new StorageSchemaError(
+        `Version ${String(number)} of "${key}" has no migration from version ${String(index)}. Without one, a value stored at that version cannot be brought forward.`,
+      );
+    }
+
+    if (index === versions.length - 1 && version.schema !== entry.schema) {
+      throw new StorageSchemaError(
+        `The last version of "${key}" is not its \`schema\`. Reads answer with the latest version, so the two have to be the same validator.`,
+      );
+    }
+  });
 }
 
 /*
@@ -86,9 +127,9 @@ function checkOldNames(
  *
  * Keys and value types both come from this one object, so nothing has to be restated: the editor completes the keys, `get` returns the schema's output, and `set` refuses anything else.
  *
- * @param definition - Each logical key mapped to its definition: a `schema`, and optionally `key`, `readFrom`, `default` and `onInvalid`. Use {@link defineKey} for a key whose `onInvalid` is a callback.
+ * @param definition - Each logical key mapped to its definition: a `schema`, and optionally `key`, `readFrom`, `default`, `onInvalid` and `recover`. Use {@link defineKey} for a key whose `onInvalid` or `recover` is a callback, and `defineVersions` for a key that has had more than one shape.
  * @returns A frozen, checked schema to hand to a storage factory.
- * @throws {StorageSchemaError} If an entry has no Standard Schema validator, `readFrom` is not an array or names a current stored name, or two keys resolve to the same physical key or claim the same old one.
+ * @throws {StorageSchemaError} If an entry has no Standard Schema validator, its `recover` is not a function, its version chain is malformed, `readFrom` is not an array or names a current stored name, or two keys resolve to the same physical key or claim the same old one.
  * @example
  * ```ts
  * const schema = defineStorageSchema({
@@ -112,6 +153,14 @@ export function defineStorageSchema<
         `The "${key}" entry has no Standard Schema validator. Give it a \`schema\` from Zod, Valibot, ArkType, or any library implementing the Standard Schema specification.`,
       );
     }
+
+    if (entry.recover !== undefined && typeof entry.recover !== "function") {
+      throw new StorageSchemaError(
+        `The "${key}" entry's \`recover\` is not a function. Give it one that takes the stored value and returns a replacement, or \`undefined\`.`,
+      );
+    }
+
+    checkVersions(key, entry);
 
     const physicalKey = entry.key ?? key;
     const owner = owners.get(physicalKey);

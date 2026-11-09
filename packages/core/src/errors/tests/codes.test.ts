@@ -17,6 +17,8 @@ describe("STORAGE_ERROR_CODE", () => {
       UnknownKey: "UNKNOWN_KEY",
       InvalidSchema: "INVALID_SCHEMA",
       AsyncValidatorInSyncMode: "ASYNC_VALIDATOR_IN_SYNC_MODE",
+      Migration: "MIGRATION",
+      UnknownVersion: "UNKNOWN_VERSION",
     });
   });
 

@@ -161,3 +161,59 @@ export function jsonValueAdapter(
     },
   });
 }
+
+function sortedCopy(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortedCopy);
+  if (typeof value !== "object" || value === null) return value;
+
+  const fields = Object.entries(value).filter(([, field]) => field !== undefined);
+
+  // oxlint-disable-next-line unicorn/no-array-sort
+  fields.sort(([left], [right]) => (left < right ? -1 : 1));
+
+  return Object.fromEntries(fields.map(([key, field]) => [key, sortedCopy(field)]));
+}
+
+/** A backend behaving like an extension area: it answers later, drops `undefined`, sorts object keys, hands back a fresh copy on every read, and reports its own writes. */
+export interface AreaAdapter extends StorageAdapter<JsonValue> {
+  peek(key: string): unknown;
+}
+
+export function areaAdapter(initial: Readonly<Record<string, JsonValue>> = {}): AreaAdapter {
+  const entries = new Map<string, unknown>(
+    Object.entries(initial).map(([key, value]) => [key, sortedCopy(value)]),
+  );
+  const listeners = new Set<(change: AdapterChange<JsonValue>) => void>();
+
+  return {
+    name: "area",
+    serializer: passthroughSerializer,
+    peek: (key) => sortedCopy(entries.get(key)),
+    get: (key) => Promise.resolve(sortedCopy(entries.get(key)) as JsonValue | undefined),
+    set: (key, value) => {
+      const oldValue = entries.get(key) as JsonValue | undefined;
+      const newValue = sortedCopy(value) as JsonValue;
+
+      entries.set(key, newValue);
+
+      for (const listener of listeners) listener({ key, oldValue, newValue });
+
+      return Promise.resolve();
+    },
+    remove: (key) => {
+      entries.delete(key);
+
+      return Promise.resolve();
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+
+      return {
+        stop: () => {
+          listeners.delete(listener);
+        },
+        reportsOwnWrites: true,
+      };
+    },
+  };
+}

@@ -129,6 +129,102 @@ export class StorageSerializationError extends PlatformStorageError {
   }
 }
 
+/** What {@link StorageMigrationError} is constructed with. */
+export interface StorageMigrationErrorOptions {
+  readonly key: string;
+  readonly physicalKey: string;
+  readonly fromVersion: number;
+  readonly toVersion: number;
+  /** Why the step's result was rejected. Absent where the step itself threw. */
+  readonly issues?: ReadonlyArray<SchemaIssue> | undefined;
+  readonly raw: unknown;
+  readonly cause?: unknown;
+}
+
+/**
+ * A step in a key's version chain could not bring a stored value forward.
+ *
+ * Separate from a validation failure because the stored value may be perfectly good and the step at fault, so a read never deletes a value for this reason: a later release with the step fixed can still migrate it.
+ *
+ * @param options - The key, the two versions the step sits between, what the step rejected or threw, and the value it was given.
+ * @example
+ * ```ts
+ * if (error.code === STORAGE_ERROR_CODE.Migration) console.error(error.fromVersion, error.toVersion);
+ * ```
+ */
+export class StorageMigrationError extends PlatformStorageError {
+  readonly key: string;
+  readonly physicalKey: string;
+  readonly fromVersion: number;
+  readonly toVersion: number;
+  readonly issues: ReadonlyArray<SchemaIssue>;
+  /** The value the step was given, kept so a caller can report it. */
+  readonly raw: unknown;
+
+  constructor(options: StorageMigrationErrorOptions) {
+    const reason =
+      options.issues === undefined
+        ? "the step threw."
+        : `its result does not match that version: ${formatIssues(options.issues)}`;
+
+    super(
+      STORAGE_ERROR_CODE.Migration,
+      `Migrating ${describeKey(options.key, options.physicalKey)} from version ${String(options.fromVersion)} to ${String(options.toVersion)} failed: ${reason}`,
+      { cause: options.cause },
+    );
+
+    this.name = "StorageMigrationError";
+    this.key = options.key;
+    this.physicalKey = options.physicalKey;
+    this.fromVersion = options.fromVersion;
+    this.toVersion = options.toVersion;
+    this.issues = options.issues ?? [];
+    this.raw = options.raw;
+  }
+}
+
+/** What {@link UnknownStorageVersionError} is constructed with. */
+export interface UnknownStorageVersionErrorOptions {
+  readonly key: string;
+  readonly physicalKey: string;
+  readonly storedVersion: number;
+  readonly latestVersion: number;
+  readonly raw: unknown;
+}
+
+/**
+ * A stored value claims a version newer than any this code declares.
+ *
+ * It means the code is older than the data, as after a rollback or beside a tab still running a later release. The data is sound and only unreadable here, so a read never deletes or replaces it.
+ *
+ * @param options - The key, the version stored, the latest version declared, and the stored value.
+ * @example
+ * ```ts
+ * if (error.code === STORAGE_ERROR_CODE.UnknownVersion) console.error(error.storedVersion);
+ * ```
+ */
+export class UnknownStorageVersionError extends PlatformStorageError {
+  readonly key: string;
+  readonly physicalKey: string;
+  readonly storedVersion: number;
+  readonly latestVersion: number;
+  readonly raw: unknown;
+
+  constructor(options: UnknownStorageVersionErrorOptions) {
+    super(
+      STORAGE_ERROR_CODE.UnknownVersion,
+      `${describeKey(options.key, options.physicalKey)} is stored at version ${String(options.storedVersion)}, and this code only knows versions up to ${String(options.latestVersion)}.`,
+    );
+
+    this.name = "UnknownStorageVersionError";
+    this.key = options.key;
+    this.physicalKey = options.physicalKey;
+    this.storedVersion = options.storedVersion;
+    this.latestVersion = options.latestVersion;
+    this.raw = options.raw;
+  }
+}
+
 /** What {@link StorageAdapterError} and its subclasses are constructed with. */
 export interface StorageAdapterErrorOptions {
   readonly adapter: string;

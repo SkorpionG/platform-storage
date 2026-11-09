@@ -4,6 +4,7 @@ import {
   createStorage,
   defineKey,
   defineStorageSchema,
+  defineVersions,
   DEFAULT_INVALID_POLICY,
   INVALID_POLICY,
   isPlatformStorageError,
@@ -19,11 +20,13 @@ import {
 import type {
   InvalidPolicy,
   JsonValue,
+  KeyDefinition,
   StorageAdapter,
   Serializer,
   StorageErrorCode,
   StorageOperation,
   SyncPlatformStorage,
+  VersionChain,
 } from "../index";
 import { themeSchema } from "../../tests/fixtures/schemas";
 
@@ -33,6 +36,11 @@ describe("@platform-storage/core entry point", () => {
   it("publishes the serializers with the wire type each transports", () => {
     expectTypeOf(jsonSerializer).toEqualTypeOf<Serializer<string>>();
     expectTypeOf(passthroughSerializer).toEqualTypeOf<Serializer<JsonValue>>();
+  });
+
+  it("publishes defineVersions, whose chain is a key definition", () => {
+    expectTypeOf(defineVersions(themeSchema)).toEqualTypeOf<VersionChain<typeof themeSchema>>();
+    expectTypeOf(defineVersions(themeSchema)).toExtend<KeyDefinition>();
   });
 
   it("publishes the guards as type predicates, so a caught value narrows", () => {
@@ -91,6 +99,8 @@ describe("what the entry point deliberately withholds", () => {
     expectTypeOf(entry).not.toHaveProperty("isSameWire");
     expectTypeOf(entry).not.toHaveProperty("ignoreFailure");
     expectTypeOf(entry).not.toHaveProperty("copyValue");
+    expectTypeOf(entry).not.toHaveProperty("wrapEnvelope");
+    expectTypeOf(entry).not.toHaveProperty("unwrapStored");
   });
 });
 
