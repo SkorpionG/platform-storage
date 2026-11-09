@@ -2,7 +2,7 @@
 
 A React Native app demonstrating [`@platform-storage/react-native`](../../packages/react-native), built with [Expo](https://expo.dev) and Expo Router. It reads one storage over [the schema every other example uses](../schema/src/schema.ts), unchanged, and it is the second example that cannot be opened at a URL.
 
-It runs in **Expo Go**, with no development build to make: both AsyncStorage and `@expo/ui` are bundled into it on SDK 57.
+It runs in **Expo Go**, with no development build to make: both AsyncStorage and `@expo/ui` are bundled into it on SDK 58.
 
 ## Run it
 
@@ -14,7 +14,7 @@ pnpm --filter @examples/expo android
 
 iOS needs Xcode and a simulator; Android needs Android Studio and an emulator, which `a` will install Expo Go into for you. `pnpm --filter @examples/expo build` runs `expo export`, which bundles both platforms with Metro and needs neither toolchain — that is the check CI runs.
 
-`pnpm --filter @examples/expo doctor` checks the dependency set against the SDK. It reports one duplicate copy of React, which is expected: the app is on the version SDK 57 pins and `packages/react` is on the workspace's own for its tests. The bundle Metro produces contains one.
+`pnpm --filter @examples/expo doctor` checks the dependency set against the SDK. It reports one duplicate copy of React, which is expected: the app is on the version SDK 58 pins and `packages/react` is on the workspace's own for its tests. The bundle Metro produces contains one.
 
 ## What is different about this one
 

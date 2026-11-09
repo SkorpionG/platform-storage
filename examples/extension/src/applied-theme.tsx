@@ -1,13 +1,11 @@
 import { useAppliedTheme } from "./hooks/use-theme";
-import { useChangeBridge } from "./hooks/use-change-bridge";
 
 /**
- * Drives the page theme from the stored `theme` key and relays the browser's change feed, rendering nothing.
+ * Drives the page theme from the stored `theme` key, rendering nothing.
  *
- * A component rather than two bare hooks, so a shell mounts one thing and every page gets both.
+ * A component rather than a bare hook, so a change of theme re-renders this and not the shell that mounts it.
  */
 export function AppliedTheme() {
-  useChangeBridge();
   useAppliedTheme();
 
   return null;

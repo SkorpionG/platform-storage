@@ -37,6 +37,7 @@ The repository is a pnpm + Turborepo monorepo. Adapters are thin; nearly all of 
 | API documentation | `pnpm check-docs`                                   |
 | Unused code       | `pnpm knip` / `pnpm knip:production`                |
 | Consumer check    | `pnpm verify-tarballs`                              |
+| Real browsers     | `pnpm test:e2e`                                     |
 | One package       | `pnpm --filter @platform-storage/core test`         |
 | Watch one package | `pnpm --filter @platform-storage/core test:watch`   |
 | Run an example    | See [`examples/AGENTS.md`](examples/AGENTS.md)      |

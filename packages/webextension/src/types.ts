@@ -25,11 +25,28 @@ export interface WebExtensionStorageArea {
   getKeys?(): Promise<Array<string>>;
 }
 
+/** One key's change as `storage.onChanged` reports it. Values are `unknown` for the reason {@link WebExtensionStorageArea} gives. */
+export interface WebExtensionStorageChange {
+  readonly oldValue?: unknown;
+  readonly newValue?: unknown;
+}
+
+/** The part of `storage.onChanged` this package uses. */
+export interface WebExtensionStorageChangeEvent {
+  addListener(
+    listener: (changes: Record<string, WebExtensionStorageChange>, areaName: string) => void,
+  ): void;
+  removeListener(
+    listener: (changes: Record<string, WebExtensionStorageChange>, areaName: string) => void,
+  ): void;
+}
+
 /**
- * The `storage` namespace. `session` is optional because Manifest V2 and older browser versions do not have it.
+ * The `storage` namespace. `session` is optional because Manifest V2 and older browser versions do not have it, and `onChanged` so that a stand-in need not provide one.
  */
 export interface WebExtensionStorageNamespace {
   readonly local: WebExtensionStorageArea;
   readonly sync: WebExtensionStorageArea;
   readonly session?: WebExtensionStorageArea;
+  readonly onChanged?: WebExtensionStorageChangeEvent;
 }

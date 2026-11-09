@@ -37,6 +37,8 @@ These were settled deliberately. Reopen them with the maintainer rather than in 
 - **`clear()` removes only the keys the schema declares.** It must never wipe an origin that other code shares. A key's `readFrom` names count as declared.
 - **Writes to a key take turns, and a read never overwrites one.** `set`, `remove`, `update` and a read's repair each wait for the key's turn, and `get` and `has` wait for writes already started. A repair, meaning a move from an old name or the `"remove"` policy, first checks the stored data is still what the read saw.
 - **Errors are identified by `code` and by brand, never by `instanceof`.** An application that resolves two copies of a package holds two copies of each class, and `instanceof` silently stops matching across them.
+- **Every change is reported once, by whoever knows about it.** An extension area echoes a context's own writes, the web `storage` event never does, and AsyncStorage reports nothing, so an adapter's `subscribe` says which it is and the engine announces only what the backend will not. A hook's writer announces only while nothing is following the storage.
+- **A watcher only ever reads.** It decodes through the same path as `get`, and invalid data arrives as the fallback with `onError` told. A policy of `"remove"` applies to a read, never to a change being observed.
 - **Check a backend's own export names before naming a factory after it.** AsyncStorage exports a `createAsyncStorage` of its own, which is why the factory here is `createReactNativeStorage`, named for the platform the way `createWebExtensionStorage` is.
 
 ## Tests

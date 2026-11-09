@@ -84,7 +84,7 @@ The adapters the factories above are built from, for `createStorage`, for `withF
 - `options?`:
   - `name?: string` — what errors report. Defaults to `"localStorage"` or `"sessionStorage"`.
 
-**Returns:** `SyncStorageAdapter<string>`, which can also list every name the storage holds through `keysSync()` and `keys()`.
+**Returns:** `SyncStorageAdapter<string>`, which can also list every name the storage holds through `keysSync()` and `keys()`, and follow changes from other tabs through `subscribe`.
 
 ### `webStorageAdapter(getStorage, options?)`
 

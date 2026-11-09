@@ -9,6 +9,27 @@ import { useStorageValue, useStorageWriter } from "../use-storage-value";
 const sync = syncStorage();
 const withoutSyncHalf = asyncStorage();
 
+describe("writer.update", () => {
+  it("hands the updater what the key reads as, and takes what it accepts", () => {
+    function Probe() {
+      const writer = useStorageWriter(sync, "visitCount");
+
+      writer.update((current) => {
+        expectTypeOf(current).toEqualTypeOf<number>();
+
+        return current + 1;
+      });
+
+      // @ts-expect-error The key holds a number.
+      writer.update(() => "nine");
+
+      return null;
+    }
+
+    void Probe;
+  });
+});
+
 describe("useStorageValue", () => {
   it("drops undefined from a key that declares a default", () => {
     function Probe() {

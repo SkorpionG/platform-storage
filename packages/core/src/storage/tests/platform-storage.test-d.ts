@@ -83,6 +83,29 @@ describe("CreateStorageOptions", () => {
   });
 });
 
+describe("watch", () => {
+  it("types a change after the key it follows", () => {
+    const storage = {} as PlatformStorage<Definition>;
+
+    storage.watch("count", (change) => {
+      expectTypeOf(change.key).toEqualTypeOf<"count">();
+      expectTypeOf(change.oldValue).toEqualTypeOf<number>();
+      expectTypeOf(change.newValue).toEqualTypeOf<number>();
+    });
+  });
+
+  it("names only declared keys, or none", () => {
+    const storage = {} as PlatformStorage<Definition>;
+
+    storage.onChange((key) => {
+      expectTypeOf(key).toEqualTypeOf<"theme" | "count" | undefined>();
+    });
+
+    // @ts-expect-error The schema declares no such key.
+    storage.watch("nope", () => undefined);
+  });
+});
+
 describe("update", () => {
   it("hands the updater what get would answer with, and takes what set would accept", () => {
     const storage = {} as PlatformStorage<Definition>;

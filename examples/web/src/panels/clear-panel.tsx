@@ -27,7 +27,6 @@ export function ClearPanel() {
           tone="danger"
           onClick={() => {
             local.clearSync();
-            notifyStorageChanged(local);
           }}
         >
           clearSync()

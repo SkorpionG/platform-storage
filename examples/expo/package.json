@@ -35,6 +35,7 @@
     "@tooling/typescript-config": "workspace:*",
     "@types/react": "catalog:",
     "expo-doctor": "catalog:expo",
+    "react-dom": "catalog:expo",
     "typescript": "catalog:"
   },
   "engines": {

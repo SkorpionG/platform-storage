@@ -31,6 +31,10 @@
       "dependsOn": ["build"],
       "outputs": []
     },
+    // Runs against real browsers and a development server, so nothing it does is worth caching.
+    "test:e2e": {
+      "cache": false
+    },
     "clean": {
       "cache": false
     },

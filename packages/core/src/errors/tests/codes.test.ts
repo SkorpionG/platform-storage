@@ -37,6 +37,7 @@ describe("STORAGE_OPERATION", () => {
       Clear: "clear",
       Update: "update",
       Keys: "keys",
+      Subscribe: "subscribe",
     });
   });
 

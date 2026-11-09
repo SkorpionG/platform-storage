@@ -1,6 +1,5 @@
 import { DECLARED_PHYSICAL_KEYS } from "@examples/schema";
 import type { WebExtensionStorageAreaName } from "@platform-storage/webextension";
-import { subscribeToStorage } from "@platform-storage/react";
 import { useEffect, useState } from "react";
 
 import { local, session, sync } from "../store/storages";
@@ -60,11 +59,11 @@ export function useAreaContents(area: WebExtensionStorageAreaName): AreaContents
     };
 
     refresh();
-    const stop = subscribeToStorage(STORAGES[area], refresh);
+    const subscription = STORAGES[area].adapter.subscribe?.(refresh);
 
     return () => {
       live = false;
-      stop();
+      subscription?.stop();
     };
   }, [area]);
 

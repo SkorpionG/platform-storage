@@ -15,6 +15,16 @@ export interface GetOptions<Definition> {
   readonly onInvalid?: OnInvalid<GetResult<Definition>> | undefined;
 }
 
+/** One change to a key, as `watch` delivers it. */
+export interface StorageChange<Definition, Key extends string = string> {
+  readonly key: Key;
+  /** What the key read as before. A read of an empty key where `oldValueKnown` is `false`. */
+  readonly oldValue: GetResult<Definition>;
+  readonly newValue: GetResult<Definition>;
+  /** `false` where nothing could say what was replaced, such as another tab clearing all of `localStorage`. */
+  readonly oldValueKnown: boolean;
+}
+
 /** What {@link createStorage} accepts. */
 export interface CreateStorageOptions<
   Definition extends StorageSchemaDefinition,
@@ -73,6 +83,29 @@ export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
 
   /** The key the backend stores under, for tooling that has to address it directly. */
   physicalKey(key: KeyOf<Definition>): string;
+
+  /**
+   * Follows one key, with its previous and new values read as `get` would read them.
+   *
+   * Reports writes made through this storage and changes from other tabs or extension contexts. It cannot report a second storage over the same `localStorage` in one document, and a write of an identical value may or may not be reported.
+   *
+   * Invalid data arrives as a read would answer it, from an `onInvalid` callback or otherwise the fallback, with `onError` told. A watcher never writes, removes or throws.
+   *
+   * Each listener gets its own copy of plain objects, arrays, dates, maps and sets. Anything else, such as a class instance, is handed over as it is. A listener hears only changes that arrive after it started listening, and a write still under way when it starts counts.
+   *
+   * @returns Stops listening.
+   */
+  watch<Key extends KeyOf<Definition>>(
+    key: Key,
+    listener: (change: StorageChange<Definition[Key], Key>) => void,
+  ): () => void;
+
+  /**
+   * Says which key changed, without reading anything, and `undefined` where anything may have.
+   *
+   * @returns Stops listening.
+   */
+  onChange(listener: (key: KeyOf<Definition> | undefined) => void): () => void;
 }
 
 /** The synchronous half, present only when the adapter can answer immediately. */

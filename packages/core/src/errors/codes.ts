@@ -24,7 +24,7 @@ export type StorageErrorCode = (typeof STORAGE_ERROR_CODE)[keyof typeof STORAGE_
  *
  * `Clear` names the method rather than a call any adapter receives. `clear()` removes the declared keys one at a time, so a backend that refuses reports `Remove` and the key it refused, which is the more useful of the two. `Update` is a method in the same way, reporting the `Get` or `Set` it was carrying out when it failed.
  *
- * `Keys` is the reverse: an adapter can answer it and a storage has no such method, because a schema already says which keys it declares.
+ * `Keys` and `Subscribe` are the reverse: an adapter can answer them and a storage has no such method. A schema already says which keys it declares, and a storage exposes `watch` and `onChange` rather than a backend's raw feed.
  */
 export const STORAGE_OPERATION = {
   Get: "get",
@@ -34,6 +34,7 @@ export const STORAGE_OPERATION = {
   Clear: "clear",
   Update: "update",
   Keys: "keys",
+  Subscribe: "subscribe",
 } as const;
 
 /** Any one of the operations in {@link STORAGE_OPERATION}. */

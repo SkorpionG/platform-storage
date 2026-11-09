@@ -1,5 +1,6 @@
 {
   "recommendations": [
+    "ms-playwright.playwright",
     "oxc.oxc-vscode",
     "streetsidesoftware.code-spell-checker",
     "vitest.explorer",

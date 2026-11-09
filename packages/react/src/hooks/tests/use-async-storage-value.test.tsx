@@ -170,3 +170,26 @@ describe("useAsyncStorageWriter", () => {
     expect(rejection).toBeInstanceOf(Error);
   });
 });
+
+describe("writer.update", () => {
+  it("works out the next value from the current one and re-renders readers", async () => {
+    const storage = asyncStorage();
+
+    function Counter() {
+      const [count, writer] = useAsyncStorageValue(storage, "visitCount");
+
+      return (
+        <button type="button" onClick={() => void writer.update((current) => current + 1)}>
+          {count.value}
+        </button>
+      );
+    }
+
+    render(<Counter />);
+    await settled();
+    act(() => screen.getByRole("button").click());
+    await settled();
+
+    expect(screen.getByRole("button").textContent).toBe("1");
+  });
+});

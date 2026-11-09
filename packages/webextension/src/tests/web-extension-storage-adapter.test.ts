@@ -11,6 +11,7 @@ import {
   StorageUnavailableError,
   StorageValidationError,
 } from "../index";
+import type { WebExtensionStorageChangeEvent, WebExtensionStorageNamespace } from "../types";
 import { webExtensionStorageAdapter } from "../web-extension-storage-adapter";
 import {
   fakeStorageNamespace,
@@ -355,5 +356,101 @@ describe("listing what an area holds", () => {
         physicalKey: undefined,
       }),
     );
+  });
+});
+
+describe("following changes", () => {
+  type ChangeHandler = Parameters<WebExtensionStorageChangeEvent["addListener"]>[0];
+
+  function withFeed(): {
+    readonly namespace: WebExtensionStorageNamespace;
+    readonly emit: ChangeHandler;
+    readonly connected: () => number;
+  } {
+    const handlers = new Set<ChangeHandler>();
+
+    return {
+      namespace: {
+        ...fakeStorageNamespace(),
+        onChanged: {
+          addListener: (handler) => {
+            handlers.add(handler);
+          },
+          removeListener: (handler) => {
+            handlers.delete(handler);
+          },
+        },
+      },
+      emit: (changes, area) => {
+        for (const handler of handlers) handler(changes, area);
+      },
+      connected: () => handlers.size,
+    };
+  }
+
+  it("reports every key changed in its own area, and that it hears its own writes", () => {
+    const { namespace, emit } = withFeed();
+    const listener = vi.fn();
+    const subscription = webExtensionStorageAdapter({ storage: () => namespace }).subscribe?.(
+      listener,
+    );
+
+    emit({ theme: { oldValue: "light", newValue: "dark" }, count: { newValue: 1 } }, "local");
+
+    expect(listener.mock.calls).toEqual([
+      [{ key: "theme", oldValue: "light", newValue: "dark" }],
+      [{ key: "count", oldValue: undefined, newValue: 1 }],
+    ]);
+    expect(subscription?.reportsOwnWrites).toBe(true);
+  });
+
+  it("ignores another area", () => {
+    const { namespace, emit } = withFeed();
+    const listener = vi.fn();
+
+    webExtensionStorageAdapter({ area: "sync", storage: () => namespace }).subscribe?.(listener);
+    emit({ theme: { newValue: "dark" } }, "local");
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("stops when asked", () => {
+    const { namespace, connected } = withFeed();
+    const subscription = webExtensionStorageAdapter({ storage: () => namespace }).subscribe?.(
+      vi.fn(),
+    );
+
+    expect(connected()).toBe(1);
+
+    subscription?.stop();
+
+    expect(connected()).toBe(0);
+  });
+
+  it("reports nothing, and no echo, where the namespace has no feed", () => {
+    const subscription = webExtensionStorageAdapter({
+      storage: () => fakeStorageNamespace(),
+    }).subscribe?.(vi.fn());
+
+    expect(subscription?.reportsOwnWrites).toBe(false);
+    expect(() => subscription?.stop()).not.toThrow();
+  });
+
+  it("does not throw where the extension API cannot be reached", () => {
+    const subscription = webExtensionStorageAdapter({
+      storage: () => {
+        throw new Error("not here");
+      },
+    }).subscribe?.(vi.fn());
+
+    expect(subscription?.reportsOwnWrites).toBe(false);
+  });
+
+  it("does not throw where the extension API is absent", () => {
+    const subscription = webExtensionStorageAdapter({ storage: () => undefined }).subscribe?.(
+      vi.fn(),
+    );
+
+    expect(subscription?.reportsOwnWrites).toBe(false);
   });
 });

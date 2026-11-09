@@ -145,7 +145,17 @@ try {
 }
 ```
 
-### 8. Rename a stored key without losing what it holds
+### 8. Live across tabs and extension contexts
+
+Hooks follow changes made in other tabs and contexts by themselves, and `watch` gives anything else the value before and after, read through the schema.
+
+```ts
+const stop = storage.watch("theme", ({ oldValue, newValue }) => {
+  console.log(oldValue, "became", newValue);
+});
+```
+
+### 9. Rename a stored key without losing what it holds
 
 Changing where a value is stored would normally strand everything already written under the old name. Name the old one, and the first read moves the value across.
 

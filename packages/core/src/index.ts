@@ -1,5 +1,7 @@
 export { defineSyncAdapter, isSyncStorageAdapter } from "./adapter/adapter";
 export type {
+  AdapterChange,
+  AdapterSubscription,
   StorageAdapter,
   SyncAdapterDefinition,
   SyncStorageAdapter,
@@ -68,6 +70,7 @@ export type {
   CreateStorageResult,
   GetOptions,
   PlatformStorage,
+  StorageChange,
   SyncPlatformStorage,
   SyncStorageMethods,
 } from "./storage/platform-storage";

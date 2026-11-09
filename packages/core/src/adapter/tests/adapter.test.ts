@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { defineSyncAdapter, isSyncStorageAdapter, jsonSerializer } from "../../index";
 import type { StorageAdapter, SyncAdapterDefinition } from "../../index";
@@ -144,5 +144,23 @@ describe("defineSyncAdapter listing", () => {
 
     expect(adapter.keys).toBeUndefined();
     expect(adapter.keysSync).toBeUndefined();
+  });
+});
+
+describe("defineSyncAdapter following changes", () => {
+  it("carries subscribe through", () => {
+    const stop = vi.fn();
+    const adapter = defineSyncAdapter({
+      ...memoryDefinition(),
+      subscribe: () => ({ stop, reportsOwnWrites: false }),
+    });
+
+    adapter.subscribe?.(() => undefined).stop();
+
+    expect(stop).toHaveBeenCalledOnce();
+  });
+
+  it("offers none without it", () => {
+    expect(defineSyncAdapter(memoryDefinition()).subscribe).toBeUndefined();
   });
 });

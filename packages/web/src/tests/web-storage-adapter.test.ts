@@ -331,3 +331,90 @@ describe("listing what the storage holds", () => {
     );
   });
 });
+
+function fire(init: StorageEventInit): void {
+  window.dispatchEvent(new StorageEvent("storage", init));
+}
+
+describe("following changes from other tabs", () => {
+  it("reports a change to this storage, with what it replaced", () => {
+    const listener = vi.fn();
+    const subscription = webStorageAdapter(() => window.localStorage).subscribe?.(listener);
+
+    fire({
+      key: "theme",
+      oldValue: '"light"',
+      newValue: '"dark"',
+      storageArea: window.localStorage,
+    });
+
+    expect(listener).toHaveBeenCalledExactlyOnceWith({
+      key: "theme",
+      oldValue: '"light"',
+      newValue: '"dark"',
+    });
+    subscription?.stop();
+  });
+
+  it("reports an absent value as undefined rather than null", () => {
+    const listener = vi.fn();
+    const subscription = webStorageAdapter(() => window.localStorage).subscribe?.(listener);
+
+    fire({ key: "theme", oldValue: null, newValue: null, storageArea: window.localStorage });
+
+    expect(listener).toHaveBeenCalledWith({
+      key: "theme",
+      oldValue: undefined,
+      newValue: undefined,
+    });
+    subscription?.stop();
+  });
+
+  it("reports a wholesale clear as a change to no particular key", () => {
+    const listener = vi.fn();
+    const subscription = webStorageAdapter(() => window.localStorage).subscribe?.(listener);
+
+    fire({ key: null, storageArea: window.localStorage });
+
+    expect(listener).toHaveBeenCalledWith({ key: undefined });
+    subscription?.stop();
+  });
+
+  it("ignores another storage on the same page", () => {
+    const listener = vi.fn();
+    const subscription = webStorageAdapter(() => window.localStorage).subscribe?.(listener);
+
+    fire({ key: "theme", newValue: '"dark"', storageArea: window.sessionStorage });
+
+    expect(listener).not.toHaveBeenCalled();
+    subscription?.stop();
+  });
+
+  it("ignores an event when the storage cannot be reached", () => {
+    const listener = vi.fn();
+    const subscription = webStorageAdapter(refusedStorage).subscribe?.(listener);
+
+    fire({ key: "theme", newValue: '"dark"', storageArea: window.localStorage });
+
+    expect(listener).not.toHaveBeenCalled();
+    subscription?.stop();
+  });
+
+  it("does not claim to report this tab's own writes, which the browser never does", () => {
+    const subscription = webStorageAdapter(() => window.localStorage).subscribe?.(vi.fn());
+
+    expect(subscription?.reportsOwnWrites).toBe(false);
+    subscription?.stop();
+  });
+
+  it("stops when asked", () => {
+    const listener = vi.fn();
+
+    webStorageAdapter(() => window.localStorage)
+      .subscribe?.(listener)
+      .stop();
+    fire({ key: "theme", newValue: '"dark"', storageArea: window.localStorage });
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+});

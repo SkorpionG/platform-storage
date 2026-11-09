@@ -34,12 +34,14 @@ catalog:
   "@wxt-dev/auto-icons": ^1.1.2
   # Teaches WXT to compile JSX. Released against `wxt` rather than against React, so the two move together.
   "@wxt-dev/module-react": ^1.2.2
-  happy-dom: ^20.13.2
+  happy-dom: ^21.0.4
   # Finds unused files, exports and dependencies across every workspace from one place, so only the root depends on it.
   knip: ^6.37.0
   lefthook: ^2.1.12
   next: ^16.3.5
-  oxfmt: ^0.66.0
+  oxfmt: ^0.77.0
+  # What the real-browser suite in the Vite example runs on.
+  "@playwright/test": ^1.65.0
   oxlint: ^1.81.0
   # Renders the schema module with syntax highlighting in the browser demos. Small, and themed through the same tokens as everything else.
   prism-react-renderer: ^2.4.1
@@ -59,23 +61,23 @@ catalog:
   wxt: ^0.21.4
   zod: ^4.5.4
 
-# The Expo SDK pins the exact versions it was built against, and they are not the ones the browser examples want: React 19.2.3 rather than 19.3.0, and AsyncStorage 2.x rather than 3.x. Expo Go ships the native half of each module at the SDK's version, so a newer JavaScript half would be talking to an older native one. A catalog of its own is what lets `@examples/expo` hold the SDK's set without moving every other example onto it.
+# The Expo SDK pins the exact versions it was built against, and they are not the ones the browser examples want: an exact React rather than a range, and AsyncStorage 2.x rather than 3.x. Expo Go ships the native half of each module at the SDK's version, so a newer JavaScript half would be talking to an older native one. A catalog of its own is what lets `@examples/expo` hold the SDK's set without moving every other example onto it.
 catalogs:
   expo:
-    "@expo/ui": ~57.0.18
+    "@expo/ui": ~58.0.27
     "@react-native-async-storage/async-storage": 2.2.0
-    expo: ~57.0.23
-    expo-constants: ~57.0.18
-    expo-doctor: ^1.20.4
-    expo-linking: ~57.0.10
-    expo-router: ~57.0.21
-    react: 19.2.3
-    react-native: 0.86.3
-    react-native-safe-area-context: ~5.7.0
-    react-native-screens: ~4.26.0
+    expo: ~58.0.23
+    expo-constants: ~58.0.15
+    expo-doctor: ^1.21.6
+    expo-linking: ~58.0.16
+    expo-router: ~58.0.30
+    react: 19.3.0
+    react-dom: 19.3.0
+    react-native: 0.88.1
+    react-native-safe-area-context: ~5.11.1
+    react-native-screens: ~4.30.1
 
 minimumReleaseAgeExclude:
-  - happy-dom@20.13.2
   - "@types/react@19.3.0"
   - react@19.3.0
   - "@types/react-dom@19.3.0"
@@ -88,3 +90,7 @@ minimumReleaseAgeExclude:
 overrides:
   "@react-native-async-storage/async-storage@^3>react": "-"
   "@react-native-async-storage/async-storage@^3>react-native": "-"
+  # Security pins for the Expo toolchain: GHSA-3g3m-2fjr-6pw4 in glob and GHSA-g3hv-75wg-m249 in minimatch. Remove when @expo/cli and @expo/fingerprint allow glob 14 and minimatch 11 themselves.
+  "@expo/cli@^58>glob": ^14.0.2
+  "@expo/fingerprint@^0.21>glob": ^14.0.2
+  "@expo/fingerprint@^0.21>minimatch": ^11.0.1

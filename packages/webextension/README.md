@@ -78,7 +78,7 @@ The adapter the factory above is built from, for `createStorage` or anything els
 
 - `options?`: `area`, `storage` and `name`, exactly as above.
 
-**Returns:** `StorageAdapter<JsonValue>`, which can also list every name the area holds through `keys()`.
+**Returns:** `StorageAdapter<JsonValue>`, which can also list every name the area holds through `keys()`, and follow every context's changes through `subscribe`.
 
 ### `resolveWebExtensionStorage()`
 
@@ -98,7 +98,7 @@ function storageFor(area: WebExtensionStorageAreaName) {
 }
 ```
 
-### `WebExtensionStorageArea` and `WebExtensionStorageNamespace`
+### `WebExtensionStorageArea`, `WebExtensionStorageNamespace` and the change types
 
 The structural declarations of an area and of the namespace. They are the common denominator of Chrome's, Firefox's and the WebExtension polyfill's own types, and conformance tests check them against all three, so no browser type package reaches your type graph.
 

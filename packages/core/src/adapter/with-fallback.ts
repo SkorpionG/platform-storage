@@ -12,7 +12,7 @@ export interface FallbackChoice {
  *
  * The pattern this exists for is server rendering: pairing a platform adapter with `memoryAdapter()` builds one storage that works where the real backend exists and where it does not, so application code never branches on which it is running in.
  *
- * The choice is made on first use rather than at construction, because a storage is often built while a module is loading and long before anything reads from it. It is then kept, so every operation reaches the same backend and a value cannot be written to one and read from the other.
+ * The choice is made on first use, which following its changes counts as, rather than at construction, because a storage is often built while a module is loading and long before anything reads from it. It is then kept, so every operation reaches the same backend and a value cannot be written to one and read from the other.
  *
  * The result is synchronous only when both halves are, since the type has to describe whichever one is chosen.
  *
@@ -64,6 +64,8 @@ export function withFallback<Wire>(
         : selected.has(key);
     },
     isAvailable: () => select().isAvailable?.() ?? true,
+    subscribe: (listener) =>
+      select().subscribe?.(listener) ?? { stop: () => undefined, reportsOwnWrites: false },
     chosen: () => {
       if (chosen === undefined) return undefined;
 

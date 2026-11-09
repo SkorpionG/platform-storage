@@ -9,7 +9,7 @@ import { local } from "../store/storages";
  *
  * The device's own setting is what shows until the first read lands, because a device storage cannot answer during a render. The browser examples read `localStorage` synchronously in an inline script and paint the stored choice on the very first frame; nothing here can, so a stored theme arrives a frame late and the app corrects itself. The extension example has the same gap for the same reason.
  */
-export function useAppliedScheme(): ColorSchemeName {
+export function useAppliedScheme(): ColorSchemeName | null {
   const device = useColorScheme();
   const [stored] = useAsyncStorageValue(local, "theme");
 

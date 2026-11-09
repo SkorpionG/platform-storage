@@ -151,6 +151,14 @@ Removes only the keys this schema declares, and the old names they declare in `r
 
 The name the backend stores this key under, for tooling that has to address it directly.
 
+#### `watch(key, listener): () => void`
+
+Follows one key. `listener` receives `{ key, oldValue, newValue, oldValueKnown }`, with both values read as `get` would read them. Returns a function that stops listening. See [Following changes](#following-changes).
+
+#### `onChange(listener): () => void`
+
+Says which key changed, without reading anything, and `undefined` where anything may have. Returns a function that stops listening.
+
 #### `getSync` / `setSync` / `updateSync` / `removeSync` / `hasSync` / `clearSync`
 
 The same six operations without a promise, present only when the adapter can answer immediately. Absent from the type otherwise, so a call to one is a compile error rather than a runtime surprise.
@@ -170,7 +178,7 @@ A backend that keeps everything in a `Map`. Useful in tests, as the second half 
 
 ### `withFallback(primary, fallback)`
 
-Builds one adapter that uses the first backend where it exists and the second where it does not. The choice is made on first use and then kept, so a value cannot be written to one and read from the other. The result is synchronous only when both halves are, and can list keys only when both halves can.
+Builds one adapter that uses the first backend where it exists and the second where it does not. The choice is made on first use, which following its changes counts as, and then kept, so a value cannot be written to one and read from the other. The result is synchronous only when both halves are, and can list keys only when both halves can.
 
 The result also has `chosen()`, answering `"primary"` or `"fallback"`, or `undefined` until first use has decided. Asking never forces the decision.
 
@@ -187,6 +195,10 @@ const names = await storage.adapter.keys?.();
 ```
 
 This calls the adapter rather than a storage, so a failure arrives as the backend reported it and `onError` does not hear about it.
+
+### Following what a backend reports
+
+An adapter may offer `subscribe(listener)`, which reports changes the backend can see, including those to names no schema declares. It connects synchronously and answers with `{ stop, reportsOwnWrites }`. Most code wants `watch` or `onChange` instead; this is for tooling that has to see everything.
 
 ### `requireBackend(source, context)`
 
@@ -286,6 +298,24 @@ export const storage = createStorage({
   adapter: withFallback(localStorageAdapter(), memoryAdapter({ name: "server-memory" })),
 });
 ```
+
+## Following changes
+
+```ts
+const stop = storage.watch("theme", ({ oldValue, newValue }) => {
+  applyTheme(newValue);
+});
+```
+
+`watch` reports writes made through this storage and changes from other tabs or extension contexts, and each is delivered once, in order. Delivery connects during the first call, so a Manifest V3 service worker can register in its first turn.
+
+- Invalid data arrives as a read would answer it, from an `onInvalid` callback or otherwise the fallback, and `onError` hears about it. A watcher never writes, removes or throws, and a listener that throws is reported through `onError` while the others still run.
+- Each listener gets its own copy of plain objects, arrays, dates, maps and sets, so it may change them. Anything else, such as a class instance, is handed over as it is.
+- A listener hears only changes that arrive after it started listening. A write still under way when it starts counts, with `oldValueKnown` `false`.
+- A key's stored old names are not reported, and moving a value from one is not a change. In a context the backend tells, the move can arrive as the key going from empty to its value, and overwriting a value still under an old name reports the old value as empty.
+- Another tab clearing all of `localStorage` says nothing about what it replaced, so `oldValueKnown` is `false` and `oldValue` is what an empty key reads as.
+- A second storage over the same `localStorage` in one document hears nothing, because the browser does not tell a page about its own writes. A write of an identical value may or may not be reported.
+- AsyncStorage reports nothing, so React Native hears writes made through the same storage only.
 
 ## Renaming a stored key
 

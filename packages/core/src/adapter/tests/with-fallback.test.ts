@@ -222,3 +222,31 @@ describe("listing keys through withFallback", () => {
     expect(withFallback(withoutListing, holding("first")).keysSync).toBeUndefined();
   });
 });
+
+describe("following changes through withFallback", () => {
+  it("follows whichever half is in use", () => {
+    const stop = vi.fn();
+    const adapter = withFallback(
+      { ...memoryAdapter(), subscribe: () => ({ stop, reportsOwnWrites: true }) },
+      memoryAdapter(),
+    );
+
+    const subscription = adapter.subscribe?.(() => undefined);
+
+    expect(subscription?.reportsOwnWrites).toBe(true);
+    expect(adapter.chosen()).toBe("primary");
+
+    subscription?.stop();
+
+    expect(stop).toHaveBeenCalledOnce();
+  });
+
+  it("answers with a feed that reports nothing where the half in use has none", () => {
+    const subscription = withFallback(memoryAdapter(), memoryAdapter()).subscribe?.(
+      () => undefined,
+    );
+
+    expect(subscription?.reportsOwnWrites).toBe(false);
+    expect(() => subscription?.stop()).not.toThrow();
+  });
+});

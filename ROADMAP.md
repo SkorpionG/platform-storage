@@ -12,14 +12,6 @@ It also leaves room to move. Anything added later can treat an unwrapped value a
 
 ## Next
 
-### Change subscription
-
-Watching a key, over the `storage` event on the web, `storage.onChanged` in extensions, and an in-process emitter elsewhere.
-
-It needs an optional capability on the adapter contract, because the backends genuinely differ: an extension reports changes made by other contexts, the web event fires only in _other_ tabs, and AsyncStorage reports nothing at all. Anything useful built on it will want the previous value beside the new one.
-
-Until it lands, nothing reports a change made in another tab or another extension context, so an application only ever sees the writes it made itself.
-
 ### Batch reads and writes
 
 Reading, writing and removing several keys at once, each keeping its own type in the result. Extension areas take batches natively, so the adapter contract would grow optional hooks with a loop everywhere else. This is where a per-operation round trip costs the most, and where `clear()` would stop being one call per key.
@@ -83,10 +75,6 @@ A variant of the asynchronous value hook built on `use()`, so a component can re
 ### Optimistic writes
 
 A write over a slow backend shows the previous value until it lands. Publishing the new one immediately is delicate: a write validates and may normalize, so the value shown optimistically can be one the storage would never hold, and a rejected write then has to roll back to something that may itself have been superseded.
-
-### An updater form for the writers
-
-A hook's writer takes a value, never a function of the previous one, so a component that only writes cannot compute the next. The storage's own `update` already holds two updates in order; what is left is the shape of the writer and what a rejected update does to a component.
 
 ### A per-call policy through the hooks
 

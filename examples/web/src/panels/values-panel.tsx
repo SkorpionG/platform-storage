@@ -115,6 +115,9 @@ export function ValuesPanel() {
             value={visitCount}
             onChange={(next) => visitCountWriter.set(next)}
           />
+          <Button onClick={() => visitCountWriter.update((count) => count + 1)}>
+            Count a visit
+          </Button>
         </Row>
 
         <Row

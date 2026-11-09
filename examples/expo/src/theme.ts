@@ -56,7 +56,7 @@ const DARK: Palette = {
   success: "#6ee7b7",
 };
 
-export function paletteFor(scheme: ColorSchemeName): Palette {
+export function paletteFor(scheme: ColorSchemeName | null): Palette {
   return scheme === "dark" ? DARK : LIGHT;
 }
 

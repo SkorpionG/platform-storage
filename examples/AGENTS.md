@@ -34,6 +34,8 @@ Every one is private and never released. They are named outside the `@platform-s
 | …on one platform       | `pnpm --filter @examples/expo ios` / `… android`        |
 | Check its dependencies | `pnpm --filter @examples/expo doctor`                   |
 
+`pnpm test:e2e` runs the browser suite in `examples/vite-react/e2e` against Chromium, Firefox and WebKit, which is what reaches the real `storage` event and the real quota. It is not part of `pnpm test` or the commit hook, because it needs browsers installed: `pnpm --filter @examples/vite-react exec playwright install chromium firefox webkit`.
+
 `dev` is `cache: false` and `persistent: true` in the root `turbo.json`, because a development server never finishes and never produces an output worth keeping.
 
 ## How the sharing works
@@ -80,7 +82,7 @@ Read the relevant one before changing something here that looks arbitrary, and a
 
 ### Every app
 
-- **A demo has to obey the rule it is demonstrating.** The library's whole claim is that a missing backend is reported and never a crash, so demo code that reaches a platform API directly has to look for it rather than assume it. The extension's change relay assumed `browser.storage` and threw on a page that had none, blanking the whole playground.
+- **A demo has to obey the rule it is demonstrating.** The library's whole claim is that a missing backend is reported and never a crash, so demo code that reaches a platform API directly has to look for it rather than assume it.
 - **Say which of "still reading" and "the read failed" is meant.** Branching on `status === "ready"` alone and rendering one fixed caption for everything else tells the reader a failed read is still in flight, which is the distinction an asynchronous storage exists to keep. A placeholder has to be handed the read, the way `NotReady` in `@examples/extension` is, so it can report the error code instead.
 - **`@examples/ui` splits on the `"use client"` line.** `controls.tsx` and `code-block.tsx` carry the directive and the presentational files deliberately do not, which is what lets a panel with no hooks in it render on a server. `packages/AGENTS.md` records why the directive is needed at all.
 - **`@examples/web` caches its origin snapshot against a revision counter.** A `getSnapshot` has to answer with the same reference until something changes, and both `getSync` and a factory default answer fresh every call, so reading either straight through never settles. The counter is stable for exactly as long as nothing has been written.
@@ -104,7 +106,7 @@ Read the relevant one before changing something here that looks arbitrary, and a
 #### Workspace
 
 - **A peer override matches its parent by name, so version-scope it.** `"@react-native-async-storage/async-storage>react-native": "-"` removed that peer for _every_ consumer, not just the package that wanted it gone, and AsyncStorage's runtime imports `react-native` directly. A real app would then have resolved it only through pnpm's implicit hoisting, which is the phantom dependency the Boundaries section exists to prevent. Pinning the selector to `@^3` leaves the library's copy stripped and the app's properly peered.
-- **`catalogs.expo` exists because the Expo SDK pins exact versions.** SDK 57 wants React 19.2.3 and AsyncStorage 2.2.0 where the default catalog holds 19.3.0 and ^3.1.1, and Expo Go ships the _native_ half at the SDK's version, so a 3.x JavaScript half would be talking to a 2.2.0 native module. Moving the default catalog would drag every other example along with it. A pleasing side effect: the workspace now holds AsyncStorage 2.2.0 and 3.1.1 at once and `AsyncStorageLike` satisfies both, which is the structural-typing claim demonstrated across a major version.
+- **`catalogs.expo` exists because the Expo SDK pins exact versions.** The SDK wants an exact React and AsyncStorage 2.2.0 where the default catalog holds a range and ^3.1.1, and Expo Go ships the _native_ half at the SDK's version, so a 3.x JavaScript half would be talking to a 2.2.0 native module. Moving the default catalog would drag every other example along with it. A pleasing side effect: the workspace now holds AsyncStorage 2.2.0 and 3.1.1 at once and `AsyncStorageLike` satisfies both, which is the structural-typing claim demonstrated across a major version.
 - **`@types/react` is deliberately not in that catalog.** Putting it there changed which copy pnpm hoists and broke `@examples/next` with `TS2883`, in a package that was never touched. The app takes the default catalog's copy and records the mismatch in `expo.install.exclude`, so `expo install` stops offering to fix it.
 - **`expo-doctor` reports a duplicate React and that is expected.** The app is on the SDK's version and `packages/react` is on the workspace's for its tests. It is a check on the tree, not the bundle; Metro emits one React, and two would throw "Invalid hook call" on the first render.
 - **Do not add a `metro.config.js`.** One was written to force React to a single copy, then deleted to test whether it did anything: the bundle was byte-identical. Expo's default config already resolves it.

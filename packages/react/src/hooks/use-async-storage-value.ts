@@ -8,7 +8,7 @@ import {
   getAsyncValueSnapshot,
   subscribeToAsyncValue,
 } from "../store/async-cache";
-import { notifyStorageChanged } from "../store/changes";
+import { announceWrite } from "../store/changes";
 import type { AsyncStorageWriter, AsyncStoredValue } from "../types/hooks";
 
 /**
@@ -18,7 +18,7 @@ import type { AsyncStorageWriter, AsyncStoredValue } from "../types/hooks";
  *
  * @param storage - Any storage, including one that only answers later.
  * @param key - Which key to write. Completed from the schema.
- * @returns `set` and `remove` for that key, each returning a promise.
+ * @returns `set`, `update` and `remove` for that key, each returning a promise.
  * @example
  * ```tsx
  * const writer = useAsyncStorageWriter(storage, "lastSeen");
@@ -34,11 +34,15 @@ export function useAsyncStorageWriter<
     () => ({
       set: async (value) => {
         await storage.set(key, value);
-        notifyStorageChanged(storage, key);
+        announceWrite(storage, key);
+      },
+      update: async (updater) => {
+        await storage.update(key, updater);
+        announceWrite(storage, key);
       },
       remove: async () => {
         await storage.remove(key);
-        notifyStorageChanged(storage, key);
+        announceWrite(storage, key);
       },
     }),
     [storage, key],
@@ -46,7 +50,7 @@ export function useAsyncStorageWriter<
 }
 
 /**
- * What the key holds, once the storage has said, and the pair of writers for it.
+ * What the key holds, once the storage has said, and the writers for it.
  *
  * Works over any storage, including one that could have answered immediately, which is what lets an extension or a React Native app be written the same way as a browser one.
  *
@@ -56,7 +60,7 @@ export function useAsyncStorageWriter<
  *
  * @param storage - Any storage, including one that only answers later.
  * @param key - Which key to read. Completed from the schema.
- * @returns The read, as `{ status, value, error }`, and the pair of writers for that key.
+ * @returns The read, as `{ status, value, error }`, and the writers for that key.
  * @example
  * ```tsx
  * const [result, writer] = useAsyncStorageValue(storage, "theme");

@@ -95,7 +95,7 @@ export function isWebStorageAvailable(getStorage: WebStorageSource): boolean {
  *
  * @param getStorage - Reaches for the storage, on every operation.
  * @param options - `name` to change what error messages call it. Defaults to `"web-storage"`.
- * @returns A synchronous adapter over that storage, able to list every name it holds.
+ * @returns A synchronous adapter over that storage, able to list every name it holds and to follow changes from other tabs.
  * @example
  * ```ts
  * const adapter = webStorageAdapter(() => window.localStorage, { name: "localStorage" });
@@ -108,6 +108,14 @@ export function webStorageAdapter(
   const name = options.name ?? "web-storage";
   const reach = (operation: StorageOperation, physicalKey?: string): Storage =>
     requireBackend(getStorage, { adapter: name, operation, physicalKey });
+
+  const isThisStorage = (area: Storage | null): boolean => {
+    try {
+      return area === getStorage();
+    } catch {
+      return false;
+    }
+  };
 
   return defineSyncAdapter({
     name,
@@ -136,6 +144,35 @@ export function webStorageAdapter(
     },
     hasSync: (key) => reach(STORAGE_OPERATION.Has, key).getItem(key) !== null,
     isAvailable: () => isWebStorageAvailable(getStorage),
+    subscribe: (listener) => {
+      /* A server has no tabs to hear from, which is not a failure. */
+      if (typeof window === "undefined") {
+        return { stop: () => undefined, reportsOwnWrites: false };
+      }
+
+      const onStorage = (event: StorageEvent): void => {
+        if (!isThisStorage(event.storageArea)) return;
+
+        listener(
+          event.key === null
+            ? { key: undefined }
+            : {
+                key: event.key,
+                oldValue: event.oldValue ?? undefined,
+                newValue: event.newValue ?? undefined,
+              },
+        );
+      };
+
+      window.addEventListener("storage", onStorage);
+
+      return {
+        stop: () => {
+          window.removeEventListener("storage", onStorage);
+        },
+        reportsOwnWrites: false,
+      };
+    },
     keysSync: () => {
       const storage = reach(STORAGE_OPERATION.Keys);
 

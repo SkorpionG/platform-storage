@@ -178,6 +178,10 @@ demos/*
 .docs
 .specstory/*
 
+# Playwright
+test-results
+playwright-report
+
 # Turborepo
 .turbo
 

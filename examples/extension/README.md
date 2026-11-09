@@ -34,7 +34,7 @@ pnpm --filter @examples/extension build:firefox
 
 Most panels are the browser playground's, reworked for a backend that only ever answers later. These four have no counterpart there:
 
-- **A change made somewhere else.** Write a value in the options page and watch the open popup follow it. The library does not wrap `storage.onChanged` yet, so the relay doing that belongs to this demo; its whole source is on the panel.
+- **A change made somewhere else.** Write a value in the options page and watch the open popup follow it. The hooks follow `storage.onChanged` by themselves, and the panel shows `storage.watch` reporting the value before and after, along with the adapter's raw feed underneath.
 - **The service worker.** Two counters, one in the worker's memory and one in the area. Terminate the worker from `chrome://extensions` and only the first goes back to zero — which is what resolving the backend on every operation buys you.
 - **Which API was found.** `browser` is preferred over `chrome`. Load the Firefox build to see that it was, since Firefox defines both.
 - **When the browser says no.** Push a value past the `sync` area's eight kilobytes an item and watch it come back as `StorageAdapterError` with the browser's own message as its cause, while the same write to `local` succeeds.

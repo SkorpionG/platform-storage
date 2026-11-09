@@ -51,7 +51,7 @@ export const KEY_NOTES: { readonly [Key in AppKey]: KeyNote } = {
   user: {
     label: "User",
     readType: "{ id: string; name: string } | undefined",
-    note: "An object stored under the physical key `app:user`, so the name the code uses and the name the backend holds can differ.",
+    note: "An object stored under the physical key `app:user`, and moved there from `legacy:user` the first time it is read, so the name the code uses and the name the backend holds can differ.",
   },
   lastDismissed: {
     label: "Last dismissed",

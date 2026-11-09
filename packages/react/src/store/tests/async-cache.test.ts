@@ -220,7 +220,25 @@ describe("subscribeToAsyncValue", () => {
     expect(getAsyncValueSnapshot(storage, "theme").value).toBe("dark");
   });
 
-  it("reads nothing again when nobody wrote while nobody was watching", async () => {
+  it("reads nothing again while something else kept the storage followed", async () => {
+    const storage = asyncStorage();
+    const reads = vi.spyOn(storage, "get");
+
+    subscribeToAsyncValue(storage, "visitCount", () => {});
+
+    const unsubscribe = subscribeToAsyncValue(storage, "theme", () => {});
+
+    await settled();
+    unsubscribe();
+    reads.mockClear();
+
+    subscribeToAsyncValue(storage, "theme", () => {});
+    await settled();
+
+    expect(reads).not.toHaveBeenCalled();
+  });
+
+  it("reads again after a stretch with nothing watching, since another context may have written", async () => {
     const storage = asyncStorage();
     const reads = vi.spyOn(storage, "get");
 
@@ -232,7 +250,7 @@ describe("subscribeToAsyncValue", () => {
     subscribeToAsyncValue(storage, "theme", () => {});
     await settled();
 
-    expect(reads).not.toHaveBeenCalled();
+    expect(reads).toHaveBeenCalledOnce();
   });
 
   it("starts one read for several listeners, and keeps watching until the last leaves", async () => {

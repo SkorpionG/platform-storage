@@ -1,7 +1,6 @@
 import { browser } from "wxt/browser";
 import { defineBackground } from "wxt/utils/define-background";
 
-import { startChangeBridge } from "../store/changes";
 import { WORKER_REQUEST } from "../store/messages";
 import type { WorkerReport } from "../store/messages";
 import { local, session } from "../store/storages";
@@ -52,7 +51,4 @@ export default defineBackground(() => {
 
     return { ...report(), visitCount: await local.get("visitCount") };
   });
-
-  /* The worker reads nothing live, but relaying keeps one bridge per context rather than one per page, and proves the feed reaches a worker at all. */
-  startChangeBridge();
 });

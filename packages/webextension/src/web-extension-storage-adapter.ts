@@ -15,6 +15,7 @@ import { WEB_EXTENSION_STORAGE_AREA } from "./types";
 import type {
   WebExtensionStorageArea,
   WebExtensionStorageAreaName,
+  WebExtensionStorageChange,
   WebExtensionStorageNamespace,
 } from "./types";
 
@@ -74,7 +75,7 @@ function isQuotaRejection(cause: unknown): boolean {
  * A rejected call is left in the browser's own vocabulary for the engine to wrap, which `keys` is not, since it is called on the adapter directly. The exception is a full area, which this adapter names itself: an area reports one in its message rather than with an error type, so reading that is the adapter's job rather than the caller's.
  *
  * @param options - `area` to store in, `name` for error messages, and `namespace` to supply the extension API yourself, which is what a polyfill or a test fake does.
- * @returns An asynchronous adapter over that area, able to list every name it holds.
+ * @returns An asynchronous adapter over that area, able to list every name it holds and to follow changes from every context.
  * @example
  * ```ts
  * const adapter = webExtensionStorageAdapter({ area: "sync" });
@@ -124,6 +125,44 @@ export function webExtensionStorageAdapter(
           ? target.get(null).then((everything) => Object.keys(everything))
           : target.getKeys(),
       ),
+    subscribe: (listener) => {
+      let changed: WebExtensionStorageNamespace["onChanged"];
+
+      try {
+        changed = storage()?.onChanged;
+      } catch {
+        changed = undefined;
+      }
+
+      if (changed === undefined) return { stop: () => undefined, reportsOwnWrites: false };
+
+      const feed = changed;
+
+      /* The values were stored through this adapter's own transport, and the schema validates them before any caller sees them. */
+      const onChanged = (
+        changes: Record<string, WebExtensionStorageChange>,
+        areaName: string,
+      ): void => {
+        if (areaName !== area) return;
+
+        for (const [key, change] of Object.entries(changes)) {
+          listener({
+            key,
+            oldValue: change.oldValue as JsonValue | undefined,
+            newValue: change.newValue as JsonValue | undefined,
+          });
+        }
+      };
+
+      feed.addListener(onChanged);
+
+      return {
+        stop: () => {
+          feed.removeListener(onChanged);
+        },
+        reportsOwnWrites: true,
+      };
+    },
     isAvailable: () => {
       try {
         return storage()?.[area] !== undefined;

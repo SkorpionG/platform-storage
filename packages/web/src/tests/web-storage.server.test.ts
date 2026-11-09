@@ -21,6 +21,13 @@ const schema = defineStorageSchema({
 });
 
 describe("where there is no window", () => {
+  it("follows nothing, without treating that as a failure", () => {
+    const subscription = localStorageAdapter().subscribe?.(() => undefined);
+
+    expect(subscription?.reportsOwnWrites).toBe(false);
+    expect(() => subscription?.stop()).not.toThrow();
+  });
+
   it("reports both web storages as unavailable", () => {
     expect(typeof window).toBe("undefined");
 

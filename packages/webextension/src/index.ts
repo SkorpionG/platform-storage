@@ -9,5 +9,7 @@ export { WEB_EXTENSION_STORAGE_AREA } from "./types";
 export type {
   WebExtensionStorageArea,
   WebExtensionStorageAreaName,
+  WebExtensionStorageChange,
+  WebExtensionStorageChangeEvent,
   WebExtensionStorageNamespace,
 } from "./types";

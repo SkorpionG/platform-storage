@@ -25,6 +25,7 @@
     "check-docs": "node tooling/scripts/src/check-docs.js",
     "knip": "knip",
     "knip:production": "turbo run build --filter=@platform-storage/* && knip --production --strict --workspace '@platform-storage/*'",
+    "test:e2e": "turbo run test:e2e",
     "verify-tarballs": "node tooling/scripts/src/verify-tarballs.js",
     "format": "pnpm format:comments:fix && oxfmt",
     "format:check": "pnpm format:comments && oxfmt --check",

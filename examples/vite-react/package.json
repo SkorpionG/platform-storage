@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "clean": "rm -rf dist .cache .turbo node_modules"
@@ -21,6 +22,7 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
+    "@playwright/test": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@tooling/oxlint-config": "workspace:*",
     "@tooling/typescript-config": "workspace:*",

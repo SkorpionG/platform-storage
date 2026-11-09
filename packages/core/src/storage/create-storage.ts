@@ -14,7 +14,7 @@ import type { MaybePromise } from "../types/utils";
 import { copyValue } from "./copy-value";
 import { applyInvalidPolicy, resolveOnInvalid } from "./invalid-policy";
 import type { InvalidContext, OnInvalid } from "./invalid-policy";
-import { chain, expectSync, ignoreFailure } from "./maybe-promise";
+import { chain, expectSync, ignoreFailure, isPromiseLike } from "./maybe-promise";
 import { decodeWire, isSameWire, resolveMissing, serializeValue, validateValue } from "./pipeline";
 import type { DecodeResult, EntryContext, ExecutionMode } from "./pipeline";
 import type {
@@ -26,6 +26,8 @@ import type {
 } from "./platform-storage";
 import { createAsyncIo, createSyncIo } from "./storage-io";
 import type { StorageIo } from "./storage-io";
+import { createWatchers } from "./watchers";
+import type { PreviousWire, Watchers } from "./watchers";
 import { createWriteQueue } from "./write-queue";
 
 /** Where a read found something, or the last place it looked. */
@@ -35,6 +37,9 @@ interface Located {
 }
 
 type InvalidDecode = Extract<DecodeResult, { readonly kind: "invalid" }>;
+
+/** What a write is replacing, and which name it was found under. */
+type LocatedPrevious = PreviousWire & { readonly foundAt?: string };
 
 /** A change a read decided stored data needs, carried out only if that data is still what the read saw. */
 interface Repair {
@@ -48,6 +53,8 @@ interface Repair {
 interface ReadOutcome {
   readonly value: unknown;
   readonly repair: Repair | undefined;
+  /** What the read found, so a write following it need not look again. */
+  readonly wire: unknown;
 }
 
 function previousNames(entry: EntryContext): ReadonlyArray<string> {
@@ -87,6 +94,37 @@ function removeOldNames(io: StorageIo, entry: EntryContext): MaybePromise<void> 
 /* Old names first: stopping halfway then leaves the value under the current name, where a retry finds it, rather than under an old one that a later read would bring back. */
 function removeEverywhere(io: StorageIo, entry: EntryContext): MaybePromise<void> {
   return chain(removeOldNames(io, entry), () => io.remove(entry.physicalKey));
+}
+
+/* A write should not fail because the value it replaces could not be read. */
+function readPrevious(io: StorageIo, entry: EntryContext): MaybePromise<LocatedPrevious> {
+  const unknownPrevious: LocatedPrevious = { known: false };
+
+  try {
+    const located = chain(locate(io, entry), ({ physicalKey, wire }): LocatedPrevious => ({
+      known: true,
+      wire,
+      foundAt: physicalKey,
+    }));
+
+    return isPromiseLike(located) ? Promise.resolve(located).catch(() => unknownPrevious) : located;
+  } catch {
+    return unknownPrevious;
+  }
+}
+
+function invalidContext(
+  entry: EntryContext,
+  physicalKey: string,
+  decoded: InvalidDecode,
+): InvalidContext {
+  return {
+    key: entry.key,
+    physicalKey,
+    raw: decoded.raw,
+    issues: decoded.issues,
+    error: decoded.error,
+  };
 }
 
 /**
@@ -139,6 +177,36 @@ export function createStorage<
   /* Keys whose old names are known to be empty, so that frequent writes do not each spend a backend call rediscovering it, which the `sync` area's rate limit would notice. */
   const swept = new Set<string>();
 
+  /* A read's answer without a read's side effects: a callback supplies its replacement, and every named policy reads as the fallback, because a watcher never throws or deletes. */
+  function decodeForWatcher(key: string, wire: unknown): MaybePromise<unknown> {
+    const entry = entryFor(key);
+
+    return chain(decodeWire(entry, wire, "async"), (decoded) => {
+      if (decoded.kind === "valid") return decoded.value;
+
+      if (decoded.kind === "invalid") {
+        report(decoded.error);
+
+        const policy = resolveOnInvalid(undefined, entry.definition.onInvalid, options.onInvalid);
+
+        if (typeof policy === "function") {
+          return policy(invalidContext(entry, entry.physicalKey, decoded));
+        }
+      }
+
+      return resolveMissing(entry, "async");
+    });
+  }
+
+  const watchers = createWatchers({
+    adapter,
+    owners: new Map(schema.keys.map((key) => [entryFor(key).physicalKey, key])),
+    report,
+    decode: decodeForWatcher,
+    readCurrent: (key) =>
+      chain(locate(atomicIo, entryFor(key)), ({ wire }) => decodeForWatcher(key, wire)),
+  });
+
   /** The asynchronous path takes its turn on the key. The synchronous one cannot wait, and has no gap for anything else to run in. */
   const inTurn = <Value>(
     mode: ExecutionMode,
@@ -164,6 +232,51 @@ export function createStorage<
   }
 
   /*
+    Told only after the write has landed, and only where nobody else will say. A repair never comes through here, because the key's value has not changed.
+
+    Whether to tell is decided again once the write lands, because a listener can arrive while it is under way, and a backend that reports nothing would leave it stale.
+  */
+  function announced(
+    io: StorageIo,
+    entry: EntryContext,
+    newWire: unknown,
+    write: () => MaybePromise<void>,
+    alreadyRead?: PreviousWire,
+  ): MaybePromise<void> {
+    const announces = watchers.announcesWrites();
+
+    if (
+      !announces &&
+      newWire === undefined &&
+      previousNames(entry).length > 0 &&
+      watchers.isListening()
+    ) {
+      /* A backend reporting its own writes only ever names the current name, so removing a value still held under an old one would otherwise pass unnoticed. */
+      return chain(readPrevious(io, entry), (replaced) =>
+        chain(write(), () => {
+          if (
+            replaced.known &&
+            replaced.wire !== undefined &&
+            replaced.foundAt !== entry.physicalKey
+          ) {
+            watchers.wrote(entry.key, replaced, undefined);
+          }
+        }),
+      );
+    }
+
+    const previous: MaybePromise<PreviousWire> =
+      alreadyRead ??
+      (announces && watchers.needsPrevious(entry.key) ? readPrevious(io, entry) : { known: false });
+
+    return chain(previous, (replaced) =>
+      chain(write(), () => {
+        if (watchers.announcesWrites()) watchers.wrote(entry.key, replaced, newWire);
+      }),
+    );
+  }
+
+  /*
     The stored form is copied rather than serialized again, because a schema's output need not be something it accepts as input.
 
     Written before removing, so a failure at any point leaves the value in at least one place. Always sweeps, since finding a value under an old name proves that name is not empty.
@@ -183,13 +296,7 @@ export function createStorage<
     report(decoded.error);
 
     const policy = resolveOnInvalid(perCall, entry.definition.onInvalid, options.onInvalid);
-    const context: InvalidContext = {
-      key: entry.key,
-      physicalKey: located.physicalKey,
-      raw: decoded.raw,
-      issues: decoded.issues,
-      error: decoded.error,
-    };
+    const context = invalidContext(entry, located.physicalKey, decoded);
 
     let repair: Repair | undefined;
 
@@ -209,7 +316,7 @@ export function createStorage<
       fallback: () => resolveMissing(entry, mode),
     });
 
-    return chain(value, (resolved) => ({ value: resolved, repair }));
+    return chain(value, (resolved) => ({ value: resolved, repair, wire }));
   }
 
   /** Answers with the value, and with whatever stored data the read found needs changing, leaving the caller to decide when that happens. */
@@ -228,11 +335,16 @@ export function createStorage<
         }
 
         if (decoded.kind === "missing") {
-          return chain(resolveMissing(entry, mode), (value) => ({ value, repair: undefined }));
+          return chain(resolveMissing(entry, mode), (value) => ({
+            value,
+            repair: undefined,
+            wire,
+          }));
         }
 
         return {
           value: decoded.value,
+          wire,
           repair:
             physicalKey === entry.physicalKey
               ? undefined
@@ -284,6 +396,7 @@ export function createStorage<
     mode: ExecutionMode,
     entry: EntryContext,
     value: unknown,
+    alreadyRead?: PreviousWire,
   ): MaybePromise<void> {
     return chain(validateValue(entry.definition.schema, value, mode), (validated) => {
       if (validated.kind !== "valid") {
@@ -299,13 +412,21 @@ export function createStorage<
       }
 
       // No wire value represents `undefined`, so storing one means removing the entry.
-      if (validated.value === undefined) return removeEverywhere(io, entry);
+      if (validated.value === undefined) {
+        return announced(io, entry, undefined, () => removeEverywhere(io, entry), alreadyRead);
+      }
 
       const serialized = serializeValue(entry, validated.value);
 
       if (serialized.kind === "invalid") throw report(serialized.error);
 
-      return chain(io.set(entry.physicalKey, serialized.wire), () => sweepAfterWrite(io, entry));
+      return announced(
+        io,
+        entry,
+        serialized.wire,
+        () => chain(io.set(entry.physicalKey, serialized.wire), () => sweepAfterWrite(io, entry)),
+        alreadyRead,
+      );
     });
   }
 
@@ -336,8 +457,8 @@ export function createStorage<
     const entry = entryFor(key);
 
     return inTurn(mode, key, () =>
-      chain(read(io, mode, entry, undefined), ({ value }) =>
-        writeValue(io, mode, entry, updater(copyValue(value) as never)),
+      chain(read(io, mode, entry, undefined), ({ value, wire }) =>
+        writeValue(io, mode, entry, updater(copyValue(value) as never), { known: true, wire }),
       ),
     );
   }
@@ -345,7 +466,9 @@ export function createStorage<
   function runRemove(io: StorageIo, mode: ExecutionMode, key: string): MaybePromise<void> {
     const entry = entryFor(key);
 
-    return inTurn(mode, key, () => removeEverywhere(io, entry));
+    return inTurn(mode, key, () =>
+      announced(io, entry, undefined, () => removeEverywhere(io, entry)),
+    );
   }
 
   function runHas(io: StorageIo, mode: ExecutionMode, key: string): MaybePromise<boolean> {
@@ -371,7 +494,9 @@ export function createStorage<
       const entry = entryFor(key);
       const before: MaybePromise<void> = previous;
 
-      previous = inTurn(mode, key, () => chain(before, () => removeEverywhere(io, entry)));
+      previous = inTurn(mode, key, () =>
+        chain(before, () => announced(io, entry, undefined, () => removeEverywhere(io, entry))),
+      );
     }
 
     return previous;
@@ -402,6 +527,10 @@ export function createStorage<
     clear: () => Promise.resolve().then(() => runClear(asyncIo, "async")),
 
     physicalKey: (key) => entryFor(key).physicalKey,
+
+    watch: (key, listener) =>
+      watchers.watch(entryFor(key).key, listener as Parameters<Watchers["watch"]>[1]),
+    onChange: (listener) => watchers.onChange(listener as Parameters<Watchers["onChange"]>[0]),
   };
 
   /*

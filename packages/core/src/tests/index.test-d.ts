@@ -86,6 +86,7 @@ describe("what the entry point deliberately withholds", () => {
     expectTypeOf(entry).not.toHaveProperty("applyInvalidPolicy");
     expectTypeOf(entry).not.toHaveProperty("resolveOnInvalid");
     expectTypeOf(entry).not.toHaveProperty("createWriteQueue");
+    expectTypeOf(entry).not.toHaveProperty("createWatchers");
     expectTypeOf(entry).not.toHaveProperty("decodeWire");
     expectTypeOf(entry).not.toHaveProperty("isSameWire");
     expectTypeOf(entry).not.toHaveProperty("ignoreFailure");

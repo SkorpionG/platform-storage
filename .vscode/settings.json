@@ -20,6 +20,34 @@
     "webext",
     "webextension"
   ],
+  "files.watcherExclude": {
+    ".git/objects/**": true,
+    ".git/subtree-cache/**": true,
+    "*/.git/objects/**": true,
+    "*/.git/subtree-cache/**": true,
+    "**/.kilo/worktrees/**": true,
+    "**/.kilocode/worktrees/**": true,
+    "**/.agent": true,
+    "**/.cache": true,
+    "**/.turbo": true,
+    "**/.output": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/.wxt": true,
+    "**/.expo": true
+  },
+  "search.exclude": {
+    "**/.agent": true,
+    "**/.cache": true,
+    "**/.turbo": true,
+    "**/.output": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/.wxt": true,
+    "**/.expo": true
+  },
   "specstory.helpUsImprove": false,
   "specstory.autoSave.enabled": true,
   "specstory.cloudSync.enabled": "always",
@@ -56,5 +84,15 @@
   "[javascriptreact]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
   "[json]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
   "[jsonc]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
-  "[css]": { "editor.defaultFormatter": "oxc.oxc-vscode" }
+  "[css]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[yaml]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  // The repository never hard-wraps prose, so the editor does the wrapping.
+  "[markdown]": { "editor.defaultFormatter": "oxc.oxc-vscode", "editor.wordWrap": "on" },
+  // The repository's pinned version. Without this, an installed TypeScript Nightly extension makes the editor disagree with `tsc`.
+  "js/ts.tsdk.path": "packages/core/node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "editor.codeActionsOnSave": { "source.fixAll.oxc": "explicit" },
+  // Both match `.oxfmtrc.json`.
+  "editor.rulers": [100],
+  "files.eol": "\n"
 }

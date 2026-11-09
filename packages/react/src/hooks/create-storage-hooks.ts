@@ -19,7 +19,7 @@ export interface SyncStorageHooks<Definition extends StorageSchemaDefinition> {
     key: Key,
   ): readonly [GetResult<Definition[Key]>, SyncStorageWriter<Definition[Key]>];
   useWriter<Key extends KeyOf<Definition>>(key: Key): SyncStorageWriter<Definition[Key]>;
-  /** For a change this storage made without the hooks, such as being cleared. */
+  /** For a write made past the library. */
   notifyChanged(key?: KeyOf<Definition>): void;
 }
 

@@ -8,7 +8,7 @@ import type {
 } from "@platform-storage/core";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 
-import { notifyStorageChanged, subscribeToStorage } from "../store/changes";
+import { announceWrite, subscribeToStorage } from "../store/changes";
 import { readDeclaredValue } from "../store/declared";
 import { readStorageValue } from "../store/snapshot";
 import type { SyncStorageWriter } from "../types/hooks";
@@ -22,7 +22,7 @@ import type { SyncStorageWriter } from "../types/hooks";
  *
  * @param storage - A storage whose backend answers immediately, such as one from `createLocalStorage`.
  * @param key - Which key to write. Completed from the schema.
- * @returns `set` and `remove` for that key.
+ * @returns `set`, `update` and `remove` for that key.
  * @example
  * ```tsx
  * const writer = useStorageWriter(storage, "lastSeen");
@@ -38,11 +38,15 @@ export function useStorageWriter<
     () => ({
       set: (value) => {
         storage.setSync(key, value);
-        notifyStorageChanged(storage, key);
+        announceWrite(storage, key);
+      },
+      update: (updater) => {
+        storage.updateSync(key, updater);
+        announceWrite(storage, key);
       },
       remove: () => {
         storage.removeSync(key);
-        notifyStorageChanged(storage, key);
+        announceWrite(storage, key);
       },
     }),
     [storage, key],
@@ -50,7 +54,7 @@ export function useStorageWriter<
 }
 
 /**
- * What the key holds, and the pair of writers for it.
+ * What the key holds, and the writers for it.
  *
  * The value is read during the render, with no promise and no loading state, because a synchronous storage answers immediately.
  *
@@ -58,7 +62,7 @@ export function useStorageWriter<
  *
  * @param storage - A storage whose backend answers immediately, such as one from `createLocalStorage`.
  * @param key - Which key to read. Completed from the schema.
- * @returns The value, and the pair of writers for that key.
+ * @returns The value, and the writers for that key.
  * @example
  * ```tsx
  * const [theme, writer] = useStorageValue(storage, "theme");

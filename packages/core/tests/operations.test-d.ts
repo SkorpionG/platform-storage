@@ -22,7 +22,7 @@ type AdapterOperationMethods = Exclude<
 /** Everything a storage exposes that is an operation rather than metadata. */
 type StorageOperationMethods = Exclude<
   Extract<keyof PlatformStorage<StorageSchemaDefinition>, string>,
-  "schema" | "adapter" | "physicalKey"
+  "schema" | "adapter" | "physicalKey" | "watch" | "onChange"
 >;
 
 /** A name with the synchronous suffix removed, so both halves compare against the same words. */
@@ -41,14 +41,16 @@ describe("StorageOperation", () => {
 
   it("matches the storage interface exactly, in both directions", () => {
     expectTypeOf<StorageOperationMethods>().toExtend<StorageOperation>();
-    // `keys` is the one thing only an adapter can answer: a schema already says which keys it declares.
-    expectTypeOf<Exclude<StorageOperation, StorageOperationMethods>>().toEqualTypeOf<"keys">();
+    // Only an adapter can answer these: a schema already says which keys it declares, and a storage offers `watch` rather than a raw feed.
+    expectTypeOf<Exclude<StorageOperation, StorageOperationMethods>>().toEqualTypeOf<
+      "keys" | "subscribe"
+    >();
   });
 
   it("matches the synchronous half of the storage interface exactly", () => {
     expectTypeOf<
       WithoutSyncSuffix<Extract<keyof SyncStorageMethods<StorageSchemaDefinition>, string>>
-    >().toEqualTypeOf<Exclude<StorageOperation, "keys">>();
+    >().toEqualTypeOf<Exclude<StorageOperation, "keys" | "subscribe">>();
   });
 
   it("declares exactly the operations an adapter does not implement", () => {

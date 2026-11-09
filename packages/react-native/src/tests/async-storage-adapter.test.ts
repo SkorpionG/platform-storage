@@ -164,3 +164,9 @@ describe("listing what the storage holds", () => {
     expect(asyncStorageAdapter(fakeAsyncStorage()).keys).toBeUndefined();
   });
 });
+
+describe("following changes", () => {
+  it("offers no feed, because AsyncStorage reports nothing", () => {
+    expect(asyncStorageAdapter(fakeAsyncStorage()).subscribe).toBeUndefined();
+  });
+});

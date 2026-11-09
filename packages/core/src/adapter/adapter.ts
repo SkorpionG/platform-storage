@@ -1,6 +1,26 @@
 import type { Serializer } from "../serializer/serializer";
 
 /**
+ * One change a backend reported.
+ *
+ * A change with no `key` means anything may have moved and nothing says what, which is what the web `storage` event reports for a `clear()` in another tab.
+ */
+export type AdapterChange<Wire> =
+  | {
+      readonly key: string;
+      readonly oldValue: Wire | undefined;
+      readonly newValue: Wire | undefined;
+    }
+  | { readonly key: undefined };
+
+/** A live connection to a backend's change feed. */
+export interface AdapterSubscription {
+  stop(): void;
+  /** Whether the feed includes writes made through this adapter. Where it does not, a storage announces its own. */
+  readonly reportsOwnWrites: boolean;
+}
+
+/**
  * What a storage backend has to provide.
  *
  * Deliberately small, and deliberately keyed by string rather than by index: positional enumeration is a web `Storage` idea that no other backend has. A missing value is `undefined`, never `null`, because a schema may legitimately store `null`.
@@ -28,6 +48,13 @@ export interface StorageAdapter<Wire = unknown> {
    * Called on the adapter rather than through a storage, so a failure arrives as the backend reported it and `onError` does not hear about it.
    */
   keys?(): Promise<ReadonlyArray<string>>;
+
+  /**
+   * Optional: follows changes the backend can report, including those to names no schema declares.
+   *
+   * Connects synchronously, because a Manifest V3 service worker only wakes for listeners registered in its first turn. A backend that cannot be reached answers with a subscription that reports nothing rather than throwing.
+   */
+  subscribe?(listener: (change: AdapterChange<Wire>) => void): AdapterSubscription;
 }
 
 /**
@@ -83,6 +110,7 @@ export interface SyncAdapterDefinition<Wire> {
   hasSync?(key: string): boolean;
   isAvailable?(): boolean;
   keysSync?(): ReadonlyArray<string>;
+  subscribe?(listener: (change: AdapterChange<Wire>) => void): AdapterSubscription;
 }
 
 /**
@@ -90,7 +118,7 @@ export interface SyncAdapterDefinition<Wire> {
  *
  * The generated asynchronous methods start from a resolved promise, which turns a synchronous throw into a rejection: a caller awaiting `get` should never have to also wrap it in `try`.
  *
- * @param definition - The synchronous operations, the adapter's name, and the serializer it transports through. `hasSync`, `isAvailable` and `keysSync` are optional.
+ * @param definition - The synchronous operations, the adapter's name, and the serializer it transports through. `hasSync`, `isAvailable`, `keysSync` and `subscribe` are optional.
  * @returns An adapter carrying both halves, ready for `createStorage`.
  * @example
  * ```ts
@@ -106,7 +134,7 @@ export interface SyncAdapterDefinition<Wire> {
 export function defineSyncAdapter<Wire>(
   definition: SyncAdapterDefinition<Wire>,
 ): SyncStorageAdapter<Wire> {
-  const { hasSync, isAvailable, keysSync } = definition;
+  const { hasSync, isAvailable, keysSync, subscribe } = definition;
 
   return {
     name: definition.name,
@@ -143,5 +171,6 @@ export function defineSyncAdapter<Wire>(
           keysSync: () => keysSync(),
           keys: () => Promise.resolve().then(() => keysSync()),
         }),
+    ...(subscribe === undefined ? {} : { subscribe: (listener) => subscribe(listener) }),
   };
 }

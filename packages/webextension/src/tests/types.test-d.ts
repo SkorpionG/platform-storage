@@ -2,7 +2,12 @@ import { describe, expectTypeOf, it } from "vitest";
 import type { Storage as PolyfillStorage } from "webextension-polyfill";
 
 import { jsonSerializer } from "../index";
-import type { WebExtensionStorageArea, WebExtensionStorageAreaName, Serializer } from "../index";
+import type {
+  Serializer,
+  WebExtensionStorageArea,
+  WebExtensionStorageAreaName,
+  WebExtensionStorageChangeEvent,
+} from "../index";
 
 /*
   The point of this file: `src` declares the storage-area shape structurally so no browser type package reaches a consumer's type graph. That only stays honest if the declaration still matches every real API, which is what the conformance assertions below check.
@@ -25,6 +30,14 @@ describe("WebExtensionStorageArea", () => {
 
   it("is satisfied by the WebExtension polyfill many cross-browser apps use", () => {
     expectTypeOf<Conforms<PolyfillStorage.StorageArea>>().toEqualTypeOf<true>();
+  });
+
+  it("has a change feed every API can stand in for", () => {
+    type ConformsToFeed<Feed> = Feed extends WebExtensionStorageChangeEvent ? true : false;
+
+    expectTypeOf<ConformsToFeed<typeof chrome.storage.onChanged>>().toEqualTypeOf<true>();
+    expectTypeOf<ConformsToFeed<typeof browser.storage.onChanged>>().toEqualTypeOf<true>();
+    expectTypeOf<ConformsToFeed<PolyfillStorage.Static["onChanged"]>>().toEqualTypeOf<true>();
   });
 
   it("names the areas as a union of literals, not a bare string", () => {

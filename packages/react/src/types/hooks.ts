@@ -1,8 +1,10 @@
 import type { GetResult, PlatformStorageError, SetValue } from "@platform-storage/core";
 
-/** What a key holds, and what to do about it. Both writers notify every hook reading that key. */
+/** What a key holds, and what to do about it. Every writer notifies each hook reading that key. */
 export interface SyncStorageWriter<Definition> {
   set(value: SetValue<Definition>): void;
+  /** Works out the next value from the current one, as one step. The updater receives its own copy, as the storage's `update` describes. */
+  update(updater: (current: GetResult<Definition>) => SetValue<Definition>): void;
   /** Deletes the stored value, so the key reads as its default again. Distinct from writing `undefined`, which a key with a default cannot express. */
   remove(): void;
 }
@@ -10,6 +12,7 @@ export interface SyncStorageWriter<Definition> {
 /** The same pair over a storage that only answers later. Each promise settles exactly as the storage's own does, so a refused write is still a rejection. */
 export interface AsyncStorageWriter<Definition> {
   set(value: SetValue<Definition>): Promise<void>;
+  update(updater: (current: GetResult<Definition>) => SetValue<Definition>): Promise<void>;
   remove(): Promise<void>;
 }
 

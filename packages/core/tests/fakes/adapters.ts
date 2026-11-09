@@ -5,6 +5,7 @@ import {
   passthroughSerializer,
 } from "../../src/index";
 import type {
+  AdapterChange,
   JsonValue,
   MemoryStorageAdapter,
   StorageAdapter,
@@ -57,6 +58,37 @@ export function recordingAdapter(
       record(`remove ${key}`, () => {
         entries.delete(key);
       }),
+  };
+}
+
+/** A recording backend with a change feed a suite drives by hand. */
+export interface FeedAdapter extends RecordingAdapter {
+  emit(change: AdapterChange<string>): void;
+  readonly connections: () => number;
+}
+
+export function feedAdapter(
+  initial: Readonly<Record<string, string>> = {},
+  reportsOwnWrites = false,
+): FeedAdapter {
+  const listeners = new Set<(change: AdapterChange<string>) => void>();
+
+  return {
+    ...recordingAdapter(initial),
+    subscribe: (listener) => {
+      listeners.add(listener);
+
+      return {
+        stop: () => {
+          listeners.delete(listener);
+        },
+        reportsOwnWrites,
+      };
+    },
+    emit: (change) => {
+      for (const listener of listeners) listener(change);
+    },
+    connections: () => listeners.size,
   };
 }
 

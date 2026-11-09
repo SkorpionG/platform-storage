@@ -18,7 +18,11 @@ export const appSchema = defineStorageSchema({
   fontScale: { schema: z.number().min(0.75).max(2), default: 1 },
   visitCount: { schema: z.coerce.number().int().min(0), default: 0 },
   recentSearches: { schema: z.array(z.string()).default(() => []) },
-  user: { schema: z.object({ id: z.string(), name: z.string() }), key: "app:user" },
+  user: {
+    schema: z.object({ id: z.string(), name: z.string() }),
+    key: "app:user",
+    readFrom: ["legacy:user"],
+  },
   lastDismissed: { schema: z.string().nullable(), default: null },
   nickname: { schema: z.string().optional() },
 });

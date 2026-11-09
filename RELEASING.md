@@ -85,12 +85,15 @@ Then, once per release rather than on every change:
 
 ```sh
 pnpm verify-tarballs
+pnpm test:e2e
 pnpm audit --prod
 ```
 
 `verify-tarballs` goes a step further than `check-package`: it installs the packed tarballs into a throwaway project **with npm**, imports them as ESM and requires them as CommonJS, and typechecks a consumer against the published declarations under both `bundler` and `node16` resolution. Everything else here resolves `workspace:*` to `src`, so this is the only thing that runs what a consumer actually receives.
 
 CI runs it on a push to `main` and skips it on pull requests, since it installs from the registry and takes far longer than the rest. Run it here anyway: it is what confirms the exact tree you are about to publish.
+
+`test:e2e` runs the Vite example in Chromium, Firefox and WebKit, which is the only place the real `storage` event and the real quota are exercised. It needs browsers installed; `examples/AGENTS.md` gives the command.
 
 `pnpm audit` reads the whole lockfile, which includes the example applications and their toolchains. Those are private and never published, so an advisory there does not block a release.
 
@@ -120,14 +123,24 @@ git diff
 
 The changelog text is what every user reads, and this is the last chance to reword it. Edit the `CHANGELOG.md` files directly if something reads badly.
 
-### 6. Commit
+### 6. Update version references
+
+The `npm version` badge in each README reads the version from the registry, so those update themselves once the release is published. A version written out by hand does not, in a badge, an install command or an example, and has to be changed in the release commit:
+
+```sh
+git grep -nE '[0-9]+\.[0-9]+\.[0-9]+' -- '*.md' ':!**/CHANGELOG.md'
+```
+
+Anything still naming the previous release needs updating. Dependency versions and the sample versions in this file are expected.
+
+### 7. Commit
 
 ```sh
 git add -A
 git commit -m "chore: release v1.2.0"
 ```
 
-### 7. Publish
+### 8. Publish
 
 ```sh
 pnpm release
@@ -137,7 +150,7 @@ This builds every package and then publishes each one whose version is not alrea
 
 Run it from the repository root rather than running `pnpm publish` inside a package directory. `pnpm release` builds first, which is what guarantees the `dist` in each tarball matches the commit being tagged; publishing from a package directory skips that, and since `files` publishes only `dist`, a stale or missing build ships silently.
 
-### 8. Push
+### 9. Push
 
 ```sh
 git push --follow-tags
@@ -145,7 +158,7 @@ git push --follow-tags
 
 `--follow-tags` sends the release commit and the tags together. Without it the tags stay local and the GitHub release has nothing to point at.
 
-### 9. Announce (Optional)
+### 10. Announce (Optional)
 
 Draft a GitHub release against the new tag and paste the matching section of the changelog.
 

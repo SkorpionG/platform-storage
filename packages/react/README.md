@@ -57,7 +57,7 @@ The key's value and its writer, read during the render.
 - `storage: SyncPlatformStorage` — a storage whose backend answers immediately. A storage that cannot is a compile error rather than a runtime one.
 - `key: KeyOf<Definition>` — one of the keys the schema declares.
 
-**Returns:** `[value, writer]`, where `value` is typed from the key — with `undefined` dropped when the key declares a default — and `writer` is `{ set, remove }`.
+**Returns:** `[value, writer]`, where `value` is typed from the key — with `undefined` dropped when the key declares a default — and `writer` is `{ set, update, remove }`.
 
 ```tsx
 const [theme, writer] = useStorageValue(storage, "theme"); // "light" | "dark"
@@ -72,6 +72,7 @@ The writer alone, for a component that writes a key it never displays and should
 **Returns:** `SyncStorageWriter<Definition[Key]>`:
 
 - `set(value): void` — validates and writes, then tells every hook reading that key. Throws `StorageValidationError` and announces nothing if the schema refuses the value.
+- `update(updater): void` — works out the next value from the current one and stores it, as one step. `updater` receives its own copy, so it may change it in place.
 - `remove(): void` — deletes the stored value, so the key reads as its default again. A different operation from writing `undefined`, which a key with a declared default cannot express at all.
 
 A writer takes no options of its own, because a write has none to take. The invalid-data policy is a rule for reads, and it stays where it is declared.
@@ -101,7 +102,7 @@ A write does not send the result back to `"loading"`: the value already on scree
 
 The asynchronous writer alone.
 
-**Returns:** `AsyncStorageWriter<Definition[Key]>` — `set(value): Promise<void>` and `remove(): Promise<void>`. Each promise settles exactly as the storage's own does, so a refused write is a rejection rather than a silent success, and nothing is announced when one fails.
+**Returns:** `AsyncStorageWriter<Definition[Key]>` — `set(value): Promise<void>`, `update(updater): Promise<void>` and `remove(): Promise<void>`. Each promise settles exactly as the storage's own does, so a refused write is a rejection rather than a silent success, and nothing is announced when one fails.
 
 ### `createStorageHooks(storage)`
 
@@ -133,7 +134,7 @@ const [theme, writer] = useValue("theme");
 
 ### `notifyStorageChanged(storage, key?)` and `subscribeToStorage(storage, listener, key?)`
 
-For a change the writers did not make, and for following a storage rather than one key.
+For a write made past the library, and for following a storage rather than one key.
 
 **Parameters:** naming no `key` means the whole storage, which is what clearing it is.
 
@@ -201,9 +202,9 @@ A per-read policy is deliberately absent rather than forgotten. An options objec
 > [!IMPORTANT]
 > `onInvalid: "throw"` and a hook combine into something worth knowing: the read happens during the render, so the error reaches the nearest error boundary rather than a `try`/`catch`. That is what you want in development. In production `"fallback"` with `useStorageErrors()` usually serves better, because the default is on screen and the failure is still visible.
 
-### Announcing a change the writers did not make
+### Announcing a change the library cannot see
 
-The writers announce their own writes. Two things happen behind them: clearing a storage, and writing straight to the backend past the library.
+While any hook or listener is mounted, every change made through the storage reaches it by itself, and so does every change from another tab or extension context. One thing still needs announcing: a write straight to the backend past the library.
 
 ```ts
 import { notifyStorageChanged } from "@platform-storage/react";
@@ -214,7 +215,7 @@ notifyStorageChanged(storage);
 
 `subscribeToStorage(storage, listener, key?)` is the other half, for anything that has to follow a storage as a whole rather than one key.
 
-Cross-tab and cross-context changes are a separate matter: nothing reports them yet, on any platform. [`ROADMAP.md`](../../ROADMAP.md) tracks the change subscription that will, and these two functions are the seam it slots into.
+The storage connects to its backend's change feed when the first listener mounts and disconnects after the last, and hooks read again when one mounts after such a gap. AsyncStorage has no feed, so a React Native app hears writes made through the same storage only.
 
 ### Server rendering
 
