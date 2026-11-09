@@ -10,6 +10,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Every job only reads the repository. Stated here so that a change to the repository's default cannot widen it.
+permissions:
+  contents: read
+
 env:
   FORCE_COLOR: "1"
 
