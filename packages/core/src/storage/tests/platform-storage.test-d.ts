@@ -82,3 +82,22 @@ describe("CreateStorageOptions", () => {
     }>().toExtend<CreateStorageOptions<Definition, SyncStorageAdapter<string>>>();
   });
 });
+
+describe("update", () => {
+  it("hands the updater what get would answer with, and takes what set would accept", () => {
+    const storage = {} as PlatformStorage<Definition>;
+
+    void storage.update("count", (current) => {
+      expectTypeOf(current).toEqualTypeOf<number>();
+
+      return current + 1;
+    });
+  });
+
+  it("refuses a next value of the wrong type", () => {
+    const storage = {} as SyncPlatformStorage<Definition>;
+
+    // @ts-expect-error The key holds a number.
+    storage.updateSync("count", () => "nine");
+  });
+});

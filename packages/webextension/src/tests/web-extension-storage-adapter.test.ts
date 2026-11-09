@@ -325,3 +325,35 @@ describe("invalid persisted data", () => {
     await expect(storage.get("theme")).rejects.toThrow(StorageValidationError);
   });
 });
+
+describe("listing what an area holds", () => {
+  it("asks for everything where the browser has no cheaper way", async () => {
+    const namespace = fakeStorageNamespace();
+    await namespace.local.set({ theme: "dark", "someone-elses-key": 1 });
+    const adapter = webExtensionStorageAdapter({ storage: () => namespace });
+
+    await expect(adapter.keys?.()).resolves.toEqual(["theme", "someone-elses-key"]);
+  });
+
+  it("uses getKeys where the browser has it, which reads no values", async () => {
+    const namespace = fakeStorageNamespace();
+    const area = { ...namespace.local, getKeys: () => Promise.resolve(["listed"]) };
+    const adapter = webExtensionStorageAdapter({
+      storage: () => ({ ...namespace, local: area }),
+    });
+
+    await expect(adapter.keys?.()).resolves.toEqual(["listed"]);
+  });
+
+  it("reports an unreachable area as unavailable, naming the operation and no key", async () => {
+    const adapter = webExtensionStorageAdapter({ storage: () => undefined });
+
+    await expect(adapter.keys?.()).rejects.toThrow(
+      expect.objectContaining({
+        code: STORAGE_ERROR_CODE.Unavailable,
+        operation: "keys",
+        physicalKey: undefined,
+      }),
+    );
+  });
+});

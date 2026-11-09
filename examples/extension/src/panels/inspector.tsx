@@ -58,9 +58,9 @@ export function Inspector() {
       )}
 
       <p className="mt-3 text-xs leading-relaxed text-soft">
-        This reads past the library on purpose, the same way devtools would. It is also the one
-        thing on the page that cannot use a value hook: it follows the whole area rather than one
-        declared key, and an area answers with a promise.
+        This lists the area through the adapter, below the schema, the same way devtools would. It
+        is also the one thing on the page that cannot use a value hook: it follows the whole area
+        rather than one declared key, and an area answers with a promise.
       </p>
     </Card>
   );

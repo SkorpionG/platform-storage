@@ -27,6 +27,21 @@ export function chain<Value, Next>(
 }
 
 /**
+ * Runs a step whose failure must not fail the operation around it, on either path.
+ *
+ * For a step whose failure has already reached `onError`, such as a backend call, so there is nothing left to do with it here.
+ */
+export function ignoreFailure(run: () => MaybePromise<void>): MaybePromise<void> {
+  try {
+    const result = run();
+
+    return isPromiseLike(result) ? Promise.resolve(result).catch(() => undefined) : result;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Unwraps a value the synchronous path produced.
  *
  * Every stage of that path is synchronous by construction, so this should never fire. It is a real check rather than an assertion because the one thing that could break the invariant is an adapter that claims it can answer immediately and then does not, and a promise handed back as though it were the value would be far harder to diagnose than this.

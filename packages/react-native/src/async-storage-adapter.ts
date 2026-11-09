@@ -15,7 +15,7 @@ export interface AsyncStorageAdapterOptions {
  *
  * @param asyncStorage - The instance to store through. Anything with `getItem`, `setItem` and `removeItem` will do.
  * @param options - `name` to change what error messages call it. Defaults to `"AsyncStorage"`.
- * @returns An asynchronous adapter over that instance.
+ * @returns An asynchronous adapter over that instance, able to list every name it holds when the instance has `getAllKeys`.
  * @example
  * ```ts
  * import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -27,6 +27,8 @@ export function asyncStorageAdapter(
   asyncStorage: AsyncStorageLike,
   options: AsyncStorageAdapterOptions = {},
 ): StorageAdapter<string> {
+  const { getAllKeys } = asyncStorage;
+
   return {
     name: options.name ?? "AsyncStorage",
     serializer: jsonSerializer,
@@ -34,5 +36,7 @@ export function asyncStorageAdapter(
     get: (key) => asyncStorage.getItem(key).then((value) => value ?? undefined),
     set: (key, value) => asyncStorage.setItem(key, value),
     remove: (key) => asyncStorage.removeItem(key),
+    // `call`, because destructuring an optional method loses its receiver.
+    ...(getAllKeys === undefined ? {} : { keys: () => getAllKeys.call(asyncStorage) }),
   };
 }

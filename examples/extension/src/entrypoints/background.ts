@@ -19,9 +19,7 @@ export default defineBackground(() => {
     The storages were built when this module loaded, before the worker had finished starting. They work anyway because the adapter resolves the extension API on every operation rather than capturing it once, which is the claim this entrypoint exists to exercise.
   */
   async function tick(): Promise<void> {
-    const seen = await local.get("visitCount");
-
-    await local.set("visitCount", seen + 1);
+    await local.update("visitCount", (seen) => seen + 1);
     ticksThisWorker += 1;
 
     /* Written to `session` so it is gone when the browser closes, which is the difference between the two areas stated as behavior rather than as prose. */

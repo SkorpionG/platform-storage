@@ -78,7 +78,7 @@ The adapter the factory above is built from, for `createStorage` or anything els
 
 - `options?`: `area`, `storage` and `name`, exactly as above.
 
-**Returns:** `StorageAdapter<JsonValue>`
+**Returns:** `StorageAdapter<JsonValue>`, which can also list every name the area holds through `keys()`.
 
 ### `resolveWebExtensionStorage()`
 

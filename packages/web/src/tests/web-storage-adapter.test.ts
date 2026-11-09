@@ -308,3 +308,26 @@ describe("isWebStorageAvailable", () => {
     expect(webStorageAdapter(refusedStorage).isAvailable?.()).toBe(false);
   });
 });
+
+describe("listing what the storage holds", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("lists every name, including ones no schema declares", async () => {
+    window.localStorage.setItem("theme", '"dark"');
+    window.localStorage.setItem("someone-elses-key", "x");
+    const adapter = webStorageAdapter(() => window.localStorage);
+
+    expect(adapter.keysSync?.()).toEqual(expect.arrayContaining(["someone-elses-key", "theme"]));
+    await expect(adapter.keys?.()).resolves.toHaveLength(2);
+  });
+
+  it("reports an unreachable storage as unavailable, naming the operation", () => {
+    const adapter = webStorageAdapter(refusedStorage, { name: "prefs" });
+
+    expect(() => adapter.keysSync?.()).toThrow(
+      expect.objectContaining({ code: STORAGE_ERROR_CODE.Unavailable, operation: "keys" }),
+    );
+  });
+});

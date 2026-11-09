@@ -34,7 +34,8 @@ These were settled deliberately. Reopen them with the maintainer rather than in 
 - **Adapters own their serializer and their wire type.** Web and React Native transport strings; extension storage areas transport JSON values natively. Encoding a string for the latter would double-encode it, waste the `sync` quota, and break interoperability with data other code already wrote.
 - **Values are stored bare, with no envelope.** What the backend holds is exactly what the schema produced, with nothing wrapped around it. `ROADMAP.md` records why that shape was chosen.
 - **Invalid persisted data falls back by default.** The policy resolves per call, then per key, then per storage, then to `"fallback"`. It is not silent: the `onError` observer sees every failure. Use `onInvalid: "throw"` in tests and development.
-- **`clear()` removes only the keys the schema declares.** It must never wipe an origin that other code shares.
+- **`clear()` removes only the keys the schema declares.** It must never wipe an origin that other code shares. A key's `readFrom` names count as declared.
+- **Writes to a key take turns, and a read never overwrites one.** `set`, `remove`, `update` and a read's repair each wait for the key's turn, and `get` and `has` wait for writes already started. A repair, meaning a move from an old name or the `"remove"` policy, first checks the stored data is still what the read saw.
 - **Errors are identified by `code` and by brand, never by `instanceof`.** An application that resolves two copies of a package holds two copies of each class, and `instanceof` silently stops matching across them.
 - **Check a backend's own export names before naming a factory after it.** AsyncStorage exports a `createAsyncStorage` of its own, which is why the factory here is `createReactNativeStorage`, named for the platform the way `createWebExtensionStorage` is.
 

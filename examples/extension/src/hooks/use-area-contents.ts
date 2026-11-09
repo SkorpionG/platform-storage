@@ -2,7 +2,6 @@ import { DECLARED_PHYSICAL_KEYS } from "@examples/schema";
 import type { WebExtensionStorageAreaName } from "@platform-storage/webextension";
 import { subscribeToStorage } from "@platform-storage/react";
 import { useEffect, useState } from "react";
-import { browser } from "wxt/browser";
 
 import { local, session, sync } from "../store/storages";
 
@@ -25,11 +24,17 @@ const EMPTY: AreaContents = Object.freeze({ entries: [], failure: undefined });
 
 async function read(area: WebExtensionStorageAreaName): Promise<AreaContents> {
   try {
-    const held = await browser.storage[area].get();
+    const { adapter } = STORAGES[area];
+    const names = (await adapter.keys?.()) ?? [];
 
-    const entries = Object.entries(held)
-      .map(([key, value]) => ({ key, value, ours: DECLARED_PHYSICAL_KEYS.has(key) }))
-      .toSorted((left, right) => left.key.localeCompare(right.key));
+    const held = await Promise.all(
+      names.map(async (key) => ({
+        key,
+        value: await adapter.get(key),
+        ours: DECLARED_PHYSICAL_KEYS.has(key),
+      })),
+    );
+    const entries = held.toSorted((left, right) => left.key.localeCompare(right.key));
 
     return { entries, failure: undefined };
   } catch (error) {

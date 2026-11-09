@@ -15,7 +15,7 @@ export function StoredKeysPanel() {
   return (
     <Card
       title="What the device is actually holding"
-      description="AsyncStorage read directly, past the library, the way devtools reads an origin. These are strings rather than values: this backend transports text, so what the device holds is the JSON the serializer produced."
+      description="Listed through the adapter, below the schema, the way devtools reads an origin. These are strings rather than values: this backend transports text, so what the device holds is the JSON the serializer produced."
       aside={<Badge>{entries.length} keys</Badge>}
     >
       <EntryList empty="Nothing stored yet. Every value on the Values tab is still its declared default, which is an answer the schema gives rather than anything the device holds.">

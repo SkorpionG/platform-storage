@@ -1,8 +1,10 @@
 import { DECLARED_PHYSICAL_KEYS } from "@examples/schema";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { local } from "./storages";
+
 /*
-  AsyncStorage reached directly, past the library, the way devtools reaches an origin. Two panels need it: one plants values the library would refuse to write, and one lists what the device is actually holding.
+  AsyncStorage reached directly, the way devtools reaches an origin. Two panels need it: one plants values the library would refuse to write, and one reads what the device is actually holding, once the adapter has named the keys.
 */
 
 export interface StoredEntry {
@@ -24,7 +26,7 @@ export async function plantValue(physicalKey: string, value: unknown): Promise<v
 
 /** Everything on the device, each entry flagged against the keys this schema declares. */
 export async function readEverything(): Promise<ReadonlyArray<StoredEntry>> {
-  const keys = await AsyncStorage.getAllKeys();
+  const keys = (await local.adapter.keys?.()) ?? [];
   const pairs = await AsyncStorage.multiGet([...keys]);
 
   /* `sort` rather than `toSorted`, which Hermes does not implement. Nothing else holds this array: `map` has just produced it. */

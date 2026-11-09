@@ -23,7 +23,7 @@ function fakeStorageArea(initial: Readonly<Record<string, JsonValue>> = {}): Fak
     get: (keys) => {
       const found: Record<string, JsonValue> = {};
 
-      for (const key of toKeys(keys)) {
+      for (const key of keys === null ? entries.keys() : toKeys(keys)) {
         const value = entries.get(key);
 
         if (value !== undefined) found[key] = value;

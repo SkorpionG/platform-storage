@@ -21,6 +21,13 @@ export interface StorageAdapter<Wire = unknown> {
 
   /** Optional: a cheap probe used to choose between adapters, never to decide whether an operation succeeded. */
   isAvailable?(): boolean;
+
+  /**
+   * Optional: every name the backend holds, including those no schema declares. Only some backends can answer.
+   *
+   * Called on the adapter rather than through a storage, so a failure arrives as the backend reported it and `onError` does not hear about it.
+   */
+  keys?(): Promise<ReadonlyArray<string>>;
 }
 
 /**
@@ -33,6 +40,7 @@ export interface SyncStorageAdapter<Wire = unknown> extends StorageAdapter<Wire>
   setSync(key: string, value: Wire): void;
   removeSync(key: string): void;
   hasSync?(key: string): boolean;
+  keysSync?(): ReadonlyArray<string>;
 }
 
 /** The wire type an adapter transports. */
@@ -74,6 +82,7 @@ export interface SyncAdapterDefinition<Wire> {
   removeSync(key: string): void;
   hasSync?(key: string): boolean;
   isAvailable?(): boolean;
+  keysSync?(): ReadonlyArray<string>;
 }
 
 /**
@@ -81,7 +90,7 @@ export interface SyncAdapterDefinition<Wire> {
  *
  * The generated asynchronous methods start from a resolved promise, which turns a synchronous throw into a rejection: a caller awaiting `get` should never have to also wrap it in `try`.
  *
- * @param definition - The synchronous operations, the adapter's name, and the serializer it transports through. `hasSync` and `isAvailable` are optional.
+ * @param definition - The synchronous operations, the adapter's name, and the serializer it transports through. `hasSync`, `isAvailable` and `keysSync` are optional.
  * @returns An adapter carrying both halves, ready for `createStorage`.
  * @example
  * ```ts
@@ -97,7 +106,7 @@ export interface SyncAdapterDefinition<Wire> {
 export function defineSyncAdapter<Wire>(
   definition: SyncAdapterDefinition<Wire>,
 ): SyncStorageAdapter<Wire> {
-  const { hasSync, isAvailable } = definition;
+  const { hasSync, isAvailable, keysSync } = definition;
 
   return {
     name: definition.name,
@@ -128,5 +137,11 @@ export function defineSyncAdapter<Wire>(
           has: (key: string) => Promise.resolve().then(() => hasSync(key)),
         }),
     ...(isAvailable === undefined ? {} : { isAvailable: () => isAvailable() }),
+    ...(keysSync === undefined
+      ? {}
+      : {
+          keysSync: () => keysSync(),
+          keys: () => Promise.resolve().then(() => keysSync()),
+        }),
   };
 }

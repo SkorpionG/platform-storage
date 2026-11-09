@@ -52,12 +52,13 @@ Declares what a storage holds, and returns a checked, frozen schema object. Both
 - `definition`: an object mapping each logical key to its definition:
   - `schema: StandardSchemaV1` — the validator. Required.
   - `key?: string` — the name the backend stores under. Defaults to the logical key.
+  - `readFrom?: ReadonlyArray<string>` — names this key used to be stored under. See [Renaming a stored key](#renaming-a-stored-key).
   - `default?: Output` — what a read returns when nothing is stored. Declaring one removes `undefined` from the result type.
   - `onInvalid?: "throw" | "fallback" | "remove" | ((context) => Output)` — overrides the storage's policy for this key.
 
 **Returns:** `StorageSchema<Definition>`
 
-**Throws:** `StorageSchemaError` if an entry has no Standard Schema validator, or if two keys resolve to the same stored key.
+**Throws:** `StorageSchemaError` if an entry has no Standard Schema validator, if `readFrom` is not an array or names a current stored name, or if two keys resolve to the same stored key or claim the same old one.
 
 ```ts
 const schema = defineStorageSchema({
@@ -73,7 +74,7 @@ Declares one key with everything about it checked against its schema. Reach for 
 **Parameters:**
 
 - `schema`: the Standard Schema validator.
-- `options?`: `key`, `default` and `onInvalid`, as above.
+- `options?`: `key`, `readFrom`, `default` and `onInvalid`, as above.
 
 **Returns:** a key definition, to be placed in a `defineStorageSchema` object.
 
@@ -122,6 +123,18 @@ Reads, deserializes and validates. Returns the key's default when nothing is sto
 
 Validates and writes. Stores what the schema produced, so a coercion is persisted in its normalized form. Throws `StorageValidationError` and writes nothing if the schema refuses the value.
 
+#### `update(key, updater): Promise<void>`
+
+Works out the next value from the current one and stores it, as one step. `updater` is synchronous and receives what `get` would answer with, so the key's default where nothing is stored. Throwing from it rejects and writes nothing, and a result that validation or serialization refuses leaves the stored value as it was.
+
+`updater` receives its own copy, so it may change plain objects, arrays, dates, maps and sets in place. Anything else, such as a class instance, is handed over as it is.
+
+Writes to a key made through this storage run one at a time, so two updates started together cannot lose one another. That guarantee ends at this storage: no backend offers an atomic update across tabs or extension contexts.
+
+```ts
+await storage.update("recent", (current) => [...current, "new item"]);
+```
+
 #### `remove(key): Promise<void>`
 
 Deletes the stored value, so the key reads as its default again.
@@ -132,15 +145,15 @@ Whether anything is stored, without validating or deserializing it.
 
 #### `clear(): Promise<void>`
 
-Removes only the keys this schema declares, never anything else sharing the backend.
+Removes only the keys this schema declares, and the old names they declare in `readFrom`, never anything else sharing the backend.
 
 #### `physicalKey(key): string`
 
 The name the backend stores this key under, for tooling that has to address it directly.
 
-#### `getSync` / `setSync` / `removeSync` / `hasSync` / `clearSync`
+#### `getSync` / `setSync` / `updateSync` / `removeSync` / `hasSync` / `clearSync`
 
-The same five operations without a promise, present only when the adapter can answer immediately. Absent from the type otherwise, so a call to one is a compile error rather than a runtime surprise.
+The same six operations without a promise, present only when the adapter can answer immediately. Absent from the type otherwise, so a call to one is a compile error rather than a runtime surprise.
 
 ### `memoryAdapter(options?)`
 
@@ -150,17 +163,30 @@ A backend that keeps everything in a `Map`. Useful in tests, as the second half 
 
 - `options?`:
   - `name?: string` — what errors report. Defaults to `"memory"`.
-  - `initial?: Record<string, string>` — values to start from, already serialized, as though a previous run had written them.
+  - `initial?: Record<string, Wire>` — values to start from, already serialized, as though a previous run had written them.
+  - `serializer?: Serializer<Wire>` — what to hold values in. Defaults to JSON text, and is required for anything else, such as pairing with an extension area through `withFallback`.
 
-**Returns:** `MemoryStorageAdapter`, which also exposes `entries` so a test can assert against it without going back through a storage.
+**Returns:** `MemoryStorageAdapter`, which also exposes `entries` so a test can assert against it without going back through a storage. Values are copied on the way in and out, as a real backend would, so changing one you read does not change what is stored.
 
 ### `withFallback(primary, fallback)`
 
-Builds one adapter that uses the first backend where it exists and the second where it does not. The choice is made on first use and then kept, so a value cannot be written to one and read from the other. The result is synchronous only when both halves are.
+Builds one adapter that uses the first backend where it exists and the second where it does not. The choice is made on first use and then kept, so a value cannot be written to one and read from the other. The result is synchronous only when both halves are, and can list keys only when both halves can.
+
+The result also has `chosen()`, answering `"primary"` or `"fallback"`, or `undefined` until first use has decided. Asking never forces the decision.
 
 ### `defineSyncAdapter(definition)`
 
 Builds a full adapter from its synchronous half, so each operation is written once and the asynchronous methods are derived.
+
+### Listing what a backend holds
+
+An adapter may offer `keys()`, and a synchronous one `keysSync()`, answering with every name the backend holds, including those no schema declares. It is optional because not every backend can answer, so reach for it through the adapter:
+
+```ts
+const names = await storage.adapter.keys?.();
+```
+
+This calls the adapter rather than a storage, so a failure arrives as the backend reported it and `onError` does not hear about it.
 
 ### `requireBackend(source, context)`
 
@@ -261,6 +287,23 @@ export const storage = createStorage({
 });
 ```
 
+## Renaming a stored key
+
+Changing a key's stored name would otherwise lose what it holds: reads look under the new name, find nothing, and return the default. List the old names in `readFrom` and the value comes with you:
+
+```ts
+const schema = defineStorageSchema({
+  recent: { schema: z.array(z.string()), key: "app:recent", readFrom: ["recentSearches"] },
+});
+```
+
+When the current name holds nothing, a read tries the old names in order. A value found under one is validated, written to the current name, removed from the old one, and returned. Nothing happens until that key is read, and a key still holding its value under the current name never looks further.
+
+- Invalid data under an old name goes through the usual invalid-data policy, which reports the old name. `"remove"` deletes only that name, so one tried later can still answer.
+- If the move fails, the read still returns the value, `onError` hears about it, and the old value stays for the next read to try.
+- `has` counts the old names, and `set`, `remove` and `clear` clear them.
+- Delete the entry once the old names no longer matter. Keeping it costs only an extra lookup when the key is empty.
+
 ## Defaults
 
 A read returns `Output | undefined` unless something answers for a missing key, in which case `undefined` is dropped from the type:
@@ -280,7 +323,7 @@ Persisted data outlives the code that wrote it, so a read has to decide what a v
 | ------------ | ----------------------------------------------------------------------------------------- |
 | `"fallback"` | Returns the default, leaving the stored value in place. The built-in default.             |
 | `"throw"`    | Rejects with `StorageValidationError`.                                                    |
-| `"remove"`   | Deletes the stored value, then falls back.                                                |
+| `"remove"`   | Deletes the stored value and falls back, leaving alone a value written since the read.    |
 | A callback   | Returns whatever it gives back, having been handed the key, the raw value and the issues. |
 
 Falling back is not silent: the storage-level `onError` observer sees every failure whichever policy runs. Use `onInvalid: "throw"` in tests and development.
@@ -290,6 +333,8 @@ A callback written inline in `defineStorageSchema` has its return value trusted 
 ## Writes
 
 `set` takes the schema's output type and stores what the schema produced, so a coercion is persisted in its normalized form. A value the schema rejects throws `StorageValidationError` and nothing is written.
+
+Writes to one key made through one storage run in the order they were started, and a read waits for the ones already under way, so a caller always reads its own writes. A validator that never answers would hold up later writes to that key.
 
 ## Errors
 
@@ -323,7 +368,7 @@ try {
 
 ## Synchronous reads
 
-`get`, `set`, `remove`, `has` and `clear` always return promises. When the adapter can answer immediately, the storage additionally exposes `getSync`, `setSync`, `removeSync`, `hasSync` and `clearSync`, and the type reflects it. An adapter that cannot answer immediately does not expose them at all.
+`get`, `set`, `update`, `remove`, `has` and `clear` always return promises. When the adapter can answer immediately, the storage additionally exposes `getSync`, `setSync`, `updateSync`, `removeSync`, `hasSync` and `clearSync`, and the type reflects it. An adapter that cannot answer immediately does not expose them at all.
 
 ## License
 

@@ -41,3 +41,17 @@ export const asyncStringSchema: StandardSchemaV1<string, string> = {
       ),
   },
 };
+
+/** Answers later the longer the text, so a slow value can be overtaken by a fast one unless something holds writes in order. */
+export const slowerWhenLongerSchema: StandardSchemaV1<string, string> = {
+  "~standard": {
+    version: 1,
+    vendor: "platform-storage-tests",
+    validate: (value) =>
+      new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({ value: String(value) });
+        }, String(value).length);
+      }),
+  },
+};

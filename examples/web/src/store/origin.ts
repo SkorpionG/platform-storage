@@ -1,5 +1,6 @@
 import { DECLARED_PHYSICAL_KEYS } from "@examples/schema";
 import { subscribeToStorage } from "@platform-storage/react";
+import { isSyncStorageAdapter } from "@platform-storage/web";
 
 import { local } from "./storage";
 
@@ -13,20 +14,17 @@ export interface OriginEntry {
 const NOTHING: ReadonlyArray<OriginEntry> = Object.freeze([]);
 
 function readOrigin(): ReadonlyArray<OriginEntry> {
-  const entries: Array<OriginEntry> = [];
+  const { adapter } = local;
 
-  for (let index = 0; index < window.localStorage.length; index += 1) {
-    const key = window.localStorage.key(index);
-    if (key === null) continue;
+  if (!isSyncStorageAdapter(adapter)) return NOTHING;
 
-    entries.push({
+  return (adapter.keysSync?.() ?? [])
+    .map((key) => ({
       key,
-      raw: window.localStorage.getItem(key) ?? "",
+      raw: String(adapter.getSync(key) ?? ""),
       ours: DECLARED_PHYSICAL_KEYS.has(key),
-    });
-  }
-
-  return entries.toSorted((left, right) => left.key.localeCompare(right.key));
+    }))
+    .toSorted((left, right) => left.key.localeCompare(right.key));
 }
 
 /*

@@ -1,7 +1,9 @@
+import { createStorage, defineStorageSchema, memoryAdapter } from "@platform-storage/core";
 import type { SyncPlatformStorage } from "@platform-storage/core";
 import { cleanup, render, screen } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
+import * as z from "zod";
 
 import { syncStorage } from "../../../tests/fakes/storages";
 import type { TestDefinition, TestKey } from "../../../tests/fakes/schema";
@@ -233,5 +235,38 @@ describe("useStorageWriter", () => {
 
     expect(renders).toBe(before);
     expect(storage.getSync("theme")).toBe("system");
+  });
+});
+
+describe("useStorageValue over a key that moved", () => {
+  it("settles on the moved value without rendering again because of the move", () => {
+    const adapter = memoryAdapter({ initial: { "old-theme": '"dark"' } });
+    const storage = createStorage({
+      schema: defineStorageSchema({
+        theme: { schema: z.enum(["light", "dark"]), key: "new-theme", readFrom: ["old-theme"] },
+      }),
+      adapter,
+    });
+    let renders = 0;
+
+    function Moved({ onRender }: { readonly onRender: () => void }) {
+      const [value] = useStorageValue(storage, "theme");
+
+      onRender();
+
+      return <span data-testid="moved">{value}</span>;
+    }
+
+    render(
+      <Moved
+        onRender={() => {
+          renders += 1;
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("moved").textContent).toBe("dark");
+    expect(renders).toBe(1);
+    expect(Object.fromEntries(adapter.entries)).toEqual({ "new-theme": '"dark"' });
   });
 });

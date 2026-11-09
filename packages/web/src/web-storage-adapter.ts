@@ -95,7 +95,7 @@ export function isWebStorageAvailable(getStorage: WebStorageSource): boolean {
  *
  * @param getStorage - Reaches for the storage, on every operation.
  * @param options - `name` to change what error messages call it. Defaults to `"web-storage"`.
- * @returns A synchronous adapter over that storage.
+ * @returns A synchronous adapter over that storage, able to list every name it holds.
  * @example
  * ```ts
  * const adapter = webStorageAdapter(() => window.localStorage, { name: "localStorage" });
@@ -106,7 +106,7 @@ export function webStorageAdapter(
   options: WebStorageAdapterOptions = {},
 ): SyncStorageAdapter<string> {
   const name = options.name ?? "web-storage";
-  const reach = (operation: StorageOperation, physicalKey: string): Storage =>
+  const reach = (operation: StorageOperation, physicalKey?: string): Storage =>
     requireBackend(getStorage, { adapter: name, operation, physicalKey });
 
   return defineSyncAdapter({
@@ -136,5 +136,12 @@ export function webStorageAdapter(
     },
     hasSync: (key) => reach(STORAGE_OPERATION.Has, key).getItem(key) !== null,
     isAvailable: () => isWebStorageAvailable(getStorage),
+    keysSync: () => {
+      const storage = reach(STORAGE_OPERATION.Keys);
+
+      return Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
+        (key) => key !== null,
+      );
+    },
   });
 }

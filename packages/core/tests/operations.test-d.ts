@@ -41,17 +41,20 @@ describe("StorageOperation", () => {
 
   it("matches the storage interface exactly, in both directions", () => {
     expectTypeOf<StorageOperationMethods>().toExtend<StorageOperation>();
-    expectTypeOf<Exclude<StorageOperation, StorageOperationMethods>>().toEqualTypeOf<never>();
+    // `keys` is the one thing only an adapter can answer: a schema already says which keys it declares.
+    expectTypeOf<Exclude<StorageOperation, StorageOperationMethods>>().toEqualTypeOf<"keys">();
   });
 
   it("matches the synchronous half of the storage interface exactly", () => {
     expectTypeOf<
       WithoutSyncSuffix<Extract<keyof SyncStorageMethods<StorageSchemaDefinition>, string>>
-    >().toEqualTypeOf<StorageOperation>();
+    >().toEqualTypeOf<Exclude<StorageOperation, "keys">>();
   });
 
-  it("declares exactly one operation an adapter does not implement", () => {
-    // `clear` belongs to the storage, which removes the keys its schema declares one at a time rather than asking a backend to wipe an origin it shares with other code.
-    expectTypeOf<Exclude<StorageOperation, AdapterOperationMethods>>().toEqualTypeOf<"clear">();
+  it("declares exactly the operations an adapter does not implement", () => {
+    // Both belong to the storage: `clear` removes the keys its schema declares one at a time rather than asking a backend to wipe an origin it shares with other code, and `update` is a read and a write.
+    expectTypeOf<Exclude<StorageOperation, AdapterOperationMethods>>().toEqualTypeOf<
+      "clear" | "update"
+    >();
   });
 });

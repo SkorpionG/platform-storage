@@ -89,7 +89,7 @@ The adapter the factory above is built from, for `createStorage` or anything els
 - `options?`:
   - `name?: string` — what errors report. Defaults to `"AsyncStorage"`.
 
-**Returns:** `StorageAdapter<string>`
+**Returns:** `StorageAdapter<string>`, which can also list every name the storage holds through `keys()` when the instance has `getAllKeys`.
 
 AsyncStorage reports a missing key as `null`; the adapter maps that to `undefined`, because a schema may legitimately store `null` and the two cannot share a meaning.
 
@@ -102,6 +102,7 @@ interface AsyncStorageLike {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;
   removeItem(key: string): Promise<void>;
+  getAllKeys?(): Promise<ReadonlyArray<string>>;
 }
 ```
 

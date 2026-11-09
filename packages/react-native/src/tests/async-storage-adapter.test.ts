@@ -146,3 +146,21 @@ describe("through a storage", () => {
     await expect(storage.get("theme")).rejects.toThrow(StorageValidationError);
   });
 });
+
+describe("listing what the storage holds", () => {
+  it("lists through getAllKeys where the storage has it, keeping its receiver", async () => {
+    const asyncStorage = {
+      ...fakeAsyncStorage(),
+      names: ["theme", "user"],
+      getAllKeys() {
+        return Promise.resolve(this.names);
+      },
+    };
+
+    await expect(asyncStorageAdapter(asyncStorage).keys?.()).resolves.toEqual(["theme", "user"]);
+  });
+
+  it("offers no listing where the storage has no getAllKeys", () => {
+    expect(asyncStorageAdapter(fakeAsyncStorage()).keys).toBeUndefined();
+  });
+});

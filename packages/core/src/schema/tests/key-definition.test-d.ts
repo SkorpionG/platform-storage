@@ -1,12 +1,13 @@
 import { describe, expectTypeOf, it } from "vitest";
 
+import { defineStorageSchema } from "../../index";
 import type { GetResult, SetValue } from "../../index";
+import { themeSchema } from "../../../tests/fixtures/schemas";
 import type {
   countSchema,
   nicknameSchema,
   tagsSchema,
   themeCatchSchema,
-  themeSchema,
   userSchema,
 } from "../../../tests/fixtures/schemas";
 
@@ -89,5 +90,22 @@ describe("SetValue", () => {
     expectTypeOf<
       SetValue<{ readonly schema: typeof themeSchema; readonly default: "light" }>
     >().toEqualTypeOf<"light" | "dark">();
+  });
+});
+
+describe("readFrom", () => {
+  it("accepts a list of names and leaves the result type alone", () => {
+    const schema = defineStorageSchema({
+      theme: { schema: themeSchema, default: "light", readFrom: ["old"] },
+    });
+
+    expectTypeOf<GetResult<typeof schema.definition.theme>>().toEqualTypeOf<"light" | "dark">();
+  });
+
+  it("refuses anything that is not a list of names", () => {
+    defineStorageSchema({
+      // @ts-expect-error `readFrom` takes a list, even of one.
+      theme: { schema: themeSchema, readFrom: "old" },
+    });
   });
 });

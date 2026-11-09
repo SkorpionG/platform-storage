@@ -7,6 +7,7 @@ import {
   memoryAdapter,
   withFallback,
 } from "../../index";
+import type { MemoryStorageAdapter } from "../../index";
 import { themeSchema } from "../../../tests/fixtures/schemas";
 import {
   adapterWithoutPresenceCheck,
@@ -158,5 +159,66 @@ describe("the combined adapter's own probe", () => {
     const fallback = { ...memoryAdapter({ name: "fallback" }), isAvailable: () => false };
 
     expect(withFallback(unavailableAdapter(), fallback).isAvailable?.()).toBe(false);
+  });
+});
+
+function holding(name: string): MemoryStorageAdapter {
+  return memoryAdapter({ name, initial: { [name]: '"x"' } });
+}
+
+describe("which half withFallback chose", () => {
+  it("answers undefined until first use, and asking does not force the choice", () => {
+    const isAvailable = vi.fn(() => true);
+    const adapter = withFallback({ ...memoryAdapter(), isAvailable }, memoryAdapter());
+
+    expect(adapter.chosen()).toBeUndefined();
+    expect(isAvailable).not.toHaveBeenCalled();
+  });
+
+  it("names the primary once it is in use", () => {
+    const adapter = withFallback(memoryAdapter(), memoryAdapter());
+
+    adapter.getSync("theme");
+
+    expect(adapter.chosen()).toBe("primary");
+  });
+
+  it("names the fallback once it is in use", () => {
+    const adapter = withFallback(unavailableAdapter(), memoryAdapter());
+
+    adapter.getSync("theme");
+
+    expect(adapter.chosen()).toBe("fallback");
+  });
+});
+
+describe("listing keys through withFallback", () => {
+  it("lists the primary's keys when the primary is in use", async () => {
+    await expect(withFallback(holding("first"), holding("second")).keys?.()).resolves.toEqual([
+      "first",
+    ]);
+  });
+
+  it("lists the fallback's keys when the fallback is in use", async () => {
+    const adapter = withFallback(
+      { ...holding("first"), isAvailable: () => false },
+      holding("second"),
+    );
+
+    await expect(adapter.keys?.()).resolves.toEqual(["second"]);
+    expect(adapter.keysSync?.()).toEqual(["second"]);
+  });
+
+  it("lists synchronously from the primary", () => {
+    expect(withFallback(holding("first"), holding("second")).keysSync?.()).toEqual(["first"]);
+  });
+
+  it("offers no listing unless both halves can answer", () => {
+    const withoutListing = adapterWithoutPresenceCheck("bare");
+
+    expect(withFallback(holding("first"), withoutListing).keys).toBeUndefined();
+    expect(withFallback(withoutListing, holding("first")).keys).toBeUndefined();
+    expect(withFallback(holding("first"), withoutListing).keysSync).toBeUndefined();
+    expect(withFallback(withoutListing, holding("first")).keysSync).toBeUndefined();
   });
 });

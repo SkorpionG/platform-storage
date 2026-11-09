@@ -22,6 +22,54 @@ export const asyncOnlyAdapter: StorageAdapter<string> = {
   remove: () => Promise.resolve(),
 };
 
+/** An asynchronous backend exposing what it holds and every call it received, with an optional pause placed after a call has done its work. */
+export interface RecordingAdapter extends StorageAdapter<string> {
+  readonly entries: Map<string, string>;
+  readonly calls: Array<string>;
+}
+
+export function recordingAdapter(
+  initial: Readonly<Record<string, string>> = {},
+  pauseAfter: (call: string) => Promise<void> | undefined = () => undefined,
+): RecordingAdapter {
+  const entries = new Map<string, string>(Object.entries(initial));
+  const calls: Array<string> = [];
+
+  const record = async <Value>(call: string, work: () => Value): Promise<Value> => {
+    calls.push(call);
+    const result = work();
+    await pauseAfter(call);
+
+    return result;
+  };
+
+  return {
+    name: "recording",
+    serializer: jsonSerializer,
+    entries,
+    calls,
+    get: (key) => record(`get ${key}`, () => entries.get(key)),
+    set: (key, value) =>
+      record(`set ${key}`, () => {
+        entries.set(key, value);
+      }),
+    remove: (key) =>
+      record(`remove ${key}`, () => {
+        entries.delete(key);
+      }),
+  };
+}
+
+/** A promise settled from outside, for holding one step of a race open while another runs. */
+export function gate(): { readonly opened: Promise<void>; open(): void } {
+  let resolveOpened: (() => void) | undefined;
+  const opened = new Promise<void>((resolve) => {
+    resolveOpened = resolve;
+  });
+
+  return { opened, open: () => resolveOpened?.() };
+}
+
 /** A backend that fails every operation in its own vocabulary, as a real one would. */
 export function failingAdapter(message: string): StorageAdapter<string> {
   return {

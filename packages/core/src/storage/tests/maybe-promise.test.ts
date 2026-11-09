@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { chain, expectSync, isPromiseLike } from "../maybe-promise";
+import { chain, expectSync, ignoreFailure, isPromiseLike } from "../maybe-promise";
 
 describe("isPromiseLike", () => {
   it("recognizes a native promise", () => {
@@ -84,5 +84,37 @@ describe("expectSync", () => {
     });
 
     expect(built).toBe(0);
+  });
+});
+
+describe("ignoreFailure", () => {
+  it("answers immediately when the step does", () => {
+    expect(ignoreFailure(() => undefined)).toBeUndefined();
+  });
+
+  it("swallows a synchronous throw", () => {
+    expect(
+      ignoreFailure(() => {
+        throw new Error("refused");
+      }),
+    ).toBeUndefined();
+  });
+
+  it("waits for a step that answers later", async () => {
+    const order: Array<string> = [];
+
+    await ignoreFailure(() =>
+      Promise.resolve().then(() => {
+        order.push("step");
+      }),
+    );
+
+    expect(order).toEqual(["step"]);
+  });
+
+  it("swallows a rejection", async () => {
+    await expect(
+      ignoreFailure(() => Promise.reject(new Error("refused"))),
+    ).resolves.toBeUndefined();
   });
 });

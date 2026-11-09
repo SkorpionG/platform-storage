@@ -48,6 +48,19 @@ export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
     options?: GetOptions<Definition[Key]>,
   ): Promise<GetResult<Definition[Key]>>;
   set<Key extends KeyOf<Definition>>(key: Key, value: SetValue<Definition[Key]>): Promise<void>;
+  /**
+   * Works out the next value from the current one and stores it, as one step.
+   *
+   * Writes to a key made through this storage run one at a time, so two updates started together cannot lose one another. The guarantee ends at this storage: no backend offers an atomic update across tabs or extension contexts.
+   *
+   * Reads the way `get` does, so `updater` receives the default where nothing is stored. It receives its own copy, so it may change plain objects, arrays, dates, maps and sets in place. Anything else, such as a class instance, is handed over as it is.
+   *
+   * A throw from `updater` rejects and writes nothing, and a result that validation or serialization refuses leaves the stored value as it was.
+   */
+  update<Key extends KeyOf<Definition>>(
+    key: Key,
+    updater: (current: GetResult<Definition[Key]>) => SetValue<Definition[Key]>,
+  ): Promise<void>;
   remove(key: KeyOf<Definition>): Promise<void>;
   /** Whether anything is stored, without validating it. */
   has(key: KeyOf<Definition>): Promise<boolean>;
@@ -69,6 +82,10 @@ export interface SyncStorageMethods<Definition extends StorageSchemaDefinition> 
     options?: GetOptions<Definition[Key]>,
   ): GetResult<Definition[Key]>;
   setSync<Key extends KeyOf<Definition>>(key: Key, value: SetValue<Definition[Key]>): void;
+  updateSync<Key extends KeyOf<Definition>>(
+    key: Key,
+    updater: (current: GetResult<Definition[Key]>) => SetValue<Definition[Key]>,
+  ): void;
   removeSync(key: KeyOf<Definition>): void;
   hasSync(key: KeyOf<Definition>): boolean;
   clearSync(): void;

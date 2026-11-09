@@ -1,6 +1,12 @@
 import { isSyncStorageAdapter } from "./adapter";
 import type { StorageAdapter, SyncStorageAdapter } from "./adapter";
 
+/** Which of its two backends a `withFallback` adapter settled on. */
+export interface FallbackChoice {
+  /** `"primary"` or `"fallback"`, or `undefined` until first use decides. Asking never forces the decision. */
+  chosen(): "primary" | "fallback" | undefined;
+}
+
 /**
  * Uses the first backend where it exists, and the second where it does not.
  *
@@ -12,7 +18,7 @@ import type { StorageAdapter, SyncStorageAdapter } from "./adapter";
  *
  * @param primary - The backend to prefer. Its `isAvailable` decides; an adapter without one is treated as available.
  * @param fallback - Used when the primary is not available. It must transport the same wire type.
- * @returns One adapter over both. Synchronous only when both halves are.
+ * @returns One adapter over both, which can say which half it settled on. Synchronous only when both halves are, and able to list keys only when both halves can.
  * @example
  * ```ts
  * const storage = createStorage({
@@ -24,15 +30,15 @@ import type { StorageAdapter, SyncStorageAdapter } from "./adapter";
 export function withFallback<Wire>(
   primary: SyncStorageAdapter<Wire>,
   fallback: SyncStorageAdapter<Wire>,
-): SyncStorageAdapter<Wire>;
+): SyncStorageAdapter<Wire> & FallbackChoice;
 export function withFallback<Wire>(
   primary: StorageAdapter<Wire>,
   fallback: StorageAdapter<Wire>,
-): StorageAdapter<Wire>;
+): StorageAdapter<Wire> & FallbackChoice;
 export function withFallback<Wire>(
   primary: StorageAdapter<Wire>,
   fallback: StorageAdapter<Wire>,
-): StorageAdapter<Wire> {
+): StorageAdapter<Wire> & FallbackChoice {
   let chosen: StorageAdapter<Wire> | undefined;
 
   const select = (): StorageAdapter<Wire> => {
@@ -40,7 +46,10 @@ export function withFallback<Wire>(
     return chosen;
   };
 
-  const asyncAdapter: StorageAdapter<Wire> = {
+  const primaryKeys = primary.keys;
+  const fallbackKeys = fallback.keys;
+
+  const asyncAdapter: StorageAdapter<Wire> & FallbackChoice = {
     name: `${primary.name} (falling back to ${fallback.name})`,
     serializer: primary.serializer,
 
@@ -55,6 +64,18 @@ export function withFallback<Wire>(
         : selected.has(key);
     },
     isAvailable: () => select().isAvailable?.() ?? true,
+    chosen: () => {
+      if (chosen === undefined) return undefined;
+
+      return chosen === primary ? "primary" : "fallback";
+    },
+    ...(primaryKeys === undefined || fallbackKeys === undefined
+      ? {}
+      : {
+          /* `call`, because destructuring an optional method loses its receiver. */
+          keys: () =>
+            select() === primary ? primaryKeys.call(primary) : fallbackKeys.call(fallback),
+        }),
   };
 
   if (!isSyncStorageAdapter(primary) || !isSyncStorageAdapter(fallback)) return asyncAdapter;
@@ -65,7 +86,10 @@ export function withFallback<Wire>(
   const selectSync = (): SyncStorageAdapter<Wire> =>
     select() === syncPrimary ? syncPrimary : syncFallback;
 
-  const syncAdapter: SyncStorageAdapter<Wire> = {
+  const primaryKeysSync = syncPrimary.keysSync;
+  const fallbackKeysSync = syncFallback.keysSync;
+
+  const syncAdapter: SyncStorageAdapter<Wire> & FallbackChoice = {
     ...asyncAdapter,
 
     getSync: (key) => selectSync().getSync(key),
@@ -82,6 +106,14 @@ export function withFallback<Wire>(
         ? selected.getSync(key) !== undefined
         : selected.hasSync(key);
     },
+    ...(primaryKeysSync === undefined || fallbackKeysSync === undefined
+      ? {}
+      : {
+          keysSync: () =>
+            selectSync() === syncPrimary
+              ? primaryKeysSync.call(syncPrimary)
+              : fallbackKeysSync.call(syncFallback),
+        }),
   };
 
   return syncAdapter;

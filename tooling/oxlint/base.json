@@ -35,6 +35,13 @@
         // The rule guards against an object becoming awaitable by accident. A suite covering the check that recognizes a thenable has to build one on purpose, which is the opposite case.
         "unicorn/no-thenable": "off"
       }
+    },
+    {
+      "files": ["**/*.test-d.tsx"],
+      "rules": {
+        // Each `Probe` component exists for the one type assertion around it, and is never rendered. Moving them out would separate each from the assertion it serves.
+        "unicorn/consistent-function-scoping": "off"
+      }
     }
   ]
 }

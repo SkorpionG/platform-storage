@@ -1,5 +1,9 @@
-import { STORAGE_ERROR_CODE } from "../errors/codes";
-import { StorageSchemaError, StorageSerializationError } from "../errors/errors";
+import { STORAGE_ERROR_CODE, STORAGE_OPERATION } from "../errors/codes";
+import {
+  StorageSchemaError,
+  StorageSerializationError,
+  StorageValidationError,
+} from "../errors/errors";
 import type { KeyDefinition } from "../schema/key-definition";
 import type { Serializer } from "../serializer/serializer";
 import type { SchemaIssue, StandardSchemaV1 } from "../types/standard-schema";
@@ -18,7 +22,7 @@ export interface EntryContext {
 }
 
 /** What reading the wire produced: nothing stored, a value, or a failure. */
-export type DeserializeResult =
+type DeserializeResult =
   | { readonly kind: "missing" }
   | { readonly kind: "deserialized"; readonly value: unknown }
   | { readonly kind: "invalid"; readonly error: StorageSerializationError };
@@ -28,7 +32,7 @@ export type DeserializeResult =
  *
  * A backend that has nothing reports `undefined`, never `null`: a schema may legitimately store `null`, so the two cannot share a meaning.
  */
-export function deserializeWire(entry: EntryContext, wire: unknown): DeserializeResult {
+function deserializeWire(entry: EntryContext, wire: unknown): DeserializeResult {
   if (wire === undefined) return { kind: "missing" };
 
   try {
@@ -108,6 +112,66 @@ export function validateValue(
   }
 
   return Promise.resolve(result).then(toValidateResult);
+}
+
+/** What a stored value came to once it had been deserialized and validated. */
+export type DecodeResult =
+  | { readonly kind: "missing" }
+  | { readonly kind: "valid"; readonly value: unknown }
+  | {
+      readonly kind: "invalid";
+      readonly error: StorageValidationError | StorageSerializationError;
+      readonly issues: ReadonlyArray<SchemaIssue>;
+      readonly raw: unknown;
+    };
+
+/**
+ * Turns what a backend returned into the value a read would answer with, or the reason it cannot.
+ *
+ * Decides nothing about what a failure means, so everything that reads a stored value can apply a policy of its own.
+ */
+export function decodeWire(
+  entry: EntryContext,
+  wire: unknown,
+  mode: ExecutionMode,
+): MaybePromise<DecodeResult> {
+  const deserialized = deserializeWire(entry, wire);
+
+  if (deserialized.kind === "missing") return deserialized;
+
+  if (deserialized.kind === "invalid") {
+    const { error } = deserialized;
+
+    return { kind: "invalid", error, issues: [{ message: error.message }], raw: wire };
+  }
+
+  return chain(validateValue(entry.definition.schema, deserialized.value, mode), (validated) => {
+    if (validated.kind === "valid") return validated;
+
+    return {
+      kind: "invalid",
+      error: new StorageValidationError({
+        key: entry.key,
+        physicalKey: entry.physicalKey,
+        operation: STORAGE_OPERATION.Get,
+        issues: validated.issues,
+        raw: deserialized.value,
+      }),
+      issues: validated.issues,
+      raw: deserialized.value,
+    };
+  });
+}
+
+/** Whether two values a backend returned are the same stored value. A backend that transports objects hands back a new one on every read. */
+export function isSameWire(first: unknown, second: unknown): boolean {
+  if (first === second) return true;
+
+  try {
+    return JSON.stringify(first) === JSON.stringify(second);
+  } catch {
+    return false;
+  }
 }
 
 /**

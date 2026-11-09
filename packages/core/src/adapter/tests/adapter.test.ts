@@ -122,3 +122,27 @@ describe("isSyncStorageAdapter", () => {
     expect(isSyncStorageAdapter(partial)).toBe(false);
   });
 });
+
+describe("defineSyncAdapter listing", () => {
+  const base = {
+    name: "listing",
+    serializer: jsonSerializer,
+    getSync: () => undefined,
+    setSync: () => undefined,
+    removeSync: () => undefined,
+  };
+
+  it("derives the asynchronous half from keysSync", async () => {
+    const adapter = defineSyncAdapter({ ...base, keysSync: () => ["a"] });
+
+    expect(adapter.keysSync?.()).toEqual(["a"]);
+    await expect(adapter.keys?.()).resolves.toEqual(["a"]);
+  });
+
+  it("offers no listing without keysSync", () => {
+    const adapter = defineSyncAdapter(base);
+
+    expect(adapter.keys).toBeUndefined();
+    expect(adapter.keysSync).toBeUndefined();
+  });
+});

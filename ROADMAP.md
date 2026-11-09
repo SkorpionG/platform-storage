@@ -1,18 +1,8 @@
 # Roadmap
 
-What is deliberately out of scope for now, and the direction each item would take.
+What is deliberately out of scope, and the direction each item would take.
 
 Nothing here is a commitment or a date. The list exists so that cut scope is recorded rather than remembered.
-
-## v0.1 — the current target
-
-Schema definition, typed keys and values, runtime validation on both directions, automatic serialization, typed errors, and the layered invalid-data policy.
-
-The API is asynchronous, with a typed synchronous extension wherever the adapter can answer immediately. The memory adapter and `withFallback` come with it.
-
-One package per platform, each re-exporting the core so that an application installs one: `@platform-storage/web` over `localStorage` and `sessionStorage`, `@platform-storage/webextension` over the `local`, `sync` and `session` areas, and `@platform-storage/react-native` over AsyncStorage.
-
-`@platform-storage/react` is installed alongside whichever of those a project already has. It adds hooks over any storage, plus the declared read a server render answers with.
 
 ## Why values are stored bare
 
@@ -21,10 +11,6 @@ What a backend holds is exactly what the schema produced, with nothing wrapped a
 It also leaves room to move. Anything added later can treat an unwrapped value as the earliest version it knows, and adopt data already stored without a migration of its own. Everything below is written against that.
 
 ## Next
-
-### Renaming the key a value is stored under
-
-A key could name the stored names it used to have, so a read finding nothing at the current one tries them, brings the value forward and drops the old one. Lazy, so it costs nothing until that key is read, and independent of everything below it. The smallest of these items and the one most often wanted.
 
 ### Change subscription
 
@@ -42,7 +28,7 @@ Reading, writing and removing several keys at once, each keeping its own type in
 
 A prefix on the keys a storage stores under, so one origin can hold several unrelated storages without their names colliding.
 
-Two things it has to get right. A key needs a way out of the prefix, for addressing a name something else owns. And adopting a prefix renames everything already stored, which cannot be done silently, so it would lean on the rename above.
+Two things it has to get right. A key needs a way out of the prefix, for addressing a name something else owns. And adopting a prefix renames everything already stored, which cannot be done silently, so it would lean on `readFrom`.
 
 ### Versioned keys and migrations
 
@@ -62,9 +48,9 @@ The escape hatch beside the above, for a key that has to stay readable by other 
 
 Splitting one key into two, merging two into one, or moving a value between them. None is key-local, so it needs a pass over the whole storage rather than a lazy per-key one, and somewhere to record how far that pass has run. Later than versioned keys, and separate from them.
 
-### Listing what a backend holds, and devtools over it
+### Devtools
 
-The adapter contract cannot enumerate keys, deliberately: positional enumeration is a web `Storage` idea no other backend shares. An optional capability, present only on backends that can answer, would serve the need without narrowing the contract — and would unblock a view of what is stored, against which schema, and what failed to validate.
+A view of what is stored, against which schema, and what failed to validate. An adapter's optional `keys` is what it would read from.
 
 ### Per-key serializers
 
@@ -84,9 +70,9 @@ A key whose stored name is computed from arguments, for a value kept per entity 
 
 A serializer boundary is the natural seam. Needs care around key management, which is why it is not a first concern.
 
-### Two smaller adapter gaps
+### A cookie backend
 
-`memoryAdapter` declares its wire as `string`, which is untrue when it is paired with a backend transporting JSON values; a wire type parameter would fix it without changing the default. And `withFallback` chooses a half on first use and keeps that choice, but nothing exposes which one it picked.
+An adapter over `document.cookie`, for a small value that has to be shared across subdomains or reach a server. A cookie holds far less than the other backends, expires, and needs its domain and lifetime configured, so it would not simply be another `Storage`.
 
 ## React
 
@@ -100,7 +86,7 @@ A write over a slow backend shows the previous value until it lands. Publishing 
 
 ### An updater form for the writers
 
-A writer takes a value, never a function of the previous one, so a component that only writes cannot compute the next. Over a storage that answers later the updater has to read before it writes, and two updates in flight then race; that ordering is the whole of the work.
+A hook's writer takes a value, never a function of the previous one, so a component that only writes cannot compute the next. The storage's own `update` already holds two updates in order; what is left is the shape of the writer and what a rejected update does to a component.
 
 ### A per-call policy through the hooks
 

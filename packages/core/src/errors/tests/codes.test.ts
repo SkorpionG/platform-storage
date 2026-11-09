@@ -35,6 +35,8 @@ describe("STORAGE_OPERATION", () => {
       Remove: "remove",
       Has: "has",
       Clear: "clear",
+      Update: "update",
+      Keys: "keys",
     });
   });
 

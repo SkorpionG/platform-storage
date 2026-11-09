@@ -61,7 +61,7 @@ Builds a storage over `localStorage`, with the adapter supplied for you.
   - `onInvalid?: "throw" | "fallback" | "remove" | callback` — the policy for keys that declare none. Defaults to `"fallback"`.
   - `onError?: (error: PlatformStorageError) => void` — called for every failure, thrown or handled.
 
-**Returns:** `SyncPlatformStorage<Definition>` — the asynchronous API plus `getSync`, `setSync`, `removeSync`, `hasSync` and `clearSync`.
+**Returns:** `SyncPlatformStorage<Definition>` — the asynchronous API plus `getSync`, `setSync`, `updateSync`, `removeSync`, `hasSync` and `clearSync`.
 
 ```ts
 const storage = createLocalStorage({
@@ -84,7 +84,7 @@ The adapters the factories above are built from, for `createStorage`, for `withF
 - `options?`:
   - `name?: string` — what errors report. Defaults to `"localStorage"` or `"sessionStorage"`.
 
-**Returns:** `SyncStorageAdapter<string>`
+**Returns:** `SyncStorageAdapter<string>`, which can also list every name the storage holds through `keysSync()` and `keys()`.
 
 ### `webStorageAdapter(getStorage, options?)`
 

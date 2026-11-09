@@ -173,4 +173,4 @@ No package sets `publishConfig.provenance`, because npm issues a provenance stat
 
 ## Deferred work
 
-`ROADMAP.md` records what was cut from v0.1 and the direction each item would take. It stays deliberately short of a specification: an entry says what the thing is and what makes it awkward, not what its API will be, so that nothing there reads as a promise. When scope is cut, add it there rather than leaving it in a conversation.
+`ROADMAP.md` records what is deferred and the direction each item would take. It stays deliberately short of a specification: an entry says what the thing is and what makes it awkward, not what its API will be, so that nothing there reads as a promise. When scope is cut, add it there rather than leaving it in a conversation.

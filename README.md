@@ -145,6 +145,16 @@ try {
 }
 ```
 
+### 8. Rename a stored key without losing what it holds
+
+Changing where a value is stored would normally strand everything already written under the old name. Name the old one, and the first read moves the value across.
+
+```ts
+const schema = defineStorageSchema({
+  recent: { schema: z.array(z.string()), key: "app:recent", readFrom: ["recentSearches"] },
+});
+```
+
 ## Why
 
 Key-value storage APIs have no idea what you intend to keep in them, so every project rebuilds the same scaffolding:

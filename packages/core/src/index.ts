@@ -6,10 +6,15 @@ export type {
   WireOf,
 } from "./adapter/adapter";
 export { memoryAdapter } from "./adapter/memory-adapter";
-export type { MemoryAdapterOptions, MemoryStorageAdapter } from "./adapter/memory-adapter";
+export type {
+  MemoryAdapterOptions,
+  MemoryAdapterWireOptions,
+  MemoryStorageAdapter,
+} from "./adapter/memory-adapter";
 export { requireBackend } from "./adapter/require-backend";
 export type { BackendContext, BackendSource } from "./adapter/require-backend";
 export { withFallback } from "./adapter/with-fallback";
+export type { FallbackChoice } from "./adapter/with-fallback";
 
 export { ERROR_BRAND, STORAGE_ERROR_CODE, STORAGE_OPERATION } from "./errors/codes";
 export type { StorageErrorCode, StorageOperation, ValueOperation } from "./errors/codes";

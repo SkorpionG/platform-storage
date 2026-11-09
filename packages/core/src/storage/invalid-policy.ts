@@ -9,7 +9,7 @@ import { chain } from "./maybe-promise";
  *
  * - `"throw"` rejects with the validation error.
  * - `"fallback"` returns the declared default, then the schema's own default, then `undefined`, and leaves the stored value where it is rather than destroying data it could not read.
- * - `"remove"` deletes the stored value first, then resolves as `"fallback"` does.
+ * - `"remove"` deletes the stored value and resolves as `"fallback"` does. A value written since the read is left alone.
  */
 export const INVALID_POLICY = {
   Throw: "throw",

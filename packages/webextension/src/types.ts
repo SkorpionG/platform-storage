@@ -17,9 +17,12 @@ export type WebExtensionStorageAreaName =
  * Values are `unknown` rather than JSON values because the polyfill declares them that way, and narrowing here would stop it conforming. The array form is `Array<string>` rather than `ReadonlyArray<string>` for the same reason: it is what every one of those declarations accepts.
  */
 export interface WebExtensionStorageArea {
-  get(keys: string | Array<string>): Promise<Record<string, unknown>>;
+  /** `null` answers with everything the area holds. */
+  get(keys: string | Array<string> | null): Promise<Record<string, unknown>>;
   set(items: Record<string, unknown>): Promise<void>;
   remove(keys: string | Array<string>): Promise<void>;
+  /** Optional because only newer browsers have it. It lists the names without reading every value. */
+  getKeys?(): Promise<Array<string>>;
 }
 
 /**

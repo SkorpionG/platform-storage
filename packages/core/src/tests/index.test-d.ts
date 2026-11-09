@@ -14,10 +14,12 @@ import {
   passthroughSerializer,
   STORAGE_ERROR_CODE,
   STORAGE_OPERATION,
+  withFallback,
 } from "../index";
 import type {
   InvalidPolicy,
   JsonValue,
+  StorageAdapter,
   Serializer,
   StorageErrorCode,
   StorageOperation,
@@ -83,5 +85,36 @@ describe("what the entry point deliberately withholds", () => {
     expectTypeOf(entry).not.toHaveProperty("createSyncIo");
     expectTypeOf(entry).not.toHaveProperty("applyInvalidPolicy");
     expectTypeOf(entry).not.toHaveProperty("resolveOnInvalid");
+    expectTypeOf(entry).not.toHaveProperty("createWriteQueue");
+    expectTypeOf(entry).not.toHaveProperty("decodeWire");
+    expectTypeOf(entry).not.toHaveProperty("isSameWire");
+    expectTypeOf(entry).not.toHaveProperty("ignoreFailure");
+    expectTypeOf(entry).not.toHaveProperty("copyValue");
+  });
+});
+
+describe("the adapter additions", () => {
+  it("types what memory holds after its serializer", () => {
+    expectTypeOf(memoryAdapter({ serializer: passthroughSerializer }).entries).toEqualTypeOf<
+      ReadonlyMap<string, JsonValue>
+    >();
+    expectTypeOf(memoryAdapter().entries).toEqualTypeOf<ReadonlyMap<string, string>>();
+  });
+
+  it("refuses a memory adapter holding anything but text with no serializer", () => {
+    // @ts-expect-error Only the JSON text form is available without a serializer.
+    memoryAdapter({ initial: { a: 1 } });
+  });
+
+  it("makes listing optional on the adapter contract", () => {
+    expectTypeOf<StorageAdapter["keys"]>().toEqualTypeOf<
+      (() => Promise<ReadonlyArray<string>>) | undefined
+    >();
+  });
+
+  it("says withFallback can report which half it chose", () => {
+    expectTypeOf(withFallback(memoryAdapter(), memoryAdapter()).chosen()).toEqualTypeOf<
+      "primary" | "fallback" | undefined
+    >();
   });
 });

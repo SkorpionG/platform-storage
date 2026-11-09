@@ -123,3 +123,44 @@ describe("defineStorageSchema", () => {
     expect(schema.keys).toEqual([]);
   });
 });
+
+describe("defineStorageSchema with old names", () => {
+  it("accepts names nothing else claims, and the same name repeated by one key", () => {
+    const schema = defineStorageSchema({
+      theme: { schema: themeSchema, readFrom: ["old-theme", "old-theme"] },
+      user: { schema: userSchema, readFrom: ["old-user"] },
+    });
+
+    expect(schema.definition.theme.readFrom).toEqual(["old-theme", "old-theme"]);
+  });
+
+  it("refuses readFrom that is not an array, the easy mistake with a single name", () => {
+    expect(() =>
+      defineStorageSchema({ theme: { schema: themeSchema, readFrom: "old" as never } }),
+    ).toThrow(StorageSchemaError);
+  });
+
+  it("refuses an old name that is the key's own current name", () => {
+    expect(() =>
+      defineStorageSchema({ theme: { schema: themeSchema, readFrom: ["theme"] } }),
+    ).toThrow(/stores its value/);
+  });
+
+  it("refuses an old name that is the current name of a key declared later", () => {
+    expect(() =>
+      defineStorageSchema({
+        theme: { schema: themeSchema, readFrom: ["app:user"] },
+        user: { schema: userSchema, key: "app:user" },
+      }),
+    ).toThrow(/"theme" reads from "app:user", which is where "user" stores its value/);
+  });
+
+  it("refuses two keys claiming one old name", () => {
+    expect(() =>
+      defineStorageSchema({
+        theme: { schema: themeSchema, readFrom: ["shared"] },
+        user: { schema: userSchema, readFrom: ["shared"] },
+      }),
+    ).toThrow(/"theme" and "user" both read from "shared"/);
+  });
+});

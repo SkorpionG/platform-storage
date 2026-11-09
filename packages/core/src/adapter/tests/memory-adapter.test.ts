@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { isSyncStorageAdapter, jsonSerializer, memoryAdapter } from "../../index";
+import {
+  isSyncStorageAdapter,
+  jsonSerializer,
+  memoryAdapter,
+  passthroughSerializer,
+} from "../../index";
+import type { JsonValue, MemoryStorageAdapter } from "../../index";
+
+function holding(initial: Record<string, JsonValue> = {}): MemoryStorageAdapter<JsonValue> {
+  return memoryAdapter({ serializer: passthroughSerializer, initial });
+}
 
 describe("memoryAdapter", () => {
   it("can answer immediately, so a storage over it gets the synchronous half", () => {
@@ -58,5 +68,51 @@ describe("memoryAdapter", () => {
   it("takes a name, which errors then report", () => {
     expect(memoryAdapter({ name: "test-double" }).name).toBe("test-double");
     expect(memoryAdapter().name).toBe("memory");
+  });
+});
+
+describe("memoryAdapter listing and wire types", () => {
+  it("lists what it holds, on both halves", async () => {
+    const adapter = memoryAdapter({ initial: { a: '"1"', b: '"2"' } });
+
+    expect(adapter.keysSync?.()).toEqual(["a", "b"]);
+    await expect(adapter.keys?.()).resolves.toEqual(["a", "b"]);
+  });
+
+  it("holds values in the form its serializer produces", () => {
+    const adapter = memoryAdapter({ serializer: passthroughSerializer, initial: { a: { b: 1 } } });
+
+    expect(adapter.getSync("a")).toEqual({ b: 1 });
+    expect(adapter.serializer).toBe(passthroughSerializer);
+  });
+
+  describe("holding objects", () => {
+    it("does not let a change to something read reach what is stored", () => {
+      const adapter = holding({ a: { tags: ["x"] } });
+      const read = adapter.getSync("a") as { tags: Array<string> };
+
+      read.tags.push("y");
+
+      expect(adapter.getSync("a")).toEqual({ tags: ["x"] });
+    });
+
+    it("does not let a later change to something written reach what is stored", () => {
+      const adapter = holding();
+      const written = { tags: ["x"] };
+
+      adapter.setSync("a", written);
+      written.tags.push("y");
+
+      expect(adapter.getSync("a")).toEqual({ tags: ["x"] });
+    });
+
+    it("does not share the objects it started from", () => {
+      const initial = { a: { tags: ["x"] } };
+      const adapter = holding(initial);
+
+      initial.a.tags.push("y");
+
+      expect(adapter.getSync("a")).toEqual({ tags: ["x"] });
+    });
   });
 });

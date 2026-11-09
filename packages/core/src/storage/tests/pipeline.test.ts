@@ -8,10 +8,11 @@ import type { Serializer } from "../../serializer/serializer";
 import {
   asyncStringSchema,
   countSchema,
+  nullableNameSchema,
   themeSchema,
   userSchema,
 } from "../../../tests/fixtures/schemas";
-import { deserializeWire, resolveMissing, serializeValue, validateValue } from "../pipeline";
+import { decodeWire, isSameWire, resolveMissing, serializeValue, validateValue } from "../pipeline";
 import type { EntryContext } from "../pipeline";
 
 function entry(
@@ -20,51 +21,6 @@ function entry(
 ): EntryContext {
   return { key: "theme", physicalKey: "app:theme", definition, serializer };
 }
-
-describe("deserializeWire", () => {
-  it("reports a backend holding nothing as missing, never as a stored null", () => {
-    expect(deserializeWire(entry({ schema: themeSchema }), undefined)).toEqual({ kind: "missing" });
-  });
-
-  it("treats a stored null as a value, because a schema may legitimately hold one", () => {
-    expect(deserializeWire(entry({ schema: themeSchema }), "null")).toEqual({
-      kind: "deserialized",
-      value: null,
-    });
-  });
-
-  it("returns what the serializer produced", () => {
-    expect(deserializeWire(entry({ schema: themeSchema }), '"dark"')).toEqual({
-      kind: "deserialized",
-      value: "dark",
-    });
-  });
-
-  it("reports a failure rather than throwing it, and names both keys", () => {
-    const result = deserializeWire(entry({ schema: themeSchema }), "{not json");
-
-    expect(result.kind).toBe("invalid");
-
-    if (result.kind !== "invalid") throw new Error("expected an invalid result");
-
-    expect(result.error.code).toBe(STORAGE_ERROR_CODE.Serialization);
-    expect(result.error.direction).toBe("deserialize");
-    expect(result.error.key).toBe("theme");
-    expect(result.error.physicalKey).toBe("app:theme");
-    expect(result.error.raw).toBe("{not json");
-    expect(result.error.message).toContain('"theme" (app:theme)');
-    expect(result.error.cause).toBeInstanceOf(SyntaxError);
-  });
-
-  it("hands a JSON-value wire straight through", () => {
-    const passthrough = passthroughSerializer as unknown as Serializer<unknown>;
-
-    expect(deserializeWire(entry({ schema: userSchema }, passthrough), { id: "u1" })).toEqual({
-      kind: "deserialized",
-      value: { id: "u1" },
-    });
-  });
-});
 
 describe("serializeValue", () => {
   it("returns the wire the serializer produced", () => {
@@ -143,5 +99,87 @@ describe("resolveMissing", () => {
     await expect(
       resolveMissing(entry({ schema: asyncStringSchema }), "async"),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("decodeWire", () => {
+  it("reports a backend holding nothing as missing", () => {
+    expect(decodeWire(entry({ schema: themeSchema }), undefined, "sync")).toEqual({
+      kind: "missing",
+    });
+  });
+
+  it("answers with the validated value", () => {
+    expect(decodeWire(entry({ schema: themeSchema }), '"dark"', "sync")).toEqual({
+      kind: "valid",
+      value: "dark",
+    });
+  });
+
+  it("treats a stored null as a value, because a schema may legitimately hold one", () => {
+    expect(decodeWire(entry({ schema: nullableNameSchema }), "null", "sync")).toEqual({
+      kind: "valid",
+      value: null,
+    });
+  });
+
+  it("hands a JSON-value wire straight through", () => {
+    const passthrough = passthroughSerializer as unknown as Serializer<unknown>;
+    const user = { id: "u1", name: "Ada" };
+
+    expect(decodeWire(entry({ schema: userSchema }, passthrough), user, "sync")).toEqual({
+      kind: "valid",
+      value: user,
+    });
+  });
+
+  it("reports text that cannot be deserialized, naming both keys and carrying the wire as it was", () => {
+    const result = decodeWire(entry({ schema: themeSchema }), "{not json", "sync");
+
+    expect(result).toMatchObject({
+      kind: "invalid",
+      raw: "{not json",
+      error: {
+        code: STORAGE_ERROR_CODE.Serialization,
+        direction: "deserialize",
+        key: "theme",
+        physicalKey: "app:theme",
+        raw: "{not json",
+        message: expect.stringContaining('"theme" (app:theme)'),
+        cause: expect.any(SyntaxError),
+      },
+    });
+  });
+
+  it("reports a value the schema refuses, carrying the value rather than the wire", () => {
+    expect(decodeWire(entry({ schema: themeSchema }), '"mauve"', "sync")).toMatchObject({
+      kind: "invalid",
+      error: { code: STORAGE_ERROR_CODE.Validation, physicalKey: "app:theme", operation: "get" },
+      raw: "mauve",
+    });
+  });
+
+  it("waits for a validator that answers later", async () => {
+    await expect(decodeWire(entry({ schema: asyncStringSchema }), '"a"', "async")).resolves.toEqual(
+      { kind: "valid", value: "a" },
+    );
+  });
+});
+
+describe("isSameWire", () => {
+  it("matches the same text", () => {
+    expect(isSameWire('"a"', '"a"')).toBe(true);
+  });
+
+  it("matches equal objects, since a backend hands back a new one on every read", () => {
+    expect(isSameWire({ a: [1] }, { a: [1] })).toBe(true);
+  });
+
+  it("tells different values apart", () => {
+    expect(isSameWire({ a: 1 }, { a: 2 })).toBe(false);
+  });
+
+  it("treats a value it cannot compare as different, which leaves the stored data alone", () => {
+    expect(isSameWire({ a: 1n }, { a: 1n })).toBe(false);
   });
 });

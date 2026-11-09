@@ -71,10 +71,10 @@ function isQuotaRejection(cause: unknown): boolean {
  *
  * The namespace is resolved on every operation rather than once at construction, so an adapter built while a module loads works in whichever context it ends up in. A context with no extension API, and an area the browser does not have, both report `StorageUnavailableError` rather than crashing.
  *
- * A rejected call is left in the browser's own vocabulary for the engine to wrap. The exception is a full area, which this adapter names itself: an area reports one in its message rather than with an error type, so reading that is the adapter's job rather than the caller's.
+ * A rejected call is left in the browser's own vocabulary for the engine to wrap, which `keys` is not, since it is called on the adapter directly. The exception is a full area, which this adapter names itself: an area reports one in its message rather than with an error type, so reading that is the adapter's job rather than the caller's.
  *
  * @param options - `area` to store in, `name` for error messages, and `namespace` to supply the extension API yourself, which is what a polyfill or a test fake does.
- * @returns An asynchronous adapter over that area.
+ * @returns An asynchronous adapter over that area, able to list every name it holds.
  * @example
  * ```ts
  * const adapter = webExtensionStorageAdapter({ area: "sync" });
@@ -87,7 +87,10 @@ export function webExtensionStorageAdapter(
   const storage = options.storage ?? resolveWebExtensionStorage;
   const name = options.name ?? `storage.${area}`;
 
-  const reach = (operation: StorageOperation, physicalKey: string): WebExtensionStorageArea => {
+  const reach = (
+    operation: StorageOperation,
+    physicalKey: string | undefined,
+  ): WebExtensionStorageArea => {
     const context = { adapter: name, operation, physicalKey };
     const namespace = requireBackend(storage, context);
 
@@ -97,7 +100,7 @@ export function webExtensionStorageAdapter(
   // Starting from a resolved promise turns a failure to reach the area into a rejection, so a caller awaiting an operation never also has to wrap it in `try`.
   const run = <Value>(
     operation: StorageOperation,
-    physicalKey: string,
+    physicalKey: string | undefined,
     action: (target: WebExtensionStorageArea) => Promise<Value>,
   ): Promise<Value> =>
     Promise.resolve()
@@ -115,6 +118,12 @@ export function webExtensionStorageAdapter(
     get: (key) => run(STORAGE_OPERATION.Get, key, (target) => read(target, key)),
     set: (key, value) => run(STORAGE_OPERATION.Set, key, (target) => target.set({ [key]: value })),
     remove: (key) => run(STORAGE_OPERATION.Remove, key, (target) => target.remove(key)),
+    keys: () =>
+      run(STORAGE_OPERATION.Keys, undefined, (target) =>
+        target.getKeys === undefined
+          ? target.get(null).then((everything) => Object.keys(everything))
+          : target.getKeys(),
+      ),
     isAvailable: () => {
       try {
         return storage()?.[area] !== undefined;

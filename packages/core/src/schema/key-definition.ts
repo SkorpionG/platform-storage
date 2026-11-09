@@ -20,6 +20,13 @@ export interface KeyDefinition<
   readonly key?: string | undefined;
 
   /**
+   * Names this key used to be stored under, in the order they should be tried.
+   *
+   * When the current name holds nothing, a read tries these in turn, and a value found under one is validated, moved to the current name and returned. It costs nothing until the current name turns up empty, and the entry can be deleted once the old names no longer matter.
+   */
+  readonly readFrom?: ReadonlyArray<string> | undefined;
+
+  /**
    * The value a read returns when nothing is stored.
    *
    * Declaring one removes `undefined` from the result type. The value is returned as given rather than copied, so it should not be mutated by callers; where each read should get a fresh object, put the default in the schema as a factory instead.
@@ -44,6 +51,8 @@ export interface KeyDefinition<
 export interface KeyOptions<Schema extends StandardSchemaV1, InvalidResult = SchemaOutput<Schema>> {
   /** The key written to the backend. Defaults to the logical key. */
   readonly key?: string | undefined;
+  /** Names this key used to be stored under. A read that finds nothing at the current name moves a value found under one of these. */
+  readonly readFrom?: ReadonlyArray<string> | undefined;
   /** The value a read returns when nothing is stored. Declaring one removes `undefined` from the result type. */
   readonly default?: Immutable<SchemaOutput<Schema>> | undefined;
   /** Overrides the storage-wide invalid-data policy for this key alone. */

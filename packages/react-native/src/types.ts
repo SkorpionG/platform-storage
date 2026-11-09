@@ -7,4 +7,6 @@ export interface AsyncStorageLike {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;
   removeItem(key: string): Promise<void>;
+  /** Optional, so a storage without it still qualifies. The adapter can list keys only when this is present. */
+  getAllKeys?(): Promise<ReadonlyArray<string>>;
 }
