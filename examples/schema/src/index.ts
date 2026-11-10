@@ -4,8 +4,8 @@ import type { InvalidPolicy, KeyDefinition } from "@platform-storage/core";
 import { appSchema } from "./schema";
 import type { AppKey } from "./schema";
 
-export { appSchema } from "./schema";
-export type { AppDefinition, AppKey } from "./schema";
+export { appSchema, scratchSchema } from "./schema";
+export type { AppDefinition, AppKey, ScratchDefinition } from "./schema";
 
 export interface KeyNote {
   /** What to call the key on screen. */
@@ -175,7 +175,17 @@ export const DECLARED_DEFAULTS: Readonly<Record<string, unknown>> = Object.fromE
   }),
 );
 
-/** Every physical key the schema declares, for telling ours apart from whatever else shares the backend. Built once rather than per read. */
-export const DECLARED_PHYSICAL_KEYS: ReadonlySet<string> = new Set<string>(
-  Object.values(appSchema.physicalKeys),
-);
+/** Anything that can say which name it stores a key under. Structural, so this package needs no platform. */
+export interface NamedStorage {
+  readonly schema: { readonly keys: ReadonlyArray<string> };
+  physicalKey(key: string): string;
+}
+
+/**
+ * Every name these storages store under, for telling ours apart from whatever else shares the backend.
+ *
+ * Asked of each storage rather than read off the schema, because a storage's prefix is part of the name and the schema's own names come before it.
+ */
+export function storedNamesOf(owners: ReadonlyArray<NamedStorage>): ReadonlySet<string> {
+  return new Set(owners.flatMap((owner) => owner.schema.keys.map((key) => owner.physicalKey(key))));
+}

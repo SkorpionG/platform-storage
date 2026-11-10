@@ -89,3 +89,21 @@ describe("createWebExtensionStorage", () => {
     });
   });
 });
+
+describe("where the storage puts its names", () => {
+  const maybePrefix = "app:" as string | undefined;
+  const maybeRead = true as boolean;
+
+  it("takes a prefix that may be absent", () => {
+    void createWebExtensionStorage({ schema, prefix: maybePrefix });
+  });
+
+  it("takes readUnprefixed beside a prefix, whatever boolean it is", () => {
+    void createWebExtensionStorage({ schema, prefix: "app:", readUnprefixed: true });
+    void createWebExtensionStorage({ schema, prefix: "app:", readUnprefixed: maybeRead });
+  });
+
+  it("leaves readUnprefixed without a prefix to be refused when the storage is built", () => {
+    void createWebExtensionStorage({ schema, readUnprefixed: true });
+  });
+});

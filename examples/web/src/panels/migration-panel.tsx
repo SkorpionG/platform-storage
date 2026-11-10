@@ -1,6 +1,6 @@
 "use client";
 
-import { appSchema, KEY_NOTES } from "@examples/schema";
+import { KEY_NOTES } from "@examples/schema";
 import type { AppKey } from "@examples/schema";
 import { Button, Card, Code, Field, Value } from "@examples/ui";
 import { notifyStorageChanged, useHydrated, useStorageValue } from "@platform-storage/react";
@@ -39,7 +39,7 @@ const SAMPLES: ReadonlyArray<Sample> = [
 
 /** Writes past the library, the way an older release of an app would have left it. */
 function plant({ key, text }: Sample): void {
-  window.localStorage.setItem(appSchema.physicalKeys[key], text);
+  window.localStorage.setItem(local.physicalKey(key), text);
   notifyStorageChanged(local, key);
 }
 
@@ -50,7 +50,7 @@ function storedText(key: AppKey): string {
 
   /* Read during a render, where a backend that is not there must not take the page with it. */
   try {
-    return String(adapter.getSync(appSchema.physicalKeys[key]) ?? "nothing");
+    return String(adapter.getSync(local.physicalKey(key)) ?? "nothing");
   } catch {
     return "unavailable";
   }

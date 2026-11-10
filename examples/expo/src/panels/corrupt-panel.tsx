@@ -1,4 +1,4 @@
-import { appSchema, CORRUPTIONS, POLICIES } from "@examples/schema";
+import { CORRUPTIONS, POLICIES } from "@examples/schema";
 import type { AppKey, Corruption, PolicyName } from "@examples/schema";
 import { Button, Picker } from "@expo/ui";
 import { isPlatformStorageError } from "@platform-storage/react-native";
@@ -32,7 +32,7 @@ type Outcome = ReadOutcome | FailedOutcome;
 
 /** Writes past the library, the way a previous version of an app or a hand-edited database leaves behind. */
 async function plant(corruption: Corruption): Promise<void> {
-  const physical = appSchema.physicalKeys[corruption.key];
+  const physical = local.physicalKey(corruption.key);
 
   if (corruption.kind === "text") await plantText(physical, corruption.text);
   else await plantValue(physical, corruption.value);

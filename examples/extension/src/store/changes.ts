@@ -10,12 +10,15 @@ import { local, session, sync } from "./storages";
  * The hooks follow changes by themselves. This reads the feed underneath them because the panel also shows keys no schema declares, which `watch` and `onChange` deliberately leave out.
  */
 
-/** Physical key back to logical, so a change can name the key the schema knows rather than the one the area holds. */
-const LOGICAL: ReadonlyMap<string, AppKey> = new Map(
-  appSchema.keys.map((key) => [appSchema.physicalKeys[key], key]),
-);
-
 const AREAS = { local, sync, session } as const;
+
+/** Each area's stored names back to logical keys, so a change can name the key the schema knows rather than the one the area holds. Asked of each storage, because its prefix is part of the name. */
+const LOGICAL: Readonly<Record<string, ReadonlyMap<string, AppKey>>> = Object.fromEntries(
+  Object.entries(AREAS).map(([area, storage]) => [
+    area,
+    new Map(appSchema.keys.map((key) => [storage.physicalKey(key), key])),
+  ]),
+);
 
 /** One change the browser reported, as the panel wants to show it. */
 export interface ObservedChange {
@@ -34,7 +37,7 @@ let stops: ReadonlyArray<() => void> = [];
 function record(area: string, change: AdapterChange<unknown>): void {
   if (change.key === undefined) return;
 
-  latest = { area, physicalKey: change.key, key: LOGICAL.get(change.key), at: Date.now() };
+  latest = { area, physicalKey: change.key, key: LOGICAL[area]?.get(change.key), at: Date.now() };
 
   for (const listener of listeners) listener();
 }

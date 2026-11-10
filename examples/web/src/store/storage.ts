@@ -1,5 +1,5 @@
-import { appSchema, DECLARED_DEFAULTS } from "@examples/schema";
-import type { AppDefinition } from "@examples/schema";
+import { appSchema, DECLARED_DEFAULTS, scratchSchema } from "@examples/schema";
+import type { AppDefinition, ScratchDefinition } from "@examples/schema";
 import { recordStorageError } from "@platform-storage/react";
 import {
   createLocalStorage,
@@ -49,3 +49,23 @@ export const localRecovering: SyncPlatformStorage<AppDefinition> = createStorage
 export const unguardedLocal: SyncPlatformStorage<AppDefinition> = createLocalStorage({
   schema: appSchema,
 });
+
+function scratchStorage(
+  prefix: string,
+  readUnprefixed: boolean,
+): SyncPlatformStorage<ScratchDefinition> {
+  return createStorage({
+    schema: scratchSchema,
+    adapter: withFallback(localStorageAdapter(), memoryAdapter({ name: "server-memory" })),
+    onError: recordStorageError,
+    prefix,
+    readUnprefixed,
+  });
+}
+
+/** Two storages over one schema and one `localStorage`, each inside its own prefix, so neither sees or clears the other's values. */
+export const teamA: SyncPlatformStorage<ScratchDefinition> = scratchStorage("team-a:", false);
+export const teamB: SyncPlatformStorage<ScratchDefinition> = scratchStorage("team-b:", false);
+
+/** A storage adopting a prefix: it moves a value stored under the bare name in under `app:` the first time it reads it. */
+export const adopting: SyncPlatformStorage<ScratchDefinition> = scratchStorage("app:", true);

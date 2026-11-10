@@ -21,6 +21,8 @@ export type ExecutionMode = "sync" | "async";
 export interface EntryContext {
   readonly key: string;
   readonly physicalKey: string;
+  /** The names this key used to be stored under, in the order a read tries them, prefixed as the storage stores them. */
+  readonly oldNames: ReadonlyArray<string>;
   readonly definition: KeyDefinition;
   readonly serializer: Serializer<unknown>;
 }

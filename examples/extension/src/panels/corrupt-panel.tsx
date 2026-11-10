@@ -1,4 +1,4 @@
-import { appSchema, CORRUPTIONS, POLICIES } from "@examples/schema";
+import { CORRUPTIONS, POLICIES } from "@examples/schema";
 import type { AppKey, PolicyName, ValueCorruption } from "@examples/schema";
 import { Badge, Button, Card, Code, Select, Value } from "@examples/ui";
 import { isPlatformStorageError } from "@platform-storage/webextension";
@@ -26,7 +26,7 @@ type Outcome = ReadOutcome | FailedOutcome;
 
 /** Writes past the library, the way a previous version of an extension or a value synced from an older install would. */
 async function plant(corruption: ValueCorruption): Promise<void> {
-  await browser.storage.local.set({ [appSchema.physicalKeys[corruption.key]]: corruption.value });
+  await browser.storage.local.set({ [local.physicalKey(corruption.key)]: corruption.value });
 }
 
 async function readWithPolicy(key: AppKey, policy: PolicyName): Promise<Outcome> {

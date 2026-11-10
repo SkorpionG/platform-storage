@@ -63,8 +63,12 @@ Builds a storage over an AsyncStorage instance, with the adapter supplied for yo
   - `asyncStorage: AsyncStorageLike` — the instance your application supplies. Required.
   - `name?: string` — what errors report. Defaults to `"AsyncStorage"`.
   - `serializer?: Serializer<string>` — replaces the JSON default. AsyncStorage transports strings, so the wire type is `string`.
+  - `prefix?: string` — put before every stored name, so the storage can share a backend. See [Prefixing stored names](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#prefixing-stored-names).
+  - `readUnprefixed?: boolean` — also read each key's names without the prefix, to move existing values in. See [Adopting a prefix](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#adopting-a-prefix).
   - `onInvalid?: "throw" | "fallback" | "remove" | callback` — the policy for keys that declare none. Defaults to `"fallback"`.
   - `onError?: (error: PlatformStorageError) => void` — called for every failure, thrown or handled.
+
+**Throws:** `StorageSchemaError` if `prefix` is empty, `readUnprefixed` is asked for without one, or the names a prefix gives clash.
 
 **Returns:** `PlatformStorage<Definition>` — asynchronous only, with no synchronous half.
 

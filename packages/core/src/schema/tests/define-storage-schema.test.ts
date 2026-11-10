@@ -3,7 +3,27 @@ import { describe, expect, it } from "vitest";
 import { defineStorageSchema, isStorageSchema, StorageSchemaError } from "../../index";
 import { themeSchema, userSchema } from "../../../tests/fixtures/schemas";
 
+function declaringNonBooleanPrefixed(): void {
+  defineStorageSchema({
+    theme: { schema: themeSchema, prefixed: "no" },
+  } as unknown as Parameters<typeof defineStorageSchema>[0]);
+}
+
 describe("defineStorageSchema", () => {
+  it("refuses a prefixed flag that is not a boolean", () => {
+    expect(declaringNonBooleanPrefixed).toThrow(StorageSchemaError);
+    expect(declaringNonBooleanPrefixed).toThrow(/`prefixed` is not a boolean/);
+  });
+
+  it("keeps a key's own name in physicalKeys whether or not it opts out of a prefix", () => {
+    const schema = defineStorageSchema({
+      theme: { schema: themeSchema },
+      user: { schema: userSchema, key: "vendor-user", prefixed: false },
+    });
+
+    expect(schema.physicalKeys).toEqual({ theme: "theme", user: "vendor-user" });
+  });
+
   it("brands the result, so a storage can tell a schema from a plain object", () => {
     const schema = defineStorageSchema({ theme: { schema: themeSchema } });
 

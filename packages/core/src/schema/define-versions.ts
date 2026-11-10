@@ -27,7 +27,7 @@ export interface VersionChain<Schema extends StandardSchemaV1> extends Versioned
   /**
    * Finishes the key with its options, every one checked against the latest version.
    *
-   * @param options - `key`, `readFrom`, `default`, `onInvalid` and `recover`, as `defineKey` takes them.
+   * @param options - `key`, `prefixed`, `readFrom`, `default`, `onInvalid` and `recover`, as `defineKey` takes them.
    * @returns A key definition to place in `defineStorageSchema`. It has no `next`, so a version cannot be added after options that were checked against the one before it.
    */
   options<const Options extends KeyOptions<Schema>>(

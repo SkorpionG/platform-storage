@@ -80,3 +80,21 @@ describe("createLocalStorage and createSessionStorage", () => {
     });
   });
 });
+
+describe("where the storage puts its names", () => {
+  const maybePrefix = "app:" as string | undefined;
+  const maybeRead = true as boolean;
+
+  it("takes a prefix that may be absent", () => {
+    void createLocalStorage({ schema, prefix: maybePrefix });
+  });
+
+  it("takes readUnprefixed beside a prefix, whatever boolean it is", () => {
+    void createLocalStorage({ schema, prefix: "app:", readUnprefixed: true });
+    void createLocalStorage({ schema, prefix: "app:", readUnprefixed: maybeRead });
+  });
+
+  it("leaves readUnprefixed without a prefix to be refused when the storage is built", () => {
+    void createLocalStorage({ schema, readUnprefixed: true });
+  });
+});

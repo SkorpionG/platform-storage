@@ -44,3 +44,14 @@ export const appSchema = defineStorageSchema({
 
 export type AppDefinition = typeof appSchema.definition;
 export type AppKey = KeyOf<AppDefinition>;
+
+/**
+ * A second, smaller schema, for showing storages that share one backend under different prefixes.
+ *
+ * Kept apart from `appSchema` so that adopting a prefix, which takes over values stored under the bare names, can never take a value another panel is using.
+ */
+export const scratchSchema = defineStorageSchema({
+  note: { schema: z.string().min(1).max(40) },
+});
+
+export type ScratchDefinition = typeof scratchSchema.definition;

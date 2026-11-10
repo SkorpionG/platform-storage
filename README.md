@@ -181,6 +181,14 @@ const schema = defineStorageSchema({ layout });
 
 Data newer than the running code is never deleted or overwritten by a read. For a key other code also reads, `recover` repairs a rejected value and saves it while the key stays bare.
 
+### 11. Several storages on one backend
+
+Give a storage a `prefix` and every name it stores under carries it, so two storages, or a storage and other code, can share one origin without colliding. `readUnprefixed` moves existing values in when a storage adopts a prefix.
+
+```ts
+const settings = createLocalStorage({ schema, prefix: "app:" }); // "theme" is stored as "app:theme"
+```
+
 ## Why
 
 Key-value storage APIs have no idea what you intend to keep in them, so every project rebuilds the same scaffolding:

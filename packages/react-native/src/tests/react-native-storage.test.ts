@@ -11,6 +11,15 @@ const schema = defineStorageSchema({
 });
 
 describe("createReactNativeStorage", () => {
+  it("stores every key under the prefix it is given", async () => {
+    const asyncStorage = fakeAsyncStorage();
+    const storage = createReactNativeStorage({ schema, prefix: "rn:", asyncStorage });
+
+    await storage.set("theme", "dark");
+
+    expect(asyncStorage.entries.get("rn:theme")).toBe('"dark"');
+  });
+
   it("round-trips through the storage it is given, storing JSON text under the physical key", async () => {
     const asyncStorage = fakeAsyncStorage();
     const storage = createReactNativeStorage({ schema, asyncStorage });

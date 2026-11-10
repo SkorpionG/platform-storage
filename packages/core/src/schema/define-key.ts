@@ -9,7 +9,7 @@ import type { KeyOptions } from "./key-definition";
  * Reach for this when a key has an `onInvalid` or `recover` callback, or when it is worth naming and sharing on its own. A key with only a `default` is fully checked either way, so the inline form is the shorter path.
  *
  * @param schema - Any [Standard Schema](https://standardschema.dev) validator, such as a Zod, Valibot or ArkType schema.
- * @param options - `key` to rename what the backend stores under, `readFrom` for the names it used to be stored under, `default` for what a read answers with when nothing is stored, `onInvalid` for this key's own invalid-data policy, and `recover` to repair a stored value the schema rejects.
+ * @param options - `key` to rename what the backend stores under, `prefixed: false` to keep it out of a storage's prefix, `readFrom` for the names it used to be stored under, `default` for what a read answers with when nothing is stored, `onInvalid` for this key's own invalid-data policy, and `recover` to repair a stored value the schema rejects.
  * @returns A key definition to place in {@link defineStorageSchema}.
  * @example
  * ```ts

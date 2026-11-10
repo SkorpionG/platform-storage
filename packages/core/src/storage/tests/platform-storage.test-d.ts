@@ -6,6 +6,8 @@ import type { Serializer } from "../../serializer/serializer";
 import type { StorageSchema } from "../../schema/storage-schema";
 import { countSchema, themeSchema } from "../../../tests/fixtures/schemas";
 import { defineStorageSchema } from "../../schema/define-storage-schema";
+import { memoryAdapter } from "../../adapter/memory-adapter";
+import { createStorage } from "../create-storage";
 import type {
   CreateStorageOptions,
   CreateStorageResult,
@@ -80,6 +82,35 @@ describe("CreateStorageOptions", () => {
       schema: StorageSchema<Definition>;
       adapter: SyncStorageAdapter<string>;
     }>().toExtend<CreateStorageOptions<Definition, SyncStorageAdapter<string>>>();
+  });
+});
+
+/* A consumer's own option type, built the way the platform factories build theirs. */
+interface WrappedOptions extends Omit<
+  CreateStorageOptions<Definition, SyncStorageAdapter<string>>,
+  "adapter"
+> {
+  readonly label: string;
+}
+
+function wrap(options: WrappedOptions): SyncPlatformStorage<Definition> {
+  const { label, ...rest } = options;
+
+  return createStorage({ ...rest, adapter: memoryAdapter({ name: label }) });
+}
+
+describe("CreateStorageOptions as something to build on", () => {
+  it("can be extended by an interface and spread back into createStorage after an Omit", () => {
+    expectTypeOf(wrap).returns.toEqualTypeOf<SyncPlatformStorage<Definition>>();
+  });
+
+  it("types prefix and readUnprefixed as plain options, leaving their pairing to createStorage", () => {
+    expectTypeOf<
+      CreateStorageOptions<Definition, SyncStorageAdapter<string>>["prefix"]
+    >().toEqualTypeOf<string | undefined>();
+    expectTypeOf<
+      CreateStorageOptions<Definition, SyncStorageAdapter<string>>["readUnprefixed"]
+    >().toEqualTypeOf<boolean | undefined>();
   });
 });
 

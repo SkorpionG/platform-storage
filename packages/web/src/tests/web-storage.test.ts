@@ -42,6 +42,15 @@ describe("localStorageAdapter and sessionStorageAdapter", () => {
 });
 
 describe("createLocalStorage", () => {
+  it("stores every key under the prefix it is given", async () => {
+    const storage = createLocalStorage({ schema, prefix: "web:" });
+
+    await storage.set("theme", "dark");
+
+    expect(localStorage.getItem("web:theme")).toBe('"dark"');
+    expect(storage.physicalKey("user")).toBe("web:app:user");
+  });
+
   it("round-trips through localStorage, storing JSON text under the physical key", async () => {
     const storage = createLocalStorage({ schema });
 

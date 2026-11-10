@@ -1,6 +1,6 @@
 "use client";
 
-import { appSchema, CORRUPTIONS, POLICIES } from "@examples/schema";
+import { CORRUPTIONS, POLICIES } from "@examples/schema";
 import type { AppKey, Corruption, PolicyName } from "@examples/schema";
 import { Badge, Button, Card, Code, Select, Value } from "@examples/ui";
 import { notifyStorageChanged } from "@platform-storage/react";
@@ -23,7 +23,7 @@ type Outcome = ReadOutcome | FailedOutcome;
 
 /** Writes past the library, the way a previous version of an app or a hand edit would. */
 function plant(corruption: Corruption): void {
-  const physical = appSchema.physicalKeys[corruption.key];
+  const physical = local.physicalKey(corruption.key);
 
   window.localStorage.setItem(
     physical,

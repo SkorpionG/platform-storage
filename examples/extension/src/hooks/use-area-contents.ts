@@ -1,4 +1,4 @@
-import { DECLARED_PHYSICAL_KEYS } from "@examples/schema";
+import { storedNamesOf } from "@examples/schema";
 import type { WebExtensionStorageAreaName } from "@platform-storage/webextension";
 import { useEffect, useState } from "react";
 
@@ -23,14 +23,16 @@ const EMPTY: AreaContents = Object.freeze({ entries: [], failure: undefined });
 
 async function read(area: WebExtensionStorageAreaName): Promise<AreaContents> {
   try {
-    const { adapter } = STORAGES[area];
+    const storage = STORAGES[area];
+    const { adapter } = storage;
+    const ours = storedNamesOf([storage]);
     const names = (await adapter.keys?.()) ?? [];
 
     const held = await Promise.all(
       names.map(async (key) => ({
         key,
         value: await adapter.get(key),
-        ours: DECLARED_PHYSICAL_KEYS.has(key),
+        ours: ours.has(key),
       })),
     );
     const entries = held.toSorted((left, right) => left.key.localeCompare(right.key));

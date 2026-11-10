@@ -52,6 +52,7 @@ Declares what a storage holds, and returns a checked, frozen schema object. Both
 - `definition`: an object mapping each logical key to its definition:
   - `schema: StandardSchemaV1` — the validator. Required.
   - `key?: string` — the name the backend stores under. Defaults to the logical key.
+  - `prefixed?: boolean` — `false` keeps this key and its `readFrom` names out of a storage's `prefix`, for a name something else owns.
   - `readFrom?: ReadonlyArray<string>` — names this key used to be stored under. See [Renaming a stored key](#renaming-a-stored-key).
   - `default?: Output` — what a read returns when nothing is stored. Declaring one removes `undefined` from the result type.
   - `onInvalid?: "throw" | "fallback" | "remove" | ((context) => Output)` — overrides the storage's policy for this key.
@@ -59,7 +60,7 @@ Declares what a storage holds, and returns a checked, frozen schema object. Both
 
 **Returns:** `StorageSchema<Definition>`
 
-**Throws:** `StorageSchemaError` if an entry has no Standard Schema validator, if its `recover` is not a function, if its version chain is malformed, if `readFrom` is not an array or names a current stored name, or if two keys resolve to the same stored key or claim the same old one.
+**Throws:** `StorageSchemaError` if an entry has no Standard Schema validator, if its `recover` is not a function, if its `prefixed` is not a boolean, if its version chain is malformed, if `readFrom` is not an array or names a current stored name, or if two keys resolve to the same stored key or claim the same old one.
 
 ```ts
 const schema = defineStorageSchema({
@@ -75,7 +76,7 @@ Declares one key with everything about it checked against its schema. Reach for 
 **Parameters:**
 
 - `schema`: the Standard Schema validator.
-- `options?`: `key`, `readFrom`, `default`, `onInvalid` and `recover`, as above.
+- `options?`: `key`, `prefixed`, `readFrom`, `default`, `onInvalid` and `recover`, as above.
 
 **Returns:** a key definition, to be placed in a `defineStorageSchema` object.
 
@@ -101,7 +102,7 @@ Declares a key by the shapes it has had, so a value written by an older release 
 **Returns:** a chain, which is a key definition as it stands:
 
 - `.next(schema, up)` adds a version. `up` receives the previous version's output and returns this version's. It is synchronous, because a synchronous read has to be able to run it.
-- `.options(options)` finishes the key with `key`, `readFrom`, `default`, `onInvalid` and `recover`, all checked against the latest version. There is no `.next` after it.
+- `.options(options)` finishes the key with `key`, `prefixed`, `readFrom`, `default`, `onInvalid` and `recover`, all checked against the latest version. There is no `.next` after it.
 
 A value stored before the key had versions reads as version 1, so the schema a key already has becomes the first version and no separate migration is needed.
 
@@ -123,10 +124,14 @@ Builds a storage over a schema and a backend.
   - `schema: StorageSchema` — from `defineStorageSchema`. Required.
   - `adapter: StorageAdapter<Wire>` — the backend. Required.
   - `serializer?: Serializer<Wire>` — replaces the adapter's own, typed against what that adapter transports.
+  - `prefix?: string` — put before every stored name, so the storage can share a backend. See [Prefixing stored names](#prefixing-stored-names).
+  - `readUnprefixed?: boolean` — also read each key's names without the prefix, to move existing values in. Only with a `prefix`.
   - `onInvalid?: OnInvalid` — the policy for every key that does not declare its own. Defaults to `"fallback"`.
   - `onError?: (error: PlatformStorageError) => void` — called for every failure, whether thrown or handled.
 
 **Returns:** `PlatformStorage<Definition>`, plus the synchronous methods when the adapter can answer immediately.
+
+**Throws:** `StorageSchemaError` if `prefix` is empty or not a string, if `readUnprefixed` is not a boolean or is asked for without a `prefix`, or if the names a prefix gives clash.
 
 ```ts
 const storage = createStorage({
@@ -173,7 +178,7 @@ Removes only the keys this schema declares, and the old names they declare in `r
 
 #### `physicalKey(key): string`
 
-The name the backend stores this key under, for tooling that has to address it directly.
+The name the backend stores this key under, the storage's `prefix` included, for tooling that has to address it directly. The schema's own `physicalKeys` are the names before any prefix.
 
 #### `watch(key, listener): () => void`
 
@@ -359,6 +364,41 @@ When the current name holds nothing, a read tries the old names in order. A valu
 - A [versioned key](#versioned-keys) found under an old name runs its chain, and the latest version is what gets written to the current name.
 - `has` counts the old names, and `set`, `remove` and `clear` clear them.
 - Delete the entry once the old names no longer matter. Keeping it costs only an extra lookup when the key is empty.
+
+## Prefixing stored names
+
+```ts
+const settings = createLocalStorage({ schema, prefix: "app:" });
+
+await settings.set("theme", "dark"); // stored as "app:theme"
+```
+
+A prefix lets several storages, or a storage and other code, share one backend without their names colliding. It belongs to the storage rather than the schema, so one schema can back several storages under different prefixes.
+
+- It is taken literally: `"app:"` gives `app:theme`, and `"app"` would give `apptheme`. The separator is yours to choose.
+- A key's `readFrom` names take the prefix too, so a storage only ever looks inside its own prefix.
+- `prefixed: false` keeps a key and its `readFrom` names exactly as written, for a name something else owns, such as another library's token.
+- `physicalKey(key)` answers with the prefixed name. `clear()` removes only this storage's names, so a second storage under another prefix is left alone.
+- A prefix can make two names clash where the schema alone could not, such as a key opting out with `key: "app:user"` beside `user` under `"app:"`. `createStorage` checks the final names and throws `StorageSchemaError`.
+
+### Adopting a prefix
+
+Adding a prefix to a storage that already holds data moves every name, so existing values would read as missing. `readUnprefixed` moves them across as they are read:
+
+```ts
+const settings = createLocalStorage({ schema, prefix: "app:", readUnprefixed: true });
+```
+
+A read tries each key's prefixed names first, then the same names without the prefix: the current name, then its `readFrom` names. A value found under a bare name is validated, migrated if the key has versions, written under the prefix and removed from the bare name. A key declaring `prefixed: false` is unaffected.
+
+It needs a `prefix`. Asking without one is refused with `StorageSchemaError` when the storage is built; the types do not catch it, so that `CreateStorageOptions` stays an interface you can extend and `Omit` from.
+
+Turn it off once old data has moved. While it is on, the bare names count as this storage's:
+
+- On a backend other code shares, a bare `theme` may be someone else's, and a read would take it and delete it.
+- `has` counts the bare names, and `clear()` and every write remove them.
+- Two storages over one backend under different prefixes would race for the same bare names, and whichever read first takes the value.
+- A prefix without a separator can make a bare name land on another key's prefixed name, as `"a"` does for keys `b` and `ab`. `createStorage` refuses that.
 
 ## Versioned keys
 

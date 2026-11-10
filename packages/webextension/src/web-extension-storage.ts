@@ -21,8 +21,9 @@ export type CreateWebExtensionStorageOptions<Definition extends StorageSchemaDef
  *
  * Two areas are two storages, each over its own schema. That keeps a schema platform-agnostic: the same one can back `local` here, `localStorage` on the web, and AsyncStorage on a phone.
  *
- * @param options - The `schema`, the `area` to store in (`"local"` unless named), and optionally `onInvalid` and `onError`.
+ * @param options - The `schema`, the `area` to store in (`"local"` unless named), and optionally `prefix`, `readUnprefixed`, `onInvalid` and `onError`.
  * @returns A storage over that area. Asynchronous only, since an area always answers later.
+ * @throws {StorageSchemaError} If `prefix` is empty, `readUnprefixed` is asked for without one, or the names a prefix gives clash.
  * @example
  * ```ts
  * const settings = createWebExtensionStorage({ schema });

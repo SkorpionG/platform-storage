@@ -10,6 +10,7 @@ import {
 import type { PlatformStorageError } from "../errors/errors";
 import type { GetResult, KeyOf } from "../schema/key-definition";
 import type { StorageSchemaDefinition } from "../schema/storage-schema";
+import { resolveStoredNames } from "../schema/stored-names";
 import type { Serializer } from "../serializer/serializer";
 import type { SchemaIssue } from "../types/standard-schema";
 import type { MaybePromise } from "../types/utils";
@@ -71,10 +72,6 @@ interface ReadOutcome {
   readonly refusal?: FailedDecode["error"] | undefined;
 }
 
-function previousNames(entry: EntryContext): ReadonlyArray<string> {
-  return entry.definition.readFrom ?? [];
-}
-
 /* A write may have landed since the read this repair came from, and a repair must never destroy newer data. */
 function stillHolds(io: StorageIo, entry: EntryContext, repair: Repair): MaybePromise<boolean> {
   return chain(io.get(repair.foundAt), (wire) => {
@@ -87,7 +84,7 @@ function stillHolds(io: StorageIo, entry: EntryContext, repair: Repair): MaybePr
 
 /* The first name holding anything wins. Reaching the end means the last name tried held nothing, which reads as missing. */
 function locate(io: StorageIo, entry: EntryContext): MaybePromise<Located> {
-  return previousNames(entry).reduce<MaybePromise<Located>>(
+  return entry.oldNames.reduce<MaybePromise<Located>>(
     (found, name) =>
       chain(found, (current) =>
         current.wire === undefined
@@ -99,7 +96,7 @@ function locate(io: StorageIo, entry: EntryContext): MaybePromise<Located> {
 }
 
 function removeOldNames(io: StorageIo, entry: EntryContext): MaybePromise<void> {
-  return previousNames(entry).reduce<MaybePromise<void>>(
+  return entry.oldNames.reduce<MaybePromise<void>>(
     (pending, name) => chain(pending, () => io.remove(name)),
     undefined,
   );
@@ -268,8 +265,9 @@ function repairedForm(entry: EntryContext, wire: unknown): MaybePromise<unknown>
  *
  * Most applications reach for a platform factory instead, such as `createLocalStorage`. Use this one to pair a schema with an adapter of your own.
  *
- * @param options - The `schema`, the `adapter` to store through, and optionally `onInvalid` for the storage-wide invalid-data policy and `onError` to observe every failure.
+ * @param options - The `schema`, the `adapter` to store through, and optionally `prefix` to put before every stored name, `readUnprefixed` to move existing values in under it, `onInvalid` for the storage-wide invalid-data policy and `onError` to observe every failure.
  * @returns A storage over that schema. It carries the synchronous half as well when the adapter can answer immediately.
+ * @throws {StorageSchemaError} If `prefix` is empty or not a string, `readUnprefixed` is not a boolean or is asked for without a prefix, or the names it gives clash: two keys under one name, or an old name that is another key's current name or is claimed by two keys.
  * @example
  * ```ts
  * const storage = createStorage({ schema, adapter: memoryAdapter() });
@@ -282,7 +280,7 @@ export function createStorage<
   Definition extends StorageSchemaDefinition,
   Adapter extends StorageAdapter<unknown>,
 >(options: CreateStorageOptions<Definition, Adapter>): CreateStorageResult<Definition, Adapter> {
-  const { schema, adapter } = options;
+  const { schema, adapter, prefix, readUnprefixed } = options;
   const serializer: Serializer<unknown> = options.serializer ?? adapter.serializer;
 
   const report = (error: PlatformStorageError): PlatformStorageError => {
@@ -290,16 +288,45 @@ export function createStorage<
     return error;
   };
 
+  if (prefix !== undefined && (typeof prefix !== "string" || prefix === "")) {
+    throw report(
+      new StorageSchemaError(
+        "`prefix` has to be a string with something in it. Leave it out to store keys under their own names.",
+      ),
+    );
+  }
+
+  if (readUnprefixed !== undefined && typeof readUnprefixed !== "boolean") {
+    throw report(new StorageSchemaError("`readUnprefixed` has to be `true` or `false`."));
+  }
+
+  if (readUnprefixed === true && prefix === undefined) {
+    throw report(
+      new StorageSchemaError(
+        "`readUnprefixed` reads the names from before a prefix, so it needs a `prefix` to read past.",
+      ),
+    );
+  }
+
+  const storedNames = ((): ReturnType<typeof resolveStoredNames> => {
+    /* Reported like every other failure here, since `onError` is promised all of them. */
+    try {
+      return resolveStoredNames(schema, prefix, readUnprefixed);
+    } catch (error) {
+      throw report(error as PlatformStorageError);
+    }
+  })();
+
   function entryFor(key: string): EntryContext {
     // `hasOwn` rather than a plain lookup: a key like "toString" would otherwise find something on the prototype chain and be treated as declared.
     const definition = Object.hasOwn(schema.definition, key) ? schema.definition[key] : undefined;
-    const physicalKey = schema.physicalKeys[key];
+    const names = storedNames.get(key);
 
-    if (definition === undefined || physicalKey === undefined) {
+    if (definition === undefined || names === undefined) {
       throw report(new UnknownStorageKeyError({ key, knownKeys: schema.keys }));
     }
 
-    return { key, physicalKey, definition, serializer };
+    return { key, physicalKey: names.current, oldNames: names.old, definition, serializer };
   }
 
   const asyncIo = createAsyncIo(adapter, report);
@@ -381,7 +408,7 @@ export function createStorage<
   }
 
   function sweepAfterWrite(io: StorageIo, entry: EntryContext): MaybePromise<void> {
-    return previousNames(entry).length === 0 || swept.has(entry.key) ? undefined : sweep(io, entry);
+    return entry.oldNames.length === 0 || swept.has(entry.key) ? undefined : sweep(io, entry);
   }
 
   /*
@@ -401,7 +428,7 @@ export function createStorage<
     if (
       !announces &&
       newWire === undefined &&
-      previousNames(entry).length > 0 &&
+      entry.oldNames.length > 0 &&
       watchers.isListening()
     ) {
       /* A backend reporting its own writes only ever names the current name, so removing a value still held under an old one would otherwise pass unnoticed. */
@@ -736,7 +763,7 @@ export function createStorage<
     const entry = entryFor(key);
 
     return chain(afterWrites(mode, key), () =>
-      previousNames(entry).reduce<MaybePromise<boolean>>(
+      entry.oldNames.reduce<MaybePromise<boolean>>(
         (found, name) => chain(found, (present) => present || io.has(name)),
         io.has(entry.physicalKey),
       ),

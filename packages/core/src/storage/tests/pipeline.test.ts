@@ -20,7 +20,7 @@ function entry(
   definition: KeyDefinition,
   serializer: Serializer<unknown> = jsonSerializer as Serializer<unknown>,
 ): EntryContext {
-  return { key: "theme", physicalKey: "app:theme", definition, serializer };
+  return { key: "theme", physicalKey: "app:theme", oldNames: [], definition, serializer };
 }
 
 describe("serializeValue", () => {

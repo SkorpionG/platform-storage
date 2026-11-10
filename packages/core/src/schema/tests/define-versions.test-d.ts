@@ -177,3 +177,18 @@ describe("recover on an ordinary key", () => {
     defineKey(v1, { recover: () => undefined });
   });
 });
+
+describe("opting a key out of a prefix", () => {
+  it("is accepted as a boolean wherever a key takes options", () => {
+    chain.options({ prefixed: false });
+    defineKey(v1, { prefixed: false });
+    defineStorageSchema({ user: { schema: v1, prefixed: false } });
+  });
+
+  it("refuses anything but a boolean", () => {
+    // @ts-expect-error `prefixed` is a boolean.
+    chain.options({ prefixed: "no" });
+    // @ts-expect-error `prefixed` is a boolean.
+    defineKey(v1, { prefixed: 0 });
+  });
+});

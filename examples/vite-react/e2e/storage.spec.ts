@@ -133,6 +133,69 @@ test("text that was never JSON is repaired by recover and saved bare", async ({ 
   expect(stored).toBe('"green"');
 });
 
+test("two storages under different prefixes keep apart on one origin", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("textbox", { name: "Team A note" }).fill("alpha");
+  await page.getByRole("textbox", { name: "Team B note" }).fill("beta");
+
+  const stored = await page.evaluate(() => ({
+    a: window.localStorage.getItem("team-a:note"),
+    b: window.localStorage.getItem("team-b:note"),
+    bare: window.localStorage.getItem("note"),
+  }));
+
+  expect(stored).toEqual({ a: '"alpha"', b: '"beta"', bare: null });
+
+  await page
+    .locator("div.py-3", { has: page.getByText("Team A", { exact: true }) })
+    .getByRole("button", { name: "Clear" })
+    .click();
+
+  await expect(page.getByLabel("Team A reads as")).toContainText("undefined");
+  await expect(page.getByLabel("Team B reads as")).toContainText("beta");
+  expect(await page.evaluate(() => window.localStorage.getItem("team-b:note"))).toBe('"beta"');
+});
+
+test("the origin inspector follows writes and clears through a prefixed storage", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  const inspector = page.locator("section", {
+    has: page.getByRole("heading", { name: "What is actually on the origin" }),
+  });
+
+  await page.getByRole("textbox", { name: "Team A note" }).fill("alpha");
+
+  await expect(inspector.getByText("team-a:note", { exact: true })).toBeVisible();
+
+  await page
+    .locator("div.py-3", { has: page.getByText("Team A", { exact: true }) })
+    .getByRole("button", { name: "Clear" })
+    .click();
+
+  await expect(inspector.getByText("team-a:note", { exact: true })).toHaveCount(0);
+});
+
+test("adopting a prefix moves a value left under the bare name", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    window.localStorage.setItem("note", JSON.stringify("from before"));
+  });
+  await page.reload();
+
+  await expect(page.getByLabel("Adopted note reads as")).toContainText("from before");
+
+  const stored = await page.evaluate(() => ({
+    adopted: window.localStorage.getItem("app:note"),
+    bare: window.localStorage.getItem("note"),
+  }));
+
+  expect(stored).toEqual({ adopted: '"from before"', bare: null });
+  await expect(page.getByLabel("Bare note")).toContainText("empty");
+});
+
 test("a full origin is reported as a quota error", async ({ page }) => {
   await page.goto("/");
 

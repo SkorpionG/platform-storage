@@ -58,8 +58,12 @@ Builds a storage over `localStorage`, with the adapter supplied for you.
 - `options`: everything `createStorage` takes apart from `adapter`:
   - `schema: StorageSchema` — from `defineStorageSchema`. Required.
   - `serializer?: Serializer<string>` — replaces the JSON default. Web storage transports strings, so the wire type is `string`.
+  - `prefix?: string` — put before every stored name, so the storage can share a backend. See [Prefixing stored names](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#prefixing-stored-names).
+  - `readUnprefixed?: boolean` — also read each key's names without the prefix, to move existing values in. See [Adopting a prefix](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#adopting-a-prefix).
   - `onInvalid?: "throw" | "fallback" | "remove" | callback` — the policy for keys that declare none. Defaults to `"fallback"`.
   - `onError?: (error: PlatformStorageError) => void` — called for every failure, thrown or handled.
+
+**Throws:** `StorageSchemaError` if `prefix` is empty, `readUnprefixed` is asked for without one, or the names a prefix gives clash.
 
 **Returns:** `SyncPlatformStorage<Definition>` — the asynchronous API plus `getSync`, `setSync`, `updateSync`, `removeSync`, `hasSync` and `clearSync`.
 

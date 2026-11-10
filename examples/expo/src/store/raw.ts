@@ -1,4 +1,4 @@
-import { DECLARED_PHYSICAL_KEYS } from "@examples/schema";
+import { storedNamesOf } from "@examples/schema";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { local } from "./storages";
@@ -24,13 +24,16 @@ export async function plantValue(physicalKey: string, value: unknown): Promise<v
   await AsyncStorage.setItem(physicalKey, JSON.stringify(value));
 }
 
-/** Everything on the device, each entry flagged against the keys this schema declares. */
+/* Asked of the storage rather than read off the schema, because a storage's prefix is part of every name it stores under. */
+const OURS = storedNamesOf([local]);
+
+/** Everything on the device, each entry flagged against the names this storage stores under. */
 export async function readEverything(): Promise<ReadonlyArray<StoredEntry>> {
   const keys = (await local.adapter.keys?.()) ?? [];
   const pairs = await AsyncStorage.multiGet([...keys]);
 
   /* `sort` rather than `toSorted`, which Hermes does not implement. Nothing else holds this array: `map` has just produced it. */
   return pairs
-    .map(([key, text]) => ({ key, text: text ?? "", ours: DECLARED_PHYSICAL_KEYS.has(key) }))
+    .map(([key, text]) => ({ key, text: text ?? "", ours: OURS.has(key) }))
     .sort((left, right) => left.key.localeCompare(right.key));
 }

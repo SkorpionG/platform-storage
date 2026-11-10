@@ -16,14 +16,6 @@ A key that declares versions is the one exception, because it has to record its 
 
 Reading, writing and removing several keys at once, each keeping its own type in the result. Extension areas take batches natively, so the adapter contract would grow optional hooks with a loop everywhere else. This is where a per-operation round trip costs the most, and where `clear()` would stop being one call per key.
 
-### Namespace prefix
-
-A prefix on the keys a storage stores under, so one origin can hold several unrelated storages without their names colliding. It would belong to the storage rather than to the schema or a key, since one schema can back several storages.
-
-Two things it has to get right. A key needs a way out of the prefix, for addressing a name something else owns. And adopting a prefix renames everything already stored, which cannot be done silently, so it would lean on `readFrom`.
-
-An option to read each key's unprefixed name automatically would make that adoption one line. It has to be opt-in and temporary: on a shared origin the unprefixed name may belong to other code, and adopting it would take that value and delete it.
-
 ### A fallback without leaving the platform factories
 
 A platform factory such as `createLocalStorage` cannot take a fallback, so working where the backend is missing means dropping down to `createStorage` and `withFallback`. Accepting a list of adapters would shorten that call without reaching the factories. A list also needs its wire types checked against each other, and `withFallback` can only say which of two halves it chose.
@@ -36,13 +28,13 @@ A platform factory such as `createLocalStorage` cannot take a fallback, so worki
 | ------------ | ------------------------------------------------------------------------------------------------------------- |
 | `declared`   | The default. Every name the schema lists: current names and `readFrom` names, and unprefixed names being read |
 | `readFrom`   | Only the names listed in `readFrom`                                                                           |
-| `unprefixed` | Only each key's name without the namespace prefix                                                             |
+| `unprefixed` | Only each key's name without the storage's prefix                                                             |
 | `undeclared` | Stored names the schema does not list                                                                         |
 | `everything` | The whole backend, including data other code owns. Cannot be combined with another target                     |
 
 The default has to include old names, because a read finding a value under one would otherwise bring back what `clear` just removed.
 
-Anything wider than `declared` can delete another program's data on a shared origin, so it has to be asked for by name. `undeclared` and `everything` need an adapter's optional `keys`, and `unprefixed` needs the namespace prefix first.
+Anything wider than `declared` can delete another program's data on a shared origin, so it has to be asked for by name. `undeclared` and `everything` need an adapter's optional `keys`. `unprefixed` would tidy up after `readUnprefixed`, removing bare names left behind by values that were never read.
 
 ### Migrating everything up front
 
@@ -117,6 +109,10 @@ oxlint gains type-aware rules through a companion tracking the TypeScript 7 line
 A callback written inline inside `defineStorageSchema` has its return trusted rather than checked. The object is inferred and then constrained against a type derived from itself, so the callback gets no usable expectation to meet.
 
 `defineKey(schema, options)` is the checked form and covers the case today.
+
+### Refusing `readUnprefixed` without a prefix at compile time
+
+The rule is checked when a storage is built. A union type would catch it while typing, but `CreateStorageOptions` would then stop being an interface a consumer can extend, or `Omit` from and spread back into `createStorage`, which breaks code built on it. Worth revisiting alongside another breaking change.
 
 ### Isolated declarations
 

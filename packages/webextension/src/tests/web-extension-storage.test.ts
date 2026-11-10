@@ -15,6 +15,15 @@ afterEach(() => {
 });
 
 describe("createWebExtensionStorage", () => {
+  it("stores every key under the prefix it is given", async () => {
+    const namespace = fakeStorageNamespace();
+    const storage = createWebExtensionStorage({ schema, prefix: "ext:", storage: () => namespace });
+
+    await storage.set("theme", "dark");
+
+    expect(namespace.local.entries.get("ext:theme")).toBe("dark");
+  });
+
   it("round-trips through the local area by default, storing the value itself under the physical key", async () => {
     const namespace = fakeStorageNamespace();
     const storage = createWebExtensionStorage({ schema, storage: () => namespace });

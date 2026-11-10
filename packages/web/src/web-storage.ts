@@ -57,8 +57,9 @@ export function sessionStorageAdapter(
  *
  * Web storage answers immediately, so the result carries the synchronous half as well: a first render can read `getSync` without a loading state.
  *
- * @param options - The `schema`, and optionally `onInvalid` and `onError`. The adapter is supplied for you.
+ * @param options - The `schema`, and optionally `prefix`, `readUnprefixed`, `onInvalid` and `onError`. The adapter is supplied for you.
  * @returns A storage carrying both halves of the API.
+ * @throws {StorageSchemaError} If `prefix` is empty, `readUnprefixed` is asked for without one, or the names a prefix gives clash.
  * @example
  * ```ts
  * const storage = createLocalStorage({ schema });
@@ -78,8 +79,9 @@ export function createLocalStorage<Definition extends StorageSchemaDefinition>(
  *
  * Otherwise exactly {@link createLocalStorage}, including the synchronous half.
  *
- * @param options - The `schema`, and optionally `onInvalid` and `onError`.
+ * @param options - The `schema`, and optionally `prefix`, `readUnprefixed`, `onInvalid` and `onError`.
  * @returns A storage carrying both halves of the API.
+ * @throws {StorageSchemaError} If `prefix` is empty, `readUnprefixed` is asked for without one, or the names a prefix gives clash.
  * @example
  * ```ts
  * const draft = createSessionStorage({ schema });

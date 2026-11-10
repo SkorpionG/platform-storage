@@ -101,6 +101,8 @@ describe("what the entry point deliberately withholds", () => {
     expectTypeOf(entry).not.toHaveProperty("copyValue");
     expectTypeOf(entry).not.toHaveProperty("wrapEnvelope");
     expectTypeOf(entry).not.toHaveProperty("unwrapStored");
+    expectTypeOf(entry).not.toHaveProperty("resolveStoredNames");
+    expectTypeOf(entry).not.toHaveProperty("checkStoredNames");
   });
 });
 

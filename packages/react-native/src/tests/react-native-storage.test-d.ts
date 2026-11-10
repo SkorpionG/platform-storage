@@ -74,3 +74,39 @@ describe("createReactNativeStorage", () => {
     });
   });
 });
+
+describe("where the storage puts its names", () => {
+  const maybePrefix = "app:" as string | undefined;
+  const maybeRead = true as boolean;
+
+  it("takes a prefix that may be absent", () => {
+    void createReactNativeStorage({
+      schema,
+      asyncStorage: fakeAsyncStorage(),
+      prefix: maybePrefix,
+    });
+  });
+
+  it("takes readUnprefixed beside a prefix, whatever boolean it is", () => {
+    void createReactNativeStorage({
+      schema,
+      asyncStorage: fakeAsyncStorage(),
+      prefix: "app:",
+      readUnprefixed: true,
+    });
+    void createReactNativeStorage({
+      schema,
+      asyncStorage: fakeAsyncStorage(),
+      prefix: "app:",
+      readUnprefixed: maybeRead,
+    });
+  });
+
+  it("leaves readUnprefixed without a prefix to be refused when the storage is built", () => {
+    void createReactNativeStorage({
+      schema,
+      asyncStorage: fakeAsyncStorage(),
+      readUnprefixed: true,
+    });
+  });
+});

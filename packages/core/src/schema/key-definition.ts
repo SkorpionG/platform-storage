@@ -20,11 +20,18 @@ export interface KeyDefinition<
   readonly schema: Schema;
 
   /**
-   * The key written to the backend. Defaults to the logical key.
+   * The name written to the backend, before any storage `prefix`. Defaults to the logical key.
    *
-   * Keeping the two separate is what lets the stored name be namespaced, or changed, without touching the name application code reads.
+   * Keeping the two separate is what lets the stored name change without touching the name application code reads.
    */
   readonly key?: string | undefined;
+
+  /**
+   * Set to `false` to keep this key out of a storage's `prefix`, for a name something else owns.
+   *
+   * The key and its `readFrom` names are then stored exactly as written, whatever prefix the storage has.
+   */
+  readonly prefixed?: boolean | undefined;
 
   /**
    * Names this key used to be stored under, in the order they should be tried.
@@ -68,8 +75,10 @@ export interface KeyDefinition<
  * `default` is compared against a deeply readonly view of the output, because both declaration sites infer literals with a `const` type parameter and that makes every array and object in a default readonly.
  */
 export interface KeyOptions<Schema extends StandardSchemaV1, InvalidResult = SchemaOutput<Schema>> {
-  /** The key written to the backend. Defaults to the logical key. */
+  /** The name written to the backend, before any storage `prefix`. Defaults to the logical key. */
   readonly key?: string | undefined;
+  /** Set to `false` to keep this key out of a storage's `prefix`, for a name something else owns. */
+  readonly prefixed?: boolean | undefined;
   /** Names this key used to be stored under. A read that finds nothing at the current name moves a value found under one of these. */
   readonly readFrom?: ReadonlyArray<string> | undefined;
   /** The value a read returns when nothing is stored. Declaring one removes `undefined` from the result type. */

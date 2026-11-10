@@ -25,7 +25,7 @@ export interface StorageSchema<
   readonly definition: Definition;
   /** Declared keys, in declaration order. */
   readonly keys: ReadonlyArray<KeyOf<Definition>>;
-  /** Each logical key resolved to the key its backend stores under. */
+  /** Each logical key resolved to the name it is stored under, before any storage adds its `prefix`. A storage's `physicalKey` answers with the name that prefix gives it. */
   readonly physicalKeys: { readonly [Key in KeyOf<Definition>]: string };
 }
 

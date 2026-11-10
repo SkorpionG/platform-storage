@@ -1,5 +1,22 @@
 # @platform-storage/react-native
 
+## 0.4.0
+
+### Minor Changes
+
+- A storage can now put a prefix before every name it stores under. `createStorage({ schema, adapter, prefix: "app:" })`, and every platform factory, stores `theme` as `app:theme`, so several storages, or a storage and other code, can share one backend without their names colliding. The prefix is taken literally, so the separator is yours to choose.
+
+  A key's `readFrom` names take the prefix too. A key declaring `prefixed: false` keeps its name and its `readFrom` names exactly as written, for a name something else owns. `storage.physicalKey(key)` answers with the prefixed name, while `schema.physicalKeys` stays unprefixed.
+
+  `createStorage` now throws `StorageSchemaError` for a `prefix` that is empty or not a string, and where the names a prefix gives clash. Adding a prefix to a storage that already holds data moves every name. `readUnprefixed: true` moves existing values across as they are read, trying each key's names without the prefix after the prefixed ones. Turn it off once old data has moved: while it is on, `has`, `clear()` and every write treat the bare names as this storage's, which on a shared backend can take another program's value.
+
+  `readUnprefixed` needs a `prefix`, and asking without one is refused with `StorageSchemaError` when the storage is built. The types do not catch it, so `CreateStorageOptions` stays an interface that can be extended and `Omit`ted.
+
+### Patch Changes
+
+- Updated dependencies
+  - @platform-storage/core@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes

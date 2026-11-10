@@ -34,6 +34,18 @@ export interface CreateStorageOptions<
   readonly adapter: Adapter;
   /** Replaces the adapter's own serializer. Typed against what that adapter transports. */
   readonly serializer?: Serializer<WireOf<Adapter>> | undefined;
+  /**
+   * Put before every name this storage stores under, so it can share a backend without its names colliding.
+   *
+   * Taken literally, so `"app:"` stores `theme` as `app:theme` and the separator is yours to choose. A key's `readFrom` names take it too; a key declaring `prefixed: false` does not.
+   */
+  readonly prefix?: string | undefined;
+  /**
+   * Also tries each key's names without the prefix, after the prefixed ones, so a storage adopting a prefix moves its existing values across.
+   *
+   * Needs a `prefix`. Asking without one is refused when the storage is built rather than at compile time, so that this stays a type an interface can extend and a wrapper can `Omit` from.
+   */
+  readonly readUnprefixed?: boolean | undefined;
   /** The policy for every key that does not declare its own. Defaults to `"fallback"`. */
   readonly onInvalid?: OnInvalid<unknown> | undefined;
   /**
@@ -83,7 +95,7 @@ export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
    */
   clear(): Promise<void>;
 
-  /** The key the backend stores under, for tooling that has to address it directly. */
+  /** The name the backend stores this key under, the storage's `prefix` included, for tooling that has to address it directly. */
   physicalKey(key: KeyOf<Definition>): string;
 
   /**
