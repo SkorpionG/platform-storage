@@ -11,6 +11,7 @@ import {
   StorageUnavailableError,
   StorageValidationError,
 } from "../index";
+import type { JsonValue } from "../index";
 import type { WebExtensionStorageChangeEvent, WebExtensionStorageNamespace } from "../types";
 import { webExtensionStorageAdapter } from "../web-extension-storage-adapter";
 import {
@@ -452,5 +453,67 @@ describe("following changes", () => {
     );
 
     expect(subscription?.reportsOwnWrites).toBe(false);
+  });
+});
+
+describe("batches over an area", () => {
+  it("reads several names in one call, answering only those that hold something", async () => {
+    const namespace = fakeStorageNamespace();
+    const get = vi.spyOn(namespace.local, "get");
+    const adapter = webExtensionStorageAdapter({ storage: () => namespace });
+
+    await namespace.local.set({ a: 1, b: null });
+
+    expect(await adapter.getMany?.(["a", "b", "c"])).toEqual(
+      new Map<string, unknown>([
+        ["a", 1],
+        ["b", null],
+      ]),
+    );
+    expect(get).toHaveBeenCalledExactlyOnceWith(["a", "b", "c"]);
+  });
+
+  it("writes and removes several names in one call each", async () => {
+    const namespace = fakeStorageNamespace();
+    const set = vi.spyOn(namespace.local, "set");
+    const remove = vi.spyOn(namespace.local, "remove");
+    const adapter = webExtensionStorageAdapter({ storage: () => namespace });
+
+    await adapter.setMany?.(
+      new Map<string, JsonValue>([
+        ["a", 1],
+        ["b", { c: true }],
+      ]),
+    );
+
+    expect(set).toHaveBeenCalledExactlyOnceWith({ a: 1, b: { c: true } });
+
+    await adapter.removeMany?.(["a", "b"]);
+
+    expect(remove).toHaveBeenCalledExactlyOnceWith(["a", "b"]);
+    expect(namespace.local.entries.size).toBe(0);
+  });
+
+  it("names a full area on a batch write, as it does on a single one", async () => {
+    const adapter = webExtensionStorageAdapter({
+      storage: () => ({
+        local: fullStorageArea("QUOTA_BYTES quota exceeded"),
+        sync: fullStorageArea("x"),
+      }),
+    });
+
+    await expect(adapter.setMany?.(new Map([["a", 1]]))).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Quota,
+      operation: "setMany",
+    });
+  });
+
+  it("reports an area that is not there as unavailable, naming the batch operation", async () => {
+    const adapter = webExtensionStorageAdapter({ storage: () => undefined });
+
+    await expect(adapter.getMany?.(["a"])).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Unavailable,
+      operation: "getMany",
+    });
   });
 });

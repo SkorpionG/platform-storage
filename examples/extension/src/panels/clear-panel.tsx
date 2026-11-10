@@ -27,7 +27,7 @@ export function ClearPanel() {
       <p className="mt-3 text-xs leading-relaxed text-soft">
         Plant <Code>{FOREIGN_KEY}</Code>, fill some values above, then clear. Every schema key
         disappears from the inspector and the foreign key stays exactly where it was. The library
-        removes the keys it declared, one at a time, rather than calling{" "}
+        removes the keys it declared, naming them in one call, rather than calling{" "}
         <Code>storage.local.clear()</Code>. Neither button goes through the change bridge on its own
         account — the browser reports both, which is what moves the inspector.
       </p>

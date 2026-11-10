@@ -94,3 +94,81 @@ describe("createWriteQueue", () => {
     second.open();
   });
 });
+
+describe("a turn over several keys", () => {
+  it("runs immediately when nothing is ahead on any of them", () => {
+    expect(createWriteQueue().runAll(["a", "b"], () => 1)).toBe(1);
+  });
+
+  it("waits for every key's earlier task, and holds every key until it finishes", async () => {
+    const queue = createWriteQueue();
+    const onA = gate();
+    const onB = gate();
+    const holding = gate();
+    const order: Array<string> = [];
+
+    void queue.run("a", () => onA.opened.then(() => order.push("a")));
+    void queue.run("b", () => onB.opened.then(() => order.push("b")));
+    const both = queue.runAll(["a", "b"], () => {
+      order.push("both starts");
+
+      return holding.opened.then(() => order.push("both ends"));
+    });
+    const afterA = queue.run("a", () => {
+      order.push("after a");
+    });
+    const afterB = queue.run("b", () => {
+      order.push("after b");
+    });
+
+    onA.open();
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(order).toEqual(["a"]);
+
+    onB.open();
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(order).toEqual(["a", "b", "both starts"]);
+
+    holding.open();
+    await Promise.all([both, afterA, afterB]);
+
+    expect(order).toEqual(["a", "b", "both starts", "both ends", "after a", "after b"]);
+  });
+
+  it("cannot deadlock with another turn over the same keys in the other order", async () => {
+    const queue = createWriteQueue();
+    const earlier = gate();
+    const order: Array<string> = [];
+
+    /* Taking the keys one after another would deadlock here: the first would hold "a" while waiting for "b", which the second holds while waiting for "a". */
+    void queue.run("a", () => earlier.opened);
+    const first = queue.runAll(["a", "b"], () => {
+      order.push("ab");
+    });
+    const second = queue.runAll(["b", "a"], () => {
+      order.push("ba");
+    });
+
+    earlier.open();
+    await Promise.all([first, second]);
+
+    expect(order).toEqual(["ab", "ba"]);
+  });
+
+  it("lets go of every key once it settles, even after a failure", async () => {
+    const queue = createWriteQueue();
+
+    await expect(
+      queue.runAll(["a", "b"], () => Promise.reject(new Error("refused"))),
+    ).rejects.toThrow("refused");
+
+    expect(queue.settled("a")).toBeUndefined();
+    expect(queue.settled("b")).toBeUndefined();
+  });
+});

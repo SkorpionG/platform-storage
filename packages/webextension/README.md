@@ -82,7 +82,7 @@ The adapter the factory above is built from, for `createStorage` or anything els
 
 - `options?`: `area`, `storage` and `name`, exactly as above.
 
-**Returns:** `StorageAdapter<JsonValue>`, which can also list every name the area holds through `keys()`, and follow every context's changes through `subscribe`.
+**Returns:** `StorageAdapter<JsonValue>`, which can also list every name the area holds through `keys()`, read, write and remove several names in one call through `getMany`, `setMany` and `removeMany`, and follow every context's changes through `subscribe`. One call for several names matters most on the `sync` area, whose writes are rate-limited.
 
 ### `resolveWebExtensionStorage()`
 

@@ -12,10 +12,6 @@ A key that declares versions is the one exception, because it has to record its 
 
 ## Next
 
-### Batch reads and writes
-
-Reading, writing and removing several keys at once, each keeping its own type in the result. Extension areas take batches natively, so the adapter contract would grow optional hooks with a loop everywhere else. This is where a per-operation round trip costs the most, and where `clear()` would stop being one call per key.
-
 ### A fallback without leaving the platform factories
 
 A platform factory such as `createLocalStorage` cannot take a fallback, so working where the backend is missing means dropping down to `createStorage` and `withFallback`. Accepting a list of adapters would shorten that call without reaching the factories. A list also needs its wire types checked against each other, and `withFallback` can only say which of two halves it chose.
@@ -73,6 +69,10 @@ A serializer boundary is the natural seam. Needs care around key management, whi
 An adapter over `document.cookie`, for a small value that has to be shared across subdomains or reach a server. A cookie holds far less than the other backends, expires, and needs its domain and lifetime configured, so it would not simply be another `Storage`.
 
 ## React
+
+### Several keys through one hook
+
+A hook reading several keys at once, the way `getMany` does. A snapshot has to keep its identity until one of its keys changes, which for several keys means tracking a generation per key and building the answer again only when one of them moves.
 
 ### Suspense for the asynchronous hooks
 

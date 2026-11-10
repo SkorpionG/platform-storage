@@ -217,3 +217,49 @@ export function areaAdapter(initial: Readonly<Record<string, JsonValue>> = {}): 
     },
   };
 }
+
+/** An asynchronous backend with batch methods, recording every call it receives, with an optional pause placed after a call has done its work. */
+export interface BatchingAdapter extends StorageAdapter<string> {
+  readonly entries: Map<string, string>;
+  readonly calls: Array<string>;
+}
+
+export function batchingAdapter(
+  initial: Readonly<Record<string, string>> = {},
+  pauseAfter: (call: string) => Promise<void> | undefined = () => undefined,
+): BatchingAdapter {
+  const recording = recordingAdapter(initial, pauseAfter);
+  const { entries, calls } = recording;
+
+  const record = async <Value>(call: string, work: () => Value): Promise<Value> => {
+    calls.push(call);
+    const result = work();
+    await pauseAfter(call);
+
+    return result;
+  };
+
+  return {
+    ...recording,
+    getMany: (keys) =>
+      record(`getMany ${keys.join(",")}`, () => {
+        const found = new Map<string, string>();
+
+        for (const key of keys) {
+          const value = entries.get(key);
+
+          if (value !== undefined) found.set(key, value);
+        }
+
+        return found;
+      }),
+    setMany: (items) =>
+      record(`setMany ${[...items.keys()].join(",")}`, () => {
+        for (const [key, value] of items) entries.set(key, value);
+      }),
+    removeMany: (keys) =>
+      record(`removeMany ${keys.join(",")}`, () => {
+        for (const key of keys) entries.delete(key);
+      }),
+  };
+}

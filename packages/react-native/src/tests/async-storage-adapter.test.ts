@@ -11,6 +11,7 @@ import {
   StorageValidationError,
 } from "../index";
 import { asyncStorageAdapter } from "../async-storage-adapter";
+import type { AsyncStorageLike } from "../types";
 import { fakeAsyncStorage, rejectingAsyncStorage } from "../../tests/fakes/fake-async-storage";
 
 const schema = defineStorageSchema({
@@ -168,5 +169,155 @@ describe("listing what the storage holds", () => {
 describe("following changes", () => {
   it("offers no feed, because AsyncStorage reports nothing", () => {
     expect(asyncStorageAdapter(fakeAsyncStorage()).subscribe).toBeUndefined();
+  });
+});
+
+/** An instance whose batch methods can only reach what they record through `this`. */
+interface Recorder {
+  readonly seen: Array<string>;
+}
+
+function noted(owner: Recorder, name: string): Promise<void> {
+  owner.seen.push(name);
+
+  return Promise.resolve();
+}
+
+async function exerciseBatches(instance: AsyncStorageLike & Recorder): Promise<void> {
+  const adapter = asyncStorageAdapter(instance);
+
+  await adapter.getMany?.(["a"]);
+  await adapter.setMany?.(new Map([["a", "1"]]));
+  await adapter.removeMany?.(["a"]);
+}
+
+describe("batches over AsyncStorage", () => {
+  it("uses AsyncStorage 3's batch methods, leaving out names that answer null", async () => {
+    const base = fakeAsyncStorage({ a: "1" });
+    const calls: Array<string> = [];
+    const adapter = asyncStorageAdapter({
+      ...base,
+      getMany(keys) {
+        calls.push(`getMany ${keys.join(",")}`);
+
+        return Promise.resolve(
+          Object.fromEntries(keys.map((key) => [key, base.entries.get(key) ?? null])),
+        );
+      },
+      setMany(entries) {
+        calls.push(`setMany ${Object.keys(entries).join(",")}`);
+
+        return Promise.resolve();
+      },
+      removeMany(keys) {
+        calls.push(`removeMany ${keys.join(",")}`);
+
+        return Promise.resolve();
+      },
+    });
+
+    expect(await adapter.getMany?.(["a", "b"])).toEqual(new Map([["a", "1"]]));
+    await adapter.setMany?.(new Map([["c", "3"]]));
+    await adapter.removeMany?.(["a"]);
+
+    expect(calls).toEqual(["getMany a,b", "setMany c", "removeMany a"]);
+  });
+
+  it("uses AsyncStorage 2's batch methods where those are what it has", async () => {
+    const base = fakeAsyncStorage({ a: "1" });
+    const calls: Array<string> = [];
+    const adapter = asyncStorageAdapter({
+      ...base,
+      multiGet(keys) {
+        calls.push(`multiGet ${keys.join(",")}`);
+
+        return Promise.resolve(keys.map((key) => [key, base.entries.get(key) ?? null] as const));
+      },
+      multiSet(pairs) {
+        calls.push(`multiSet ${pairs.map(([key]) => key).join(",")}`);
+
+        return Promise.resolve();
+      },
+      multiRemove(keys) {
+        calls.push(`multiRemove ${keys.join(",")}`);
+
+        return Promise.resolve();
+      },
+    });
+
+    expect(await adapter.getMany?.(["a", "b"])).toEqual(new Map([["a", "1"]]));
+    await adapter.setMany?.(new Map([["c", "3"]]));
+    await adapter.removeMany?.(["a"]);
+
+    expect(calls).toEqual(["multiGet a,b", "multiSet c", "multiRemove a"]);
+  });
+
+  it("prefers AsyncStorage 3's methods when both are there", async () => {
+    const calls: Array<string> = [];
+    const adapter = asyncStorageAdapter({
+      ...fakeAsyncStorage(),
+      getMany: () => {
+        calls.push("getMany");
+
+        return Promise.resolve({});
+      },
+      multiGet: () => {
+        calls.push("multiGet");
+
+        return Promise.resolve([]);
+      },
+    });
+
+    await adapter.getMany?.(["a"]);
+
+    expect(calls).toEqual(["getMany"]);
+  });
+
+  it("keeps every batch method on its instance, since a method taken off it loses its receiver", async () => {
+    const seen: Array<string> = [];
+
+    await exerciseBatches({
+      ...fakeAsyncStorage(),
+      seen,
+      getMany(this: Recorder) {
+        return noted(this, "getMany").then(() => ({}));
+      },
+      setMany(this: Recorder) {
+        return noted(this, "setMany");
+      },
+      removeMany(this: Recorder) {
+        return noted(this, "removeMany");
+      },
+    });
+    await exerciseBatches({
+      ...fakeAsyncStorage(),
+      seen,
+      multiGet(this: Recorder) {
+        return noted(this, "multiGet").then(() => []);
+      },
+      multiSet(this: Recorder) {
+        return noted(this, "multiSet");
+      },
+      multiRemove(this: Recorder) {
+        return noted(this, "multiRemove");
+      },
+    });
+
+    expect(seen).toEqual([
+      "getMany",
+      "setMany",
+      "removeMany",
+      "multiGet",
+      "multiSet",
+      "multiRemove",
+    ]);
+  });
+
+  it("offers no batch method for an instance with neither", () => {
+    const adapter = asyncStorageAdapter(fakeAsyncStorage());
+
+    expect(adapter.getMany).toBeUndefined();
+    expect(adapter.setMany).toBeUndefined();
+    expect(adapter.removeMany).toBeUndefined();
   });
 });

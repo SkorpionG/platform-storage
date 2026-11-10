@@ -36,6 +36,17 @@ export interface StorageAdapter<Wire = unknown> {
   set(key: string, value: Wire): Promise<void>;
   remove(key: string): Promise<void>;
 
+  /**
+   * Optional: reads several names in one call, answering only those that hold something.
+   *
+   * For a backend where each call is expensive, such as an extension's rate-limited `sync` area or AsyncStorage's native bridge. Without it the engine asks for each name in turn.
+   */
+  getMany?(keys: ReadonlyArray<string>): Promise<ReadonlyMap<string, Wire>>;
+  /** Optional: writes several names in one call. Without it the engine writes each in turn. */
+  setMany?(entries: ReadonlyMap<string, Wire>): Promise<void>;
+  /** Optional: removes several names in one call. Without it the engine removes each in turn. */
+  removeMany?(keys: ReadonlyArray<string>): Promise<void>;
+
   /** Optional: the engine falls back to a `get` when a backend has no cheaper existence check. */
   has?(key: string): Promise<boolean>;
 
@@ -66,6 +77,9 @@ export interface SyncStorageAdapter<Wire = unknown> extends StorageAdapter<Wire>
   getSync(key: string): Wire | undefined;
   setSync(key: string, value: Wire): void;
   removeSync(key: string): void;
+  getManySync?(keys: ReadonlyArray<string>): ReadonlyMap<string, Wire>;
+  setManySync?(entries: ReadonlyMap<string, Wire>): void;
+  removeManySync?(keys: ReadonlyArray<string>): void;
   hasSync?(key: string): boolean;
   keysSync?(): ReadonlyArray<string>;
 }
@@ -107,6 +121,9 @@ export interface SyncAdapterDefinition<Wire> {
   getSync(key: string): Wire | undefined;
   setSync(key: string, value: Wire): void;
   removeSync(key: string): void;
+  getManySync?(keys: ReadonlyArray<string>): ReadonlyMap<string, Wire>;
+  setManySync?(entries: ReadonlyMap<string, Wire>): void;
+  removeManySync?(keys: ReadonlyArray<string>): void;
   hasSync?(key: string): boolean;
   isAvailable?(): boolean;
   keysSync?(): ReadonlyArray<string>;
@@ -118,7 +135,9 @@ export interface SyncAdapterDefinition<Wire> {
  *
  * The generated asynchronous methods start from a resolved promise, which turns a synchronous throw into a rejection: a caller awaiting `get` should never have to also wrap it in `try`.
  *
- * @param definition - The synchronous operations, the adapter's name, and the serializer it transports through. `hasSync`, `isAvailable`, `keysSync` and `subscribe` are optional.
+ * Every method is called on the definition, so one written with method syntax can reach the others through `this`.
+ *
+ * @param definition - The synchronous operations, the adapter's name, and the serializer it transports through. `getManySync`, `setManySync`, `removeManySync`, `hasSync`, `isAvailable`, `keysSync` and `subscribe` are optional.
  * @returns An adapter carrying both halves, ready for `createStorage`.
  * @example
  * ```ts
@@ -134,7 +153,8 @@ export interface SyncAdapterDefinition<Wire> {
 export function defineSyncAdapter<Wire>(
   definition: SyncAdapterDefinition<Wire>,
 ): SyncStorageAdapter<Wire> {
-  const { hasSync, isAvailable, keysSync, subscribe } = definition;
+  const { getManySync, setManySync, removeManySync, hasSync, isAvailable, keysSync, subscribe } =
+    definition;
 
   return {
     name: definition.name,
@@ -158,19 +178,50 @@ export function defineSyncAdapter<Wire>(
         definition.removeSync(key);
       }),
 
+    ...(getManySync === undefined
+      ? {}
+      : {
+          getManySync: (keys: ReadonlyArray<string>) => getManySync.call(definition, keys),
+          getMany: (keys: ReadonlyArray<string>) =>
+            Promise.resolve().then(() => getManySync.call(definition, keys)),
+        }),
+    ...(setManySync === undefined
+      ? {}
+      : {
+          setManySync: (entries: ReadonlyMap<string, Wire>) => {
+            setManySync.call(definition, entries);
+          },
+          setMany: (entries: ReadonlyMap<string, Wire>) =>
+            Promise.resolve().then(() => {
+              setManySync.call(definition, entries);
+            }),
+        }),
+    ...(removeManySync === undefined
+      ? {}
+      : {
+          removeManySync: (keys: ReadonlyArray<string>) => {
+            removeManySync.call(definition, keys);
+          },
+          removeMany: (keys: ReadonlyArray<string>) =>
+            Promise.resolve().then(() => {
+              removeManySync.call(definition, keys);
+            }),
+        }),
     ...(hasSync === undefined
       ? {}
       : {
-          hasSync: (key: string) => hasSync(key),
-          has: (key: string) => Promise.resolve().then(() => hasSync(key)),
+          hasSync: (key: string) => hasSync.call(definition, key),
+          has: (key: string) => Promise.resolve().then(() => hasSync.call(definition, key)),
         }),
-    ...(isAvailable === undefined ? {} : { isAvailable: () => isAvailable() }),
+    ...(isAvailable === undefined ? {} : { isAvailable: () => isAvailable.call(definition) }),
     ...(keysSync === undefined
       ? {}
       : {
-          keysSync: () => keysSync(),
-          keys: () => Promise.resolve().then(() => keysSync()),
+          keysSync: () => keysSync.call(definition),
+          keys: () => Promise.resolve().then(() => keysSync.call(definition)),
         }),
-    ...(subscribe === undefined ? {} : { subscribe: (listener) => subscribe(listener) }),
+    ...(subscribe === undefined
+      ? {}
+      : { subscribe: (listener) => subscribe.call(definition, listener) }),
   };
 }

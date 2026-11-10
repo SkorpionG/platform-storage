@@ -93,7 +93,7 @@ The adapter the factory above is built from, for `createStorage` or anything els
 - `options?`:
   - `name?: string` — what errors report. Defaults to `"AsyncStorage"`.
 
-**Returns:** `StorageAdapter<string>`, which can also list every name the storage holds through `keys()` when the instance has `getAllKeys`. AsyncStorage reports no changes, so `watch` and `onChange` hear writes made through the same storage only.
+**Returns:** `StorageAdapter<string>`, which can also list every name the storage holds through `keys()` when the instance has `getAllKeys`, and work on several names in one call when it has AsyncStorage 3's or 2's batch methods. AsyncStorage reports no changes, so `watch` and `onChange` hear writes made through the same storage only.
 
 AsyncStorage reports a missing key as `null`; the adapter maps that to `undefined`, because a schema may legitimately store `null` and the two cannot share a meaning.
 
@@ -107,10 +107,20 @@ interface AsyncStorageLike {
   setItem(key: string, value: string): Promise<void>;
   removeItem(key: string): Promise<void>;
   getAllKeys?(): Promise<ReadonlyArray<string>>;
+
+  // AsyncStorage 3
+  getMany?(keys: Array<string>): Promise<Record<string, string | null>>;
+  setMany?(entries: Record<string, string>): Promise<void>;
+  removeMany?(keys: Array<string>): Promise<void>;
+
+  // AsyncStorage 2
+  multiGet?(keys: Array<string>): Promise<ReadonlyArray<readonly [string, string | null]>>;
+  multiSet?(pairs: Array<[string, string]>): Promise<void>;
+  multiRemove?(keys: Array<string>): Promise<void>;
 }
 ```
 
-A conformance test checks it against AsyncStorage's own declaration, so anything satisfying these three can stand in.
+A conformance test checks it against AsyncStorage's own declaration, so anything satisfying the first three can stand in. The batch methods let the adapter work on several names in one call over the native bridge: it uses AsyncStorage 3's where they are there, AsyncStorage 2's otherwise, and one call per name without either.
 
 ## Examples
 

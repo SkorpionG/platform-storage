@@ -45,6 +45,8 @@ Web storage answers immediately, so the storage also carries the synchronous hal
 
 Values are stored as JSON text under the physical key, with nothing wrapped around them unless the key declares versions. `clear()` removes only the keys the schema declares, never the rest of an origin that other code shares.
 
+`getMany`, `setMany` and `removeMany` work here as everywhere, but web storage has no batch call, so each name is reached in turn. They still save code, and a batch still takes every key's turn at once.
+
 ## API Usage
 
 Everything `@platform-storage/core` exports is available here too — `defineStorageSchema`, `defineKey`, `createStorage`, the errors and the guards. See [its README](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#readme) for those. What follows is what this package adds.
@@ -65,7 +67,7 @@ Builds a storage over `localStorage`, with the adapter supplied for you.
 
 **Throws:** `StorageSchemaError` if `prefix` is empty, `readUnprefixed` is asked for without one, or the names a prefix gives clash.
 
-**Returns:** `SyncPlatformStorage<Definition>` — the asynchronous API plus `getSync`, `setSync`, `updateSync`, `removeSync`, `hasSync` and `clearSync`.
+**Returns:** `SyncPlatformStorage<Definition>` — the asynchronous API plus `getSync`, `getManySync`, `setSync`, `setManySync`, `updateSync`, `removeSync`, `removeManySync`, `hasSync` and `clearSync`.
 
 ```ts
 const storage = createLocalStorage({

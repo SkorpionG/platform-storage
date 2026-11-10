@@ -2,6 +2,7 @@ import { Code, Masthead } from "@examples/ui";
 
 import { AppliedTheme } from "./applied-theme";
 import { AreasPanel } from "./panels/areas-panel";
+import { BatchPanel } from "./panels/batch-panel";
 import { ClearPanel } from "./panels/clear-panel";
 import { CorruptPanel } from "./panels/corrupt-panel";
 import { CrossContextPanel } from "./panels/cross-context-panel";
@@ -41,6 +42,7 @@ export function OptionsApp() {
           <AreasPanel />
           <NoSyncHalfPanel />
           <QuotaPanel />
+          <BatchPanel />
           <CorruptPanel />
           <ClearPanel />
         </div>

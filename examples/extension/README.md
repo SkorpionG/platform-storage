@@ -32,11 +32,12 @@ pnpm --filter @examples/extension build:firefox
 
 ## What to look at
 
-Most panels are the browser playground's, reworked for a backend that only ever answers later. These four have no counterpart there:
+Most panels are the browser playground's, reworked for a backend that only ever answers later. These five have no counterpart there:
 
 - **A change made somewhere else.** Write a value in the options page and watch the open popup follow it. The hooks follow `storage.onChanged` by themselves, and the panel shows `storage.watch` reporting the value before and after, along with the adapter's raw feed underneath.
 - **The service worker.** Two counters, one in the worker's memory and one in the area. Terminate the worker from `chrome://extensions` and only the first goes back to zero — which is what resolving the backend on every operation buys you.
 - **Which API was found.** `browser` is preferred over `chrome`. Load the Firefox build to see that it was, since Firefox defines both.
+- **Several keys in one call.** Read every key one at a time, then all at once with `getMany`, and compare how many calls each made to the `sync` area. `setMany` and `removeMany` write and remove several in one call too.
 - **When the browser says no.** Push a value past the `sync` area's eight kilobytes an item and watch it come back as `StorageAdapterError` with the browser's own message as its cause, while the same write to `local` succeeds.
 
 Two differences from the browser examples are worth noticing, because neither is a limitation of this demo:

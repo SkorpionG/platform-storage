@@ -54,7 +54,7 @@ describe("StorageOperation", () => {
   });
 
   it("declares exactly the operations an adapter does not implement", () => {
-    // Both belong to the storage: `clear` removes the keys its schema declares one at a time rather than asking a backend to wipe an origin it shares with other code, and `update` is a read and a write.
+    // Both belong to the storage: `clear` removes the keys its schema declares rather than asking a backend to wipe an origin it shares with other code, and `update` is a read and a write.
     expectTypeOf<Exclude<StorageOperation, AdapterOperationMethods>>().toEqualTypeOf<
       "clear" | "update"
     >();

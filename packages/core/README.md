@@ -148,9 +148,38 @@ const storage = createStorage({
 
 Reads, deserializes and validates. Returns the key's default when nothing is stored, and applies the invalid-data policy when what is stored no longer matches. `options.onInvalid` overrides the policy for this read alone, and is checked against what the key can hold.
 
+#### `getMany(keys, options?): Promise<Values>`
+
+Reads several keys, each exactly as `get` would, with one call to the backend for all of them. Answers an object keyed by the keys asked for.
+
+```ts
+const { theme, user } = await storage.getMany(["theme", "user"]);
+```
+
+Every name the keys could be stored under, old names and the prefix included, is fetched together. That matters most where each call is expensive: an extension's rate-limited `sync` area, or AsyncStorage's native bridge. `localStorage` has no batch call, so there it reads each name in turn and gains nothing but the shorter code.
+
+- A key's default, invalid-data policy, versions, `recover` and repairs all apply as they do for `get`. A repair still re-checks the backend before it writes.
+- `options.onInvalid` takes a named policy only, since a callback is checked against what one key can hold.
+- A key listed twice is read once, an empty list answers `{}` without reaching the backend, and an undeclared key throws before anything is read.
+- The answer is typed from the keys given, so pass them as a literal list. A list typed more widely than what it holds claims keys the answer will not have.
+
 #### `set(key, value): Promise<void>`
 
 Validates and writes. Stores what the schema produced, so a coercion is persisted in its normalized form. Throws `StorageValidationError` and writes nothing if the schema refuses the value.
+
+#### `setMany(values): Promise<void>`
+
+Writes several keys, each exactly as `set` would, with one call to the backend for all of them.
+
+```ts
+await storage.setMany({ theme: "dark", user: ada });
+```
+
+- Every value is validated and serialized before any is written, so one the schema refuses rejects the call with that key's error and nothing changes.
+- A key set to `undefined` is removed, as `set` removes it, which only a schema accepting `undefined` allows.
+- The call holds every key's turn at once: it waits for writes already started on any of them, and a write started after it waits for it.
+- Watchers hear about each key, as they would for `set`. If the call fails partway, every key it touched is read again and announced, since nothing says which writes landed.
+- A backend that fails partway through its own batch call cannot be undone. Extension areas take a batch in one call; AsyncStorage's batch methods make no promise either way.
 
 #### `update(key, updater): Promise<void>`
 
@@ -168,13 +197,17 @@ await storage.update("recent", (current) => [...current, "new item"]);
 
 Deletes the stored value, so the key reads as its default again.
 
+#### `removeMany(keys): Promise<void>`
+
+Removes several keys, and the old names they declare, in one call to the backend where it has one. A key listed twice is removed once, and an undeclared key throws before anything is removed.
+
 #### `has(key): Promise<boolean>`
 
 Whether anything is stored, without validating or deserializing it.
 
 #### `clear(): Promise<void>`
 
-Removes only the keys this schema declares, and the old names they declare in `readFrom`, never anything else sharing the backend.
+Removes only the keys this schema declares, and the old names they declare in `readFrom`, never anything else sharing the backend. It is `removeMany` over every declared key, so it is one call where the backend has a batch call. A refusal there reports the `removeMany` operation without naming a key, since nothing says which name the backend refused.
 
 #### `physicalKey(key): string`
 
@@ -188,9 +221,9 @@ Follows one key. `listener` receives `{ key, oldValue, newValue, oldValueKnown }
 
 Says which key changed, without reading anything, and `undefined` where anything may have. Returns a function that stops listening.
 
-#### `getSync` / `setSync` / `updateSync` / `removeSync` / `hasSync` / `clearSync`
+#### `getSync` / `getManySync` / `setSync` / `setManySync` / `updateSync` / `removeSync` / `removeManySync` / `hasSync` / `clearSync`
 
-The same six operations without a promise, present only when the adapter can answer immediately. Absent from the type otherwise, so a call to one is a compile error rather than a runtime surprise.
+The same operations without a promise, present only when the adapter can answer immediately. Absent from the type otherwise, so a call to one is a compile error rather than a runtime surprise.
 
 ### `memoryAdapter(options?)`
 
@@ -207,13 +240,13 @@ A backend that keeps everything in a `Map`. Useful in tests, as the second half 
 
 ### `withFallback(primary, fallback)`
 
-Builds one adapter that uses the first backend where it exists and the second where it does not. The choice is made on first use, which following its changes counts as, and then kept, so a value cannot be written to one and read from the other. The result is synchronous only when both halves are, and can list keys only when both halves can.
+Builds one adapter that uses the first backend where it exists and the second where it does not. The choice is made on first use, which following its changes counts as, and then kept, so a value cannot be written to one and read from the other. The result is synchronous only when both halves are, and can list keys or work on several names in one call only when both halves can.
 
 The result also has `chosen()`, answering `"primary"` or `"fallback"`, or `undefined` until first use has decided. Asking never forces the decision.
 
 ### `defineSyncAdapter(definition)`
 
-Builds a full adapter from its synchronous half, so each operation is written once and the asynchronous methods are derived.
+Builds a full adapter from its synchronous half, so each operation is written once and the asynchronous methods are derived. Every method is called on the definition, so one written with method syntax can reach the others through `this`. The optional batch methods `getManySync`, `setManySync` and `removeManySync` are carried through the same way.
 
 ### Listing what a backend holds
 
@@ -314,6 +347,8 @@ export function cookieAdapter(): SyncStorageAdapter<string> {
 
 The adapter owns its serializer, because backends disagree about what they can hold: strings for web storage, JSON values for an extension storage area. Resolve the backend on every operation rather than once at construction, since a storage is usually built while a module is loading and long before anything reads from it.
 
+A backend that can work on several names in one call can say so through the optional `getMany`, `setMany` and `removeMany`, and `getManySync`, `setManySync` and `removeManySync` on the synchronous half. `getMany` answers a `Map` of only the names that hold something. Without them the engine reaches each name in turn, which is all `localStorage` can do anyway. A failure inside a batch call is reported naming the batch operation rather than one key, since nothing says which name the backend refused.
+
 ### Surviving a server render
 
 Pair a platform adapter with memory, and one storage works both where the backend exists and where it does not.
@@ -336,7 +371,7 @@ const stop = storage.watch("theme", ({ oldValue, newValue }) => {
 });
 ```
 
-`watch` reports writes made through this storage and changes from other tabs or extension contexts, and each is delivered once, in order. Delivery connects during the first call, so a Manifest V3 service worker can register in its first turn.
+`watch` reports writes made through this storage and changes from other tabs or extension contexts, and each is delivered once, in order. A batch's keys are delivered together, before any change a listener makes in response. Delivery connects during the first call, so a Manifest V3 service worker can register in its first turn.
 
 - Invalid data arrives as a read would answer it, from `recover`, an `onInvalid` callback or otherwise the fallback, and `onError` hears about it. A watcher never writes, removes or throws, and a listener that throws is reported through `onError` while the others still run.
 - Each listener gets its own copy of plain objects, arrays, dates, maps and sets, so it may change them. Anything else, such as a class instance, is handed over as it is.
@@ -537,7 +572,7 @@ try {
 
 ## Synchronous reads
 
-`get`, `set`, `update`, `remove`, `has` and `clear` always return promises. When the adapter can answer immediately, the storage additionally exposes `getSync`, `setSync`, `updateSync`, `removeSync`, `hasSync` and `clearSync`, and the type reflects it. An adapter that cannot answer immediately does not expose them at all.
+`get`, `getMany`, `set`, `setMany`, `update`, `remove`, `removeMany`, `has` and `clear` always return promises. When the adapter can answer immediately, the storage additionally exposes `getSync`, `getManySync`, `setSync`, `setManySync`, `updateSync`, `removeSync`, `removeManySync`, `hasSync` and `clearSync`, and the type reflects it. An adapter that cannot answer immediately does not expose them at all.
 
 ## License
 

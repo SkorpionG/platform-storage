@@ -75,7 +75,10 @@ export { createStorage } from "./storage/create-storage";
 export type {
   CreateStorageOptions,
   CreateStorageResult,
+  GetManyOptions,
+  GetManyResult,
   GetOptions,
+  SetManyValues,
   PlatformStorage,
   StorageChange,
   SyncPlatformStorage,

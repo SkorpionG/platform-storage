@@ -40,6 +40,23 @@ function read(target: WebExtensionStorageArea, key: string): Promise<JsonValue |
   return target.get(key).then((found) => found[key] as JsonValue | undefined);
 }
 
+/* Only the names the area answered for, since a name holding nothing is simply absent from its record. */
+function readMany(
+  target: WebExtensionStorageArea,
+  keys: ReadonlyArray<string>,
+): Promise<ReadonlyMap<string, JsonValue>> {
+  return target
+    .get([...keys])
+    .then(
+      (found) =>
+        new Map(
+          keys
+            .filter((key) => Object.hasOwn(found, key))
+            .map((key) => [key, found[key] as JsonValue]),
+        ),
+    );
+}
+
 /**
  * The limits an area names when a write does not fit.
  *
@@ -75,7 +92,7 @@ function isQuotaRejection(cause: unknown): boolean {
  * A rejected call is left in the browser's own vocabulary for the engine to wrap, which `keys` is not, since it is called on the adapter directly. The exception is a full area, which this adapter names itself: an area reports one in its message rather than with an error type, so reading that is the adapter's job rather than the caller's.
  *
  * @param options - `area` to store in, `name` for error messages, and `namespace` to supply the extension API yourself, which is what a polyfill or a test fake does.
- * @returns An asynchronous adapter over that area, able to list every name it holds and to follow changes from every context.
+ * @returns An asynchronous adapter over that area, able to list every name it holds, to read, write and remove several in one call, and to follow changes from every context.
  * @example
  * ```ts
  * const adapter = webExtensionStorageAdapter({ area: "sync" });
@@ -119,6 +136,14 @@ export function webExtensionStorageAdapter(
     get: (key) => run(STORAGE_OPERATION.Get, key, (target) => read(target, key)),
     set: (key, value) => run(STORAGE_OPERATION.Set, key, (target) => target.set({ [key]: value })),
     remove: (key) => run(STORAGE_OPERATION.Remove, key, (target) => target.remove(key)),
+    getMany: (keys) =>
+      run(STORAGE_OPERATION.GetMany, undefined, (target) => readMany(target, keys)),
+    setMany: (entries) =>
+      run(STORAGE_OPERATION.SetMany, undefined, (target) =>
+        target.set(Object.fromEntries(entries)),
+      ),
+    removeMany: (keys) =>
+      run(STORAGE_OPERATION.RemoveMany, undefined, (target) => target.remove([...keys])),
     keys: () =>
       run(STORAGE_OPERATION.Keys, undefined, (target) =>
         target.getKeys === undefined

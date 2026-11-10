@@ -164,3 +164,128 @@ describe("defineSyncAdapter following changes", () => {
     expect(defineSyncAdapter(memoryDefinition()).subscribe).toBeUndefined();
   });
 });
+
+describe("defineSyncAdapter's batch methods", () => {
+  it("offers none unless the definition has them", () => {
+    const adapter = defineSyncAdapter(memoryDefinition());
+
+    expect(adapter.getMany).toBeUndefined();
+    expect(adapter.setManySync).toBeUndefined();
+    expect(adapter.removeMany).toBeUndefined();
+  });
+
+  it("derives the asynchronous half of each batch method", async () => {
+    const calls: Array<string> = [];
+    const adapter = defineSyncAdapter(
+      memoryDefinition({
+        getManySync: (keys) => {
+          calls.push(`get ${keys.join(",")}`);
+
+          return new Map([["a", "1"]]);
+        },
+        setManySync: (entries) => {
+          calls.push(`set ${[...entries.keys()].join(",")}`);
+        },
+        removeManySync: (keys) => {
+          calls.push(`remove ${keys.join(",")}`);
+        },
+      }),
+    );
+
+    expect(adapter.getManySync?.(["a"])).toEqual(new Map([["a", "1"]]));
+    expect(await adapter.getMany?.(["a"])).toEqual(new Map([["a", "1"]]));
+    adapter.setManySync?.(new Map([["a", "1"]]));
+    await adapter.setMany?.(new Map([["b", "2"]]));
+    adapter.removeManySync?.(["a"]);
+    await adapter.removeMany?.(["b"]);
+
+    expect(calls).toEqual(["get a", "get a", "set a", "set b", "remove a", "remove b"]);
+  });
+
+  it("turns a throwing batch into a rejection on the asynchronous half", async () => {
+    const adapter = defineSyncAdapter(
+      memoryDefinition({
+        setManySync: () => {
+          throw new Error("full");
+        },
+      }),
+    );
+
+    await expect(adapter.setMany?.(new Map([["a", "1"]]))).rejects.toThrow("full");
+  });
+});
+
+describe("defineSyncAdapter and the receiver of each optional method", () => {
+  interface Store {
+    readonly entries: Map<string, string>;
+  }
+
+  /* Every optional method reaches its data through `this`, the way a definition written with method syntax naturally would. */
+  function receiverDefinition(): SyncAdapterDefinition<string> & Store {
+    return {
+      entries: new Map([["a", "1"]]),
+      name: "receiver",
+      serializer: jsonSerializer,
+      getSync(this: Store, key) {
+        return this.entries.get(key);
+      },
+      setSync(this: Store, key, value) {
+        this.entries.set(key, value);
+      },
+      removeSync(this: Store, key) {
+        this.entries.delete(key);
+      },
+      hasSync(this: Store, key) {
+        return this.entries.has(key);
+      },
+      isAvailable(this: Store) {
+        return this.entries instanceof Map;
+      },
+      keysSync(this: Store) {
+        return [...this.entries.keys()];
+      },
+      subscribe(this: Store) {
+        return { stop: () => undefined, reportsOwnWrites: this.entries.size > 0 };
+      },
+      getManySync(this: Store, keys) {
+        return new Map(
+          keys.flatMap((key) => {
+            const value = this.entries.get(key);
+
+            return value === undefined ? [] : [[key, value] as const];
+          }),
+        );
+      },
+      setManySync(this: Store, items) {
+        for (const [key, value] of items) this.entries.set(key, value);
+      },
+      removeManySync(this: Store, keys) {
+        for (const key of keys) this.entries.delete(key);
+      },
+    };
+  }
+
+  it("keeps the definition as the receiver on the synchronous half", () => {
+    const adapter = defineSyncAdapter(receiverDefinition());
+
+    expect(adapter.hasSync?.("a")).toBe(true);
+    expect(adapter.isAvailable?.()).toBe(true);
+    expect(adapter.keysSync?.()).toEqual(["a"]);
+    expect(adapter.subscribe?.(() => undefined).reportsOwnWrites).toBe(true);
+    expect(adapter.getManySync?.(["a", "b"])).toEqual(new Map([["a", "1"]]));
+    adapter.setManySync?.(new Map([["b", "2"]]));
+    adapter.removeManySync?.(["a"]);
+    expect(adapter.keysSync?.()).toEqual(["b"]);
+  });
+
+  it("keeps the definition as the receiver on the asynchronous half", async () => {
+    const adapter = defineSyncAdapter(receiverDefinition());
+
+    expect(await adapter.has?.("a")).toBe(true);
+    expect(await adapter.keys?.()).toEqual(["a"]);
+    expect(await adapter.getMany?.(["a"])).toEqual(new Map([["a", "1"]]));
+    await adapter.setMany?.(new Map([["b", "2"]]));
+    await adapter.removeMany?.(["a"]);
+    expect(await adapter.keys?.()).toEqual(["b"]);
+  });
+});

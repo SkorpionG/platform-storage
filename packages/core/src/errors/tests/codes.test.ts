@@ -38,6 +38,9 @@ describe("STORAGE_OPERATION", () => {
       Has: "has",
       Clear: "clear",
       Update: "update",
+      GetMany: "getMany",
+      SetMany: "setMany",
+      RemoveMany: "removeMany",
       Keys: "keys",
       Subscribe: "subscribe",
     });

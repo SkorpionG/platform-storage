@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createStorage,
   defineStorageSchema,
+  defineSyncAdapter,
   isSyncStorageAdapter,
   memoryAdapter,
   withFallback,
@@ -248,5 +249,95 @@ describe("following changes through withFallback", () => {
 
     expect(subscription?.reportsOwnWrites).toBe(false);
     expect(() => subscription?.stop()).not.toThrow();
+  });
+});
+
+function batching(name: string) {
+  const memory = memoryAdapter({ name });
+  const calls: Array<string> = [];
+
+  return {
+    calls,
+    memory,
+    adapter: defineSyncAdapter({
+      name,
+      serializer: memory.serializer,
+      getSync: (key) => memory.getSync(key),
+      setSync: (key, value) => {
+        memory.setSync(key, value);
+      },
+      removeSync: (key) => {
+        memory.removeSync(key);
+      },
+      getManySync: (keys) => {
+        calls.push(`getMany ${name}`);
+
+        return new Map(
+          keys.flatMap((key) => {
+            const wire = memory.getSync(key);
+
+            return wire === undefined ? [] : [[key, wire] as const];
+          }),
+        );
+      },
+      setManySync: (entries) => {
+        calls.push(`setMany ${name}`);
+
+        for (const [key, value] of entries) memory.setSync(key, value);
+      },
+      removeManySync: (keys) => {
+        calls.push(`removeMany ${name}`);
+
+        for (const key of keys) memory.removeSync(key);
+      },
+    }),
+  };
+}
+
+describe("batches through withFallback", () => {
+  it("offers the batch methods only when both halves have them", () => {
+    const both = withFallback(batching("a").adapter, batching("b").adapter);
+    const one = withFallback(batching("a").adapter, memoryAdapter());
+
+    expect(typeof both.getMany).toBe("function");
+    expect(typeof both.getManySync).toBe("function");
+    expect(one.getMany).toBeUndefined();
+    expect(one.setManySync).toBeUndefined();
+  });
+
+  it("forwards each batch to the half it chose, on either path", async () => {
+    const primary = batching("primary");
+    const fallback = batching("fallback");
+    const adapter = withFallback(
+      { ...primary.adapter, isAvailable: () => false },
+      fallback.adapter,
+    );
+
+    adapter.setManySync?.(new Map([["a", "1"]]));
+    await adapter.setMany?.(new Map([["b", "2"]]));
+
+    expect(adapter.getManySync?.(["a", "b"])).toEqual(
+      new Map([
+        ["a", "1"],
+        ["b", "2"],
+      ]),
+    );
+    expect(await adapter.getMany?.(["a"])).toEqual(new Map([["a", "1"]]));
+
+    adapter.removeManySync?.(["a"]);
+    await adapter.removeMany?.(["b"]);
+
+    expect(fallback.memory.entries.size).toBe(0);
+    expect(primary.calls).toEqual([]);
+    expect(fallback.calls).toHaveLength(6);
+  });
+
+  it("forwards to the primary half when it is there", () => {
+    const primary = batching("primary");
+    const adapter = withFallback(primary.adapter, batching("fallback").adapter);
+
+    adapter.setManySync?.(new Map([["a", "1"]]));
+
+    expect(primary.calls).toEqual(["setMany primary"]);
   });
 });

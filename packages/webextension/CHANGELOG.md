@@ -1,5 +1,30 @@
 # @platform-storage/webextension
 
+## 0.5.0
+
+### Minor Changes
+
+- `storage.getMany(keys)` reads several keys at once, answering an object keyed by the keys asked for, and `getManySync` does the same where the backend answers immediately. Each key reads exactly as `get` would, with its default, policy, versions, `recover` and repairs, but every name the keys could be under is fetched in one backend call. `options.onInvalid` takes a named policy only. Adds the `GetManyOptions` and `GetManyResult` types.
+
+  `storage.setMany(values)` writes several keys at once and `storage.removeMany(keys)` removes several, with `setManySync` and `removeManySync` where the backend answers immediately. Every value is validated before any is written, so one refusal leaves the backend as it was. The call holds every key's turn at once, and watchers hear about each key, all of a batch before any change a listener makes in response. Adds the `SetManyValues` type.
+
+  `clear()` now removes every declared name in one backend call where the backend has a batch call. A refusal there reports the `removeMany` operation without naming a key, where it used to report `remove` and the key the backend refused. On an extension area or AsyncStorage, code that branches on `error.operation === "remove"` or reads `error.physicalKey` from a failed `clear()` has to handle `removeMany` with no key as well. Single-key operations report exactly as before.
+
+  When a write to several keys fails partway, which keys changed is unknown, so every key it touched is read again and announced to its watchers before the call rejects.
+
+  An adapter can now work on several names in one call. `StorageAdapter` gains the optional `getMany`, `setMany` and `removeMany`, and `SyncStorageAdapter` the optional `getManySync`, `setManySync` and `removeManySync`; `defineSyncAdapter` carries them through, and `withFallback` offers them when both halves have them. An adapter without them keeps working, one call per name.
+
+  The extension adapter reads, writes and removes several names in one area call. The AsyncStorage adapter uses AsyncStorage 3's `getMany`, `setMany` and `removeMany`, or AsyncStorage 2's `multiGet`, `multiSet` and `multiRemove`, whichever the instance has, and `AsyncStorageLike` declares both groups as optional.
+
+  `STORAGE_OPERATION` gains `GetMany`, `SetMany` and `RemoveMany`, which an error reports when a batch call fails.
+
+### Patch Changes
+
+- `defineSyncAdapter` now calls every optional method on the definition it was given. `hasSync`, `isAvailable`, `keysSync` and `subscribe` were called detached, so a definition written with method syntax that reached its other methods through `this` threw.
+- Updated dependencies
+- Updated dependencies
+  - @platform-storage/core@0.5.0
+
 ## 0.4.0
 
 ### Minor Changes

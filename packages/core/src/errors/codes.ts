@@ -24,7 +24,7 @@ export type StorageErrorCode = (typeof STORAGE_ERROR_CODE)[keyof typeof STORAGE_
  *
  * This is the single source for operation names: errors report one, and the API surface is checked against it. A type test asserts that the adapter contract and the storage interface expose exactly these, so adding an operation without naming it here fails the build rather than producing an error that reports an operation nothing else knows about.
  *
- * `Clear` names the method rather than a call any adapter receives. `clear()` removes the declared keys one at a time, so a backend that refuses reports `Remove` and the key it refused, which is the more useful of the two. `Update` is a method in the same way, reporting the `Get` or `Set` it was carrying out when it failed.
+ * `Clear` names the method rather than a call any adapter receives, so a refusal reports what the backend refused instead: `RemoveMany`, naming no key, where it took every declared name in one call, or `Remove` and the key where it went one at a time. `Update` is a method in the same way, reporting the `Get` or `Set` it was carrying out when it failed.
  *
  * `Keys` and `Subscribe` are the reverse: an adapter can answer them and a storage has no such method. A schema already says which keys it declares, and a storage exposes `watch` and `onChange` rather than a backend's raw feed.
  */
@@ -35,6 +35,9 @@ export const STORAGE_OPERATION = {
   Has: "has",
   Clear: "clear",
   Update: "update",
+  GetMany: "getMany",
+  SetMany: "setMany",
+  RemoveMany: "removeMany",
   Keys: "keys",
   Subscribe: "subscribe",
 } as const;

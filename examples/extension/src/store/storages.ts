@@ -1,7 +1,11 @@
 import { appSchema, DECLARED_DEFAULTS } from "@examples/schema";
 import type { AppDefinition } from "@examples/schema";
-import { createWebExtensionStorage } from "@platform-storage/webextension";
-import type { PlatformStorage } from "@platform-storage/webextension";
+import {
+  createStorage,
+  createWebExtensionStorage,
+  webExtensionStorageAdapter,
+} from "@platform-storage/webextension";
+import type { JsonValue, PlatformStorage, StorageAdapter } from "@platform-storage/webextension";
 import { recordStorageError } from "@platform-storage/react";
 
 /*
@@ -50,4 +54,41 @@ export const detached: PlatformStorage<AppDefinition> = createWebExtensionStorag
   schema: appSchema,
   storage: () => undefined,
   name: "storage.local (no extension API)",
+});
+
+/** How many calls the counted `sync` storage below has made to its area, for the batch panel to show. */
+export const areaCalls = { count: 0 };
+
+/* Every read, write and removal is counted, so a read one key at a time and a read of every key at once can be compared by how often each crossed into the browser. */
+function tally<Value>(call: () => Promise<Value>): Promise<Value> {
+  areaCalls.count += 1;
+
+  return call();
+}
+
+function counted(adapter: StorageAdapter<JsonValue>): StorageAdapter<JsonValue> {
+  const { getMany, setMany, removeMany } = adapter;
+
+  return {
+    ...adapter,
+    get: (key) => tally(() => adapter.get(key)),
+    set: (key, value) => tally(() => adapter.set(key, value)),
+    remove: (key) => tally(() => adapter.remove(key)),
+    ...(getMany === undefined
+      ? {}
+      : { getMany: (keys) => tally(() => getMany.call(adapter, keys)) }),
+    ...(setMany === undefined
+      ? {}
+      : { setMany: (entries) => tally(() => setMany.call(adapter, entries)) }),
+    ...(removeMany === undefined
+      ? {}
+      : { removeMany: (keys) => tally(() => removeMany.call(adapter, keys)) }),
+  };
+}
+
+/** The `sync` area again, through an adapter that counts its calls. `sync` is where batching pays off, since the browser limits how often it may be written. */
+export const countedSync: PlatformStorage<AppDefinition> = createStorage({
+  schema: appSchema,
+  adapter: counted(webExtensionStorageAdapter({ area: "sync" })),
+  onError: recordStorageError,
 });

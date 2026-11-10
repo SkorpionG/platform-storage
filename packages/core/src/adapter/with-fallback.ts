@@ -7,6 +7,30 @@ export interface FallbackChoice {
   chosen(): "primary" | "fallback" | undefined;
 }
 
+/*
+  An optional method is offered only when both halves have it, because the choice between them is not made until first use and the method has to work whichever way it goes. `apply` on its owner, because a method taken off an adapter loses its receiver.
+*/
+function eitherOf<Args extends Array<never>, Result>(
+  primary: object,
+  primaryMethod: ((...args: Args) => Result) | undefined,
+  fallback: object,
+  fallbackMethod: ((...args: Args) => Result) | undefined,
+  usesPrimary: () => boolean,
+): ((...args: Args) => Result) | undefined {
+  if (primaryMethod === undefined || fallbackMethod === undefined) return undefined;
+
+  return (...args) =>
+    usesPrimary() ? primaryMethod.apply(primary, args) : fallbackMethod.apply(fallback, args);
+}
+
+/** An object holding the method under its name, or nothing where there is no method to hold. */
+function offered<Name extends string, Method>(
+  name: Name,
+  method: Method | undefined,
+): { readonly [Key in Name]?: Method } {
+  return method === undefined ? {} : ({ [name]: method } as { readonly [Key in Name]: Method });
+}
+
 /**
  * Uses the first backend where it exists, and the second where it does not.
  *
@@ -18,7 +42,7 @@ export interface FallbackChoice {
  *
  * @param primary - The backend to prefer. Its `isAvailable` decides; an adapter without one is treated as available.
  * @param fallback - Used when the primary is not available. It must transport the same wire type.
- * @returns One adapter over both, which can say which half it settled on. Synchronous only when both halves are, and able to list keys only when both halves can.
+ * @returns One adapter over both, which can say which half it settled on. Synchronous only when both halves are, and able to list keys or work on several names at once only when both halves can.
  * @example
  * ```ts
  * const storage = createStorage({
@@ -46,8 +70,7 @@ export function withFallback<Wire>(
     return chosen;
   };
 
-  const primaryKeys = primary.keys;
-  const fallbackKeys = fallback.keys;
+  const usesPrimary = (): boolean => select() === primary;
 
   const asyncAdapter: StorageAdapter<Wire> & FallbackChoice = {
     name: `${primary.name} (falling back to ${fallback.name})`,
@@ -71,13 +94,19 @@ export function withFallback<Wire>(
 
       return chosen === primary ? "primary" : "fallback";
     },
-    ...(primaryKeys === undefined || fallbackKeys === undefined
-      ? {}
-      : {
-          /* `call`, because destructuring an optional method loses its receiver. */
-          keys: () =>
-            select() === primary ? primaryKeys.call(primary) : fallbackKeys.call(fallback),
-        }),
+    ...offered("keys", eitherOf(primary, primary.keys, fallback, fallback.keys, usesPrimary)),
+    ...offered(
+      "getMany",
+      eitherOf(primary, primary.getMany, fallback, fallback.getMany, usesPrimary),
+    ),
+    ...offered(
+      "setMany",
+      eitherOf(primary, primary.setMany, fallback, fallback.setMany, usesPrimary),
+    ),
+    ...offered(
+      "removeMany",
+      eitherOf(primary, primary.removeMany, fallback, fallback.removeMany, usesPrimary),
+    ),
   };
 
   if (!isSyncStorageAdapter(primary) || !isSyncStorageAdapter(fallback)) return asyncAdapter;
@@ -87,9 +116,6 @@ export function withFallback<Wire>(
   const syncFallback = fallback;
   const selectSync = (): SyncStorageAdapter<Wire> =>
     select() === syncPrimary ? syncPrimary : syncFallback;
-
-  const primaryKeysSync = syncPrimary.keysSync;
-  const fallbackKeysSync = syncFallback.keysSync;
 
   const syncAdapter: SyncStorageAdapter<Wire> & FallbackChoice = {
     ...asyncAdapter,
@@ -108,14 +134,40 @@ export function withFallback<Wire>(
         ? selected.getSync(key) !== undefined
         : selected.hasSync(key);
     },
-    ...(primaryKeysSync === undefined || fallbackKeysSync === undefined
-      ? {}
-      : {
-          keysSync: () =>
-            selectSync() === syncPrimary
-              ? primaryKeysSync.call(syncPrimary)
-              : fallbackKeysSync.call(syncFallback),
-        }),
+    ...offered(
+      "keysSync",
+      eitherOf(syncPrimary, syncPrimary.keysSync, syncFallback, syncFallback.keysSync, usesPrimary),
+    ),
+    ...offered(
+      "getManySync",
+      eitherOf(
+        syncPrimary,
+        syncPrimary.getManySync,
+        syncFallback,
+        syncFallback.getManySync,
+        usesPrimary,
+      ),
+    ),
+    ...offered(
+      "setManySync",
+      eitherOf(
+        syncPrimary,
+        syncPrimary.setManySync,
+        syncFallback,
+        syncFallback.setManySync,
+        usesPrimary,
+      ),
+    ),
+    ...offered(
+      "removeManySync",
+      eitherOf(
+        syncPrimary,
+        syncPrimary.removeManySync,
+        syncFallback,
+        syncFallback.removeManySync,
+        usesPrimary,
+      ),
+    ),
   };
 
   return syncAdapter;

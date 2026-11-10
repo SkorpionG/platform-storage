@@ -189,6 +189,15 @@ Give a storage a `prefix` and every name it stores under carries it, so two stor
 const settings = createLocalStorage({ schema, prefix: "app:" }); // "theme" is stored as "app:theme"
 ```
 
+### 12. Several keys in one call
+
+`getMany`, `setMany` and `removeMany` reach the backend once for any number of keys, where it can take them together: an extension area, or AsyncStorage. Each key still reads and writes exactly as it would alone, and `setMany` validates every value before writing any.
+
+```ts
+const { theme, user } = await storage.getMany(["theme", "user"]);
+await storage.setMany({ theme: "dark", user });
+```
+
 ## Why
 
 Key-value storage APIs have no idea what you intend to keep in them, so every project rebuilds the same scaffolding:

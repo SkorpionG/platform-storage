@@ -48,7 +48,21 @@ export interface Watchers {
   isListening(): boolean;
   /** Whether a write to this key has to find out what it is replacing. */
   needsPrevious(key: string): boolean;
-  wrote(key: string, previous: PreviousWire, newWire: unknown): void;
+  /**
+   * Tells listeners about writes made here, every one of them queued before any listener runs.
+   *
+   * Taken together so a batch is delivered as one: a listener that writes in response has its own change delivered after the whole batch, never between two of its keys.
+   */
+  wrote(changes: ReadonlyArray<WrittenChange>): void;
+  /** These keys may have changed and nothing says to what, so their listeners hear what each reads as now. Queued together, as `wrote` is. */
+  mayHaveChanged(keys: ReadonlyArray<string>): void;
+}
+
+/** One key a write made here changed, as `wrote` is told about it. */
+export interface WrittenChange {
+  readonly key: string;
+  readonly previous: PreviousWire;
+  readonly newWire: unknown;
 }
 
 /** Builds the listeners for one storage. It reaches the backend only while someone is listening. */
@@ -183,13 +197,21 @@ export function createWatchers(dependencies: WatcherDependencies): Watchers {
     );
   }
 
-  function changed(key: string, previous: PreviousWire, newWire: unknown): void {
+  function changeJobs(
+    key: string,
+    previous: PreviousWire,
+    newWire: unknown,
+  ): ReadonlyArray<() => MaybePromise<void>> {
     const recipients = recipientsOf(key);
 
-    enqueue([
+    return [
       announcement(key),
       (): MaybePromise<void> => decodeAndDeliver(key, recipients, previous, newWire),
-    ]);
+    ];
+  }
+
+  function changed(key: string, previous: PreviousWire, newWire: unknown): void {
+    enqueue(changeJobs(key, previous, newWire));
   }
 
   /* An answer that cannot be worked out counts as a change: one extra read costs nothing, and a change gone missing leaves a reader stale. */
@@ -225,20 +247,19 @@ export function createWatchers(dependencies: WatcherDependencies): Watchers {
   }
 
   /* Nothing says what a wholesale change replaced, so each watched key reads its new value and reports the old one as unknown. */
-  function changedEverything(): void {
-    enqueue([
-      announcement(undefined),
-      ...Array.from(byKey.keys(), (key) => {
-        const recipients = recipientsOf(key);
+  function rereading(key: string): () => MaybePromise<void> {
+    const recipients = recipientsOf(key);
 
-        return (): MaybePromise<void> =>
-          chain(decode(key, undefined), (oldValue) =>
-            chain(readCurrent(key), (newValue) => {
-              deliver(key, recipients, oldValue, newValue, false);
-            }),
-          );
-      }),
-    ]);
+    return () =>
+      chain(decode(key, undefined), (oldValue) =>
+        chain(readCurrent(key), (newValue) => {
+          deliver(key, recipients, oldValue, newValue, false);
+        }),
+      );
+  }
+
+  function changedEverything(): void {
+    enqueue([announcement(undefined), ...Array.from(byKey.keys(), rereading)]);
   }
 
   function fromBackend(change: AdapterChange<unknown>): void {
@@ -326,6 +347,12 @@ export function createWatchers(dependencies: WatcherDependencies): Watchers {
 
     needsPrevious: (key) => byKey.has(key),
 
-    wrote: changed,
+    wrote: (changes) => {
+      enqueue(changes.flatMap(({ key, previous, newWire }) => changeJobs(key, previous, newWire)));
+    },
+
+    mayHaveChanged: (keys) => {
+      enqueue(keys.flatMap((key) => [announcement(key), rereading(key)]));
+    },
   };
 }

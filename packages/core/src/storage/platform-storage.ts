@@ -3,7 +3,7 @@ import type { PlatformStorageError } from "../errors/errors";
 import type { GetResult, KeyOf, SetValue } from "../schema/key-definition";
 import type { StorageSchema, StorageSchemaDefinition } from "../schema/storage-schema";
 import type { Serializer } from "../serializer/serializer";
-import type { OnInvalid } from "./invalid-policy";
+import type { InvalidPolicy, OnInvalid } from "./invalid-policy";
 
 /** What a single `get` accepts, on top of the key. */
 export interface GetOptions<Definition> {
@@ -14,6 +14,33 @@ export interface GetOptions<Definition> {
    */
   readonly onInvalid?: OnInvalid<GetResult<Definition>> | undefined;
 }
+
+/** What a single `getMany` accepts, on top of the keys. */
+export interface GetManyOptions {
+  /**
+   * Overrides each key's and the storage's policy for this read alone.
+   *
+   * A named policy only: a callback is checked against what one key can hold, and these keys hold different things. Declare a callback on the key instead.
+   */
+  readonly onInvalid?: InvalidPolicy | undefined;
+}
+
+/**
+ * What `getMany` answers with: each requested key, holding what `get` would answer for it.
+ *
+ * Typed from the keys given, so pass them as a literal list. A list typed more widely than what it holds, such as an `Array` of every key, claims keys the answer will not have.
+ */
+export type GetManyResult<
+  Definition extends StorageSchemaDefinition,
+  Key extends KeyOf<Definition>,
+> = {
+  readonly [Each in Key]: GetResult<Definition[Each]>;
+};
+
+/** What `setMany` accepts: any of the declared keys, each with a value its schema accepts. */
+export type SetManyValues<Definition extends StorageSchemaDefinition> = {
+  readonly [Key in KeyOf<Definition>]?: SetValue<Definition[Key]>;
+};
 
 /** One change to a key, as `watch` delivers it. */
 export interface StorageChange<Definition, Key extends string = string> {
@@ -69,7 +96,26 @@ export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
     key: Key,
     options?: GetOptions<Definition[Key]>,
   ): Promise<GetResult<Definition[Key]>>;
+  /**
+   * Reads several keys, each exactly as `get` would, with one call to the backend for all of them.
+   *
+   * Every name the keys could be stored under, old names included, is fetched together, which matters most where each call is expensive: an extension's rate-limited `sync` area, or AsyncStorage's native bridge. A key's repairs still happen one at a time, each re-checking the backend first.
+   *
+   * A key listed twice is read once. An undeclared key throws before anything is read.
+   */
+  getMany<Key extends KeyOf<Definition>>(
+    keys: ReadonlyArray<Key>,
+    options?: GetManyOptions,
+  ): Promise<GetManyResult<Definition, Key>>;
   set<Key extends KeyOf<Definition>>(key: Key, value: SetValue<Definition[Key]>): Promise<void>;
+  /**
+   * Writes several keys, each exactly as `set` would, with one call to the backend for all of them.
+   *
+   * Every value is validated before any is written, so one the schema refuses rejects the whole call and nothing changes. A key set to `undefined` is removed. The call holds every key's turn at once, so it waits for writes already started on any of them and later writes wait for it.
+   *
+   * A backend that fails partway through its own batch call cannot be undone.
+   */
+  setMany(values: SetManyValues<Definition>): Promise<void>;
   /**
    * Works out the next value from the current one and stores it, as one step.
    *
@@ -86,12 +132,14 @@ export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
     updater: (current: GetResult<Definition[Key]>) => SetValue<Definition[Key]>,
   ): Promise<void>;
   remove(key: KeyOf<Definition>): Promise<void>;
+  /** Removes several keys, old names included, in one call to the backend where it has one. */
+  removeMany(keys: ReadonlyArray<KeyOf<Definition>>): Promise<void>;
   /** Whether anything is stored, without validating it. */
   has(key: KeyOf<Definition>): Promise<boolean>;
   /**
-   * Removes only the keys this schema declares, never anything else sharing the backend.
+   * Removes only the keys this schema declares, never anything else sharing the backend, in one call where the backend has a batch call.
    *
-   * A failure names the key it happened on and reports the `remove` operation, because that is what the backend refused. Nothing reports `clear`, which names the method rather than a call any adapter receives.
+   * A failure reports what the backend refused: `removeMany`, naming no single key, where it removed them together, or `remove` and the key where it went one at a time. Nothing reports `clear`, which names the method rather than a call any adapter receives.
    */
   clear(): Promise<void>;
 
@@ -132,12 +180,18 @@ export interface SyncStorageMethods<Definition extends StorageSchemaDefinition> 
     key: Key,
     options?: GetOptions<Definition[Key]>,
   ): GetResult<Definition[Key]>;
+  getManySync<Key extends KeyOf<Definition>>(
+    keys: ReadonlyArray<Key>,
+    options?: GetManyOptions,
+  ): GetManyResult<Definition, Key>;
   setSync<Key extends KeyOf<Definition>>(key: Key, value: SetValue<Definition[Key]>): void;
+  setManySync(values: SetManyValues<Definition>): void;
   updateSync<Key extends KeyOf<Definition>>(
     key: Key,
     updater: (current: GetResult<Definition[Key]>) => SetValue<Definition[Key]>,
   ): void;
   removeSync(key: KeyOf<Definition>): void;
+  removeManySync(keys: ReadonlyArray<KeyOf<Definition>>): void;
   hasSync(key: KeyOf<Definition>): boolean;
   clearSync(): void;
 }

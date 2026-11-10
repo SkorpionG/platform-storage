@@ -16,13 +16,15 @@ import type { SchemaIssue } from "../types/standard-schema";
 import type { MaybePromise } from "../types/utils";
 import { copyValue } from "./copy-value";
 import { applyInvalidPolicy, resolveOnInvalid } from "./invalid-policy";
-import type { InvalidContext, OnInvalid } from "./invalid-policy";
+import type { InvalidContext, InvalidPolicy, OnInvalid } from "./invalid-policy";
 import { chain, discardPromise, expectSync, ignoreFailure, isPromiseLike } from "./maybe-promise";
 import { decodeWire, isSameWire, resolveMissing, serializeValue, validateValue } from "./pipeline";
 import type { DecodeResult, EntryContext, ExecutionMode } from "./pipeline";
 import type {
   CreateStorageOptions,
   CreateStorageResult,
+  GetManyOptions,
+  GetManyResult,
   GetOptions,
   PlatformStorage,
   SyncStorageMethods,
@@ -31,7 +33,7 @@ import { createAsyncIo, createSyncIo } from "./storage-io";
 import type { StorageIo } from "./storage-io";
 import { isSameValue } from "./same-value";
 import { createWatchers } from "./watchers";
-import type { PreviousWire, Watchers } from "./watchers";
+import type { PreviousWire, Watchers, WrittenChange } from "./watchers";
 import { createWriteQueue } from "./write-queue";
 
 /** Where a read found something, or the last place it looked. */
@@ -56,6 +58,14 @@ interface Repair {
   readonly prepare?: (() => MaybePromise<boolean>) | undefined;
   /** Told when a best-effort repair could not be carried out. */
   readonly onFailure?: (() => void) | undefined;
+}
+
+/** One key a write is changing, and what it will hold. A `newWire` of `undefined` removes it. */
+interface Change {
+  readonly entry: EntryContext;
+  readonly newWire: unknown;
+  /** What it held, where the write already read it. */
+  readonly alreadyRead?: PreviousWire | undefined;
 }
 
 /** The replacement a key's `recover` produced, already validated. */
@@ -107,20 +117,58 @@ function removeEverywhere(io: StorageIo, entry: EntryContext): MaybePromise<void
   return chain(removeOldNames(io, entry), () => io.remove(entry.physicalKey));
 }
 
-/* A write should not fail because the value it replaces could not be read. */
-function readPrevious(io: StorageIo, entry: EntryContext): MaybePromise<LocatedPrevious> {
-  const unknownPrevious: LocatedPrevious = { known: false };
+/* Old names before current ones, for the reason `removeEverywhere` gives. */
+function removeAll(io: StorageIo, entries: ReadonlyArray<EntryContext>): MaybePromise<void> {
+  return io.removeMany([
+    ...entries.flatMap((entry) => entry.oldNames),
+    ...entries.map((entry) => entry.physicalKey),
+  ]);
+}
+
+/** Every name these keys could be stored under, each once. */
+function namesOf(entries: ReadonlyArray<EntryContext>): Array<string> {
+  return [...new Set(entries.flatMap((entry) => [entry.physicalKey, ...entry.oldNames]))];
+}
+
+/** A backend read answered from what one batch call already found, so a key's own lookups cost nothing more. */
+function snapshotOf(io: StorageIo, held: ReadonlyMap<string, unknown>): StorageIo {
+  return { ...io, get: (name) => held.get(name) };
+}
+
+/*
+  What each write is replacing, with every name involved fetched in one call. A write should not fail because the value it replaces could not be read, so a failure here leaves every one of them unknown.
+*/
+function readPrevious(
+  io: StorageIo,
+  entries: ReadonlyArray<EntryContext>,
+): MaybePromise<ReadonlyMap<string, LocatedPrevious>> {
+  if (entries.length === 0) return new Map();
+
+  const unknown: ReadonlyMap<string, LocatedPrevious> = new Map(
+    entries.map((entry) => [entry.key, { known: false }]),
+  );
 
   try {
-    const located = chain(locate(io, entry), ({ physicalKey, wire }): LocatedPrevious => ({
-      known: true,
-      wire,
-      foundAt: physicalKey,
-    }));
+    /* One key goes name by name, stopping at the first that holds something, so a failure names the key as it always has. */
+    const held: MaybePromise<ReadonlyMap<string, unknown> | undefined> =
+      entries.length === 1 ? undefined : io.getMany(namesOf(entries));
+    const found = chain(held, (batch) => {
+      const lookup = batch === undefined ? io : snapshotOf(io, batch);
 
-    return isPromiseLike(located) ? Promise.resolve(located).catch(() => unknownPrevious) : located;
+      return entries.reduce<MaybePromise<Map<string, LocatedPrevious>>>(
+        (previous, entry) =>
+          chain(previous, (byKey) =>
+            chain(locate(lookup, entry), ({ physicalKey, wire }) =>
+              byKey.set(entry.key, { known: true, wire, foundAt: physicalKey }),
+            ),
+          ),
+        new Map(),
+      );
+    });
+
+    return isPromiseLike(found) ? Promise.resolve(found).catch(() => unknown) : found;
   } catch {
-    return unknownPrevious;
+    return unknown;
   }
 }
 
@@ -394,65 +442,136 @@ export function createStorage<
     task: () => MaybePromise<Value>,
   ): MaybePromise<Value> => (mode === "sync" ? task() : queue.run(key, task));
 
+  const inTurnAll = <Value>(
+    mode: ExecutionMode,
+    keys: ReadonlyArray<string>,
+    task: () => MaybePromise<Value>,
+  ): MaybePromise<Value> => (mode === "sync" ? task() : queue.runAll(keys, task));
+
   /** Holds a read back until the writes already started on its key have landed, so a caller always reads its own writes. */
   const afterWrites = (mode: ExecutionMode, key: string): MaybePromise<void> =>
     mode === "sync" ? undefined : queue.settled(key);
 
-  /* The value is already safely under its current name, so failing to tidy up behind it is reported and nothing more. */
-  function sweep(io: StorageIo, entry: EntryContext): MaybePromise<void> {
+  /*
+    The value is already safely under its current name, so failing to tidy up behind it is reported and nothing more.
+
+    One key goes name by name, so a failure names the old name as it always has; several go in one removal.
+  */
+  function sweep(io: StorageIo, ...entries: ReadonlyArray<EntryContext>): MaybePromise<void> {
+    const removing = (): MaybePromise<void> =>
+      entries.length === 1
+        ? removeOldNames(io, entries[0] as EntryContext)
+        : io.removeMany(entries.flatMap((entry) => entry.oldNames));
+
     return ignoreFailure(() =>
-      chain(removeOldNames(io, entry), () => {
-        swept.add(entry.key);
+      chain(removing(), () => {
+        for (const entry of entries) swept.add(entry.key);
       }),
     );
   }
 
-  function sweepAfterWrite(io: StorageIo, entry: EntryContext): MaybePromise<void> {
-    return entry.oldNames.length === 0 || swept.has(entry.key) ? undefined : sweep(io, entry);
+  /* Only the keys that could still have something under an old name. */
+  function sweepAfterWrite(
+    io: StorageIo,
+    ...entries: ReadonlyArray<EntryContext>
+  ): MaybePromise<void> {
+    const unswept = entries.filter((entry) => entry.oldNames.length > 0 && !swept.has(entry.key));
+
+    return unswept.length === 0 ? undefined : sweep(io, ...unswept);
+  }
+
+  /*
+    A write to several keys that fails partway may have changed some of them and not others, and nothing says which. Each key it touched is read again and announced, wherever an announcement would have been owed, before the failure goes on to the caller.
+
+    A write to one key says nothing when it fails, so a listener is never told of a change that did not happen.
+  */
+  function attemptWrite(
+    changes: ReadonlyArray<Change>,
+    fromOldName: ReadonlySet<Change>,
+    write: () => MaybePromise<void>,
+  ): MaybePromise<void> {
+    const failed = (cause: unknown): never => {
+      if (changes.length < 2) throw cause;
+
+      watchers.mayHaveChanged(
+        changes
+          .filter((change) => watchers.announcesWrites() || fromOldName.has(change))
+          .map((change) => change.entry.key),
+      );
+
+      throw cause;
+    };
+
+    try {
+      const result = write();
+
+      return isPromiseLike(result) ? Promise.resolve(result).catch(failed) : result;
+    } catch (cause) {
+      return failed(cause);
+    }
   }
 
   /*
     Told only after the write has landed, and only where nobody else will say. A repair never comes through here, because the key's value has not changed.
 
     Whether to tell is decided again once the write lands, because a listener can arrive while it is under way, and a backend that reports nothing would leave it stale.
+
+    A backend reporting its own writes only ever names the current name, so removing a value still held under an old one is told here, or it would pass unnoticed.
   */
   function announced(
     io: StorageIo,
-    entry: EntryContext,
-    newWire: unknown,
+    changes: ReadonlyArray<Change>,
     write: () => MaybePromise<void>,
-    alreadyRead?: PreviousWire,
   ): MaybePromise<void> {
     const announces = watchers.announcesWrites();
-
-    if (
+    const tellsOldName = (change: Change): boolean =>
       !announces &&
-      newWire === undefined &&
-      entry.oldNames.length > 0 &&
-      watchers.isListening()
-    ) {
-      /* A backend reporting its own writes only ever names the current name, so removing a value still held under an old one would otherwise pass unnoticed. */
-      return chain(readPrevious(io, entry), (replaced) =>
-        chain(write(), () => {
-          if (
-            replaced.known &&
-            replaced.wire !== undefined &&
-            replaced.foundAt !== entry.physicalKey
-          ) {
-            watchers.wrote(entry.key, replaced, undefined);
+      change.newWire === undefined &&
+      change.entry.oldNames.length > 0 &&
+      watchers.isListening();
+    const fromOldName = new Set(changes.filter(tellsOldName));
+    const lookingBack = changes.filter(
+      (change) =>
+        fromOldName.has(change) ||
+        (change.alreadyRead === undefined && announces && watchers.needsPrevious(change.entry.key)),
+    );
+
+    return chain(
+      readPrevious(
+        io,
+        lookingBack.map((change) => change.entry),
+      ),
+      (previous) =>
+        chain(attemptWrite(changes, fromOldName, write), () => {
+          const told: Array<WrittenChange> = [];
+
+          for (const change of changes) {
+            const { entry, newWire } = change;
+            const found = previous.get(entry.key);
+
+            if (fromOldName.has(change)) {
+              if (
+                found?.known === true &&
+                found.wire !== undefined &&
+                found.foundAt !== entry.physicalKey
+              ) {
+                told.push({ key: entry.key, previous: found, newWire: undefined });
+              }
+
+              continue;
+            }
+
+            if (watchers.announcesWrites()) {
+              told.push({
+                key: entry.key,
+                previous: change.alreadyRead ?? found ?? { known: false },
+                newWire,
+              });
+            }
           }
+
+          watchers.wrote(told);
         }),
-      );
-    }
-
-    const previous: MaybePromise<PreviousWire> =
-      alreadyRead ??
-      (announces && watchers.needsPrevious(entry.key) ? readPrevious(io, entry) : { known: false });
-
-    return chain(previous, (replaced) =>
-      chain(write(), () => {
-        if (watchers.announcesWrites()) watchers.wrote(entry.key, replaced, newWire);
-      }),
     );
   }
 
@@ -672,13 +791,52 @@ export function createStorage<
     );
   }
 
-  function writeValue(
+  /*
+    Every name the keys could be under is fetched in one call, and each key then reads exactly as `get` would, over what that call found. Only the reading is shared: a repair still takes its key's turn and re-checks the live backend, because the snapshot says nothing about what landed since.
+
+    Each key is resolved before anything is read, so an undeclared one fails without a backend call.
+  */
+  function runGetMany(
     io: StorageIo,
+    mode: ExecutionMode,
+    keys: ReadonlyArray<string>,
+    perCall: InvalidPolicy | undefined,
+  ): MaybePromise<Readonly<Record<string, unknown>>> {
+    const entries = [...new Set(keys)].map((key) => entryFor(key));
+    const names = namesOf(entries);
+    const waiting = entries.map((entry) => afterWrites(mode, entry.key));
+
+    return chain(
+      waiting.some((settled) => settled !== undefined) ? Promise.all(waiting) : undefined,
+      () =>
+        chain(io.getMany(names), (held) => {
+          const snapshot = snapshotOf(io, held);
+
+          return chain(
+            entries.reduce<MaybePromise<Array<readonly [string, unknown]>>>(
+              (answered, entry) =>
+                chain(answered, (pairs) =>
+                  chain(read(snapshot, mode, entry, perCall), (outcome) =>
+                    chain(finishRead(mode, entry, outcome), (value) => [
+                      ...pairs,
+                      [entry.key, value] as const,
+                    ]),
+                  ),
+                ),
+              [],
+            ),
+            (pairs) => Object.fromEntries(pairs),
+          );
+        }),
+    );
+  }
+
+  /* Everything a write checks before it reaches the backend, so several can all be checked before any of them is written. A `newWire` of `undefined` means the write removes the key, since no wire value represents `undefined`. */
+  function prepareWrite(
     mode: ExecutionMode,
     entry: EntryContext,
     value: unknown,
-    alreadyRead?: PreviousWire,
-  ): MaybePromise<void> {
+  ): MaybePromise<Change> {
     return chain(validateValue(entry.definition.schema, value, mode), (validated) => {
       if (validated.kind !== "valid") {
         throw report(
@@ -692,23 +850,81 @@ export function createStorage<
         );
       }
 
-      // No wire value represents `undefined`, so storing one means removing the entry.
-      if (validated.value === undefined) {
-        return announced(io, entry, undefined, () => removeEverywhere(io, entry), alreadyRead);
-      }
+      if (validated.value === undefined) return { entry, newWire: undefined };
 
       const serialized = serializeValue(entry, validated.value);
 
       if (serialized.kind === "invalid") throw report(serialized.error);
 
-      return announced(
-        io,
-        entry,
-        serialized.wire,
-        () => chain(io.set(entry.physicalKey, serialized.wire), () => sweepAfterWrite(io, entry)),
-        alreadyRead,
-      );
+      return { entry, newWire: serialized.wire };
     });
+  }
+
+  function writeValue(
+    io: StorageIo,
+    mode: ExecutionMode,
+    entry: EntryContext,
+    value: unknown,
+    alreadyRead?: PreviousWire,
+  ): MaybePromise<void> {
+    return chain(prepareWrite(mode, entry, value), ({ newWire }) =>
+      announced(io, [{ entry, newWire, alreadyRead }], () =>
+        newWire === undefined
+          ? removeEverywhere(io, entry)
+          : chain(io.set(entry.physicalKey, newWire), () => sweepAfterWrite(io, entry)),
+      ),
+    );
+  }
+
+  /*
+    Every value is checked before any is written, so one refusal leaves the backend as it was. The writes then go in one call and the removals in another; a backend failing partway through its own call cannot be undone.
+  */
+  function runSetMany(
+    io: StorageIo,
+    mode: ExecutionMode,
+    values: Readonly<Record<string, unknown>>,
+  ): MaybePromise<void> {
+    const entries = Object.keys(values).map((key) => entryFor(key));
+
+    if (entries.length === 0) return undefined;
+
+    return inTurnAll(
+      mode,
+      entries.map((entry) => entry.key),
+      () =>
+        chain(
+          entries.reduce<MaybePromise<Array<Change>>>(
+            (prepared, entry) =>
+              chain(prepared, (changes) =>
+                chain(prepareWrite(mode, entry, values[entry.key]), (change) => [
+                  ...changes,
+                  change,
+                ]),
+              ),
+            [],
+          ),
+          (changes) => {
+            const written = changes.filter((change) => change.newWire !== undefined);
+            const removed = changes.filter((change) => change.newWire === undefined);
+
+            return announced(io, changes, () =>
+              chain(
+                io.setMany(
+                  new Map(written.map((change) => [change.entry.physicalKey, change.newWire])),
+                ),
+                () =>
+                  chain(
+                    removeAll(
+                      io,
+                      removed.map((change) => change.entry),
+                    ),
+                    () => sweepAfterWrite(io, ...written.map((change) => change.entry)),
+                  ),
+              ),
+            );
+          },
+        ),
+    );
   }
 
   function runSet(
@@ -751,11 +967,33 @@ export function createStorage<
     );
   }
 
+  /* Every key's turn is taken before any of the work starts, so a write or a read begun afterwards comes after it on every key. */
+  function runRemoveMany(
+    io: StorageIo,
+    mode: ExecutionMode,
+    keys: ReadonlyArray<string>,
+  ): MaybePromise<void> {
+    const entries = [...new Set(keys)].map((key) => entryFor(key));
+
+    if (entries.length === 0) return undefined;
+
+    return inTurnAll(
+      mode,
+      entries.map((entry) => entry.key),
+      () =>
+        announced(
+          io,
+          entries.map((entry) => ({ entry, newWire: undefined })),
+          () => removeAll(io, entries),
+        ),
+    );
+  }
+
   function runRemove(io: StorageIo, mode: ExecutionMode, key: string): MaybePromise<void> {
     const entry = entryFor(key);
 
     return inTurn(mode, key, () =>
-      announced(io, entry, undefined, () => removeEverywhere(io, entry)),
+      announced(io, [{ entry, newWire: undefined }], () => removeEverywhere(io, entry)),
     );
   }
 
@@ -770,24 +1008,9 @@ export function createStorage<
     );
   }
 
-  /*
-    One key at a time, so a backend that refuses names the key it refused rather than the whole operation.
-
-    Each key's turn is taken before any of the work starts, so a write or a read begun after `clear` comes after it on every key, not only the ones already reached.
-  */
+  /* Every declared key, in one removal where the backend has a batch call. A refusal then names the batch rather than one key, since nothing says which name the backend refused. */
   function runClear(io: StorageIo, mode: ExecutionMode): MaybePromise<void> {
-    let previous: MaybePromise<void> = undefined;
-
-    for (const key of schema.keys) {
-      const entry = entryFor(key);
-      const before: MaybePromise<void> = previous;
-
-      previous = inTurn(mode, key, () =>
-        chain(before, () => announced(io, entry, undefined, () => removeEverywhere(io, entry))),
-      );
-    }
-
-    return previous;
+    return runRemoveMany(io, mode, schema.keys);
   }
 
   /** Raised if a stage the synchronous path relies on turns out to answer asynchronously after all. */
@@ -807,10 +1030,19 @@ export function createStorage<
       Promise.resolve().then(() => runGet(asyncIo, "async", key, getOptions?.onInvalid)) as Promise<
         GetResult<Definition[Key]>
       >,
+    getMany: <Key extends KeyOf<Definition>>(
+      keys: ReadonlyArray<Key>,
+      getOptions?: GetManyOptions,
+    ) =>
+      Promise.resolve().then(() =>
+        runGetMany(asyncIo, "async", keys, getOptions?.onInvalid),
+      ) as Promise<GetManyResult<Definition, Key>>,
     set: (key, value) => Promise.resolve().then(() => runSet(asyncIo, "async", key, value)),
+    setMany: (values) => Promise.resolve().then(() => runSetMany(asyncIo, "async", values)),
     update: (key, updater) =>
       Promise.resolve().then(() => runUpdate(atomicIo, "async", key, updater)),
     remove: (key) => Promise.resolve().then(() => runRemove(asyncIo, "async", key)),
+    removeMany: (keys) => Promise.resolve().then(() => runRemoveMany(asyncIo, "async", keys)),
     has: (key) => Promise.resolve().then(() => runHas(asyncIo, "async", key)),
     clear: () => Promise.resolve().then(() => runClear(asyncIo, "async")),
 
@@ -833,8 +1065,22 @@ export function createStorage<
       expectSync(runGet(syncIo, "sync", key, getOptions?.onInvalid), asyncInSyncMode) as GetResult<
         Definition[Key]
       >,
+    getManySync: <Key extends KeyOf<Definition>>(
+      keys: ReadonlyArray<Key>,
+      getOptions?: GetManyOptions,
+    ) =>
+      expectSync(
+        runGetMany(syncIo, "sync", keys, getOptions?.onInvalid),
+        asyncInSyncMode,
+      ) as GetManyResult<Definition, Key>,
     setSync: (key, value) => {
       expectSync(runSet(syncIo, "sync", key, value), asyncInSyncMode);
+    },
+    setManySync: (values) => {
+      expectSync(runSetMany(syncIo, "sync", values), asyncInSyncMode);
+    },
+    removeManySync: (keys) => {
+      expectSync(runRemoveMany(syncIo, "sync", keys), asyncInSyncMode);
     },
     updateSync: (key, updater) => {
       expectSync(runUpdate(syncIo, "sync", key, updater), asyncInSyncMode);
