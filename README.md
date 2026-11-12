@@ -130,6 +130,8 @@ await storage.clear();
 localStorage.getItem("analytics:session"); // "abc" — untouched
 ```
 
+Anything wider is asked for by name: `clear("undeclared")` removes leftovers the schema no longer lists, and `clear("everything")` empties the whole backend.
+
 ### 7. Errors you can branch on
 
 Every failure carries a stable `code`. Branch on that rather than on the class, because an application that resolves two copies of a package holds two copies of each class and `instanceof` quietly stops matching across them.

@@ -13,6 +13,7 @@ import {
   StorageSchemaError,
   StorageSerializationError,
   StorageUnavailableError,
+  StorageUnsupportedError,
   StorageValidationError,
   UnknownStorageKeyError,
   UnknownStorageVersionError,
@@ -123,6 +124,35 @@ describe("error hierarchy", () => {
 
     expect(error).toBeInstanceOf(StorageAdapterError);
     expect(error.code).toBe(STORAGE_ERROR_CODE.Unavailable);
+  });
+
+  it("reports a missing adapter method as an adapter failure naming what was missing", () => {
+    const error = new StorageUnsupportedError({
+      adapter: "custom",
+      operation: "clear",
+      missing: "keys",
+    });
+
+    expect(error).toBeInstanceOf(StorageAdapterError);
+    expect(error.code).toBe(STORAGE_ERROR_CODE.Unsupported);
+    expect(error.name).toBe("StorageUnsupportedError");
+    expect(error.operation).toBe("clear");
+    expect(error.missing).toBe("keys");
+    expect(error.message).toBe(
+      "The custom adapter has no `keys`, which `clear` needs for this request.",
+    );
+    expect(isPlatformStorageError(error)).toBe(true);
+  });
+
+  it("keeps a message given for a missing adapter method", () => {
+    const error = new StorageUnsupportedError({
+      adapter: "custom",
+      operation: "clear",
+      missing: "keys",
+      message: "Cannot list.",
+    });
+
+    expect(error.message).toBe("Cannot list.");
   });
 
   it("reports a full backend the same way, since a quota is the backend refusing too", () => {

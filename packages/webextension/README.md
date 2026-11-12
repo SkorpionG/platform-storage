@@ -142,7 +142,7 @@ const synced = createWebExtensionStorage({ schema: syncedSchema, area: "sync" })
 const perSession = createWebExtensionStorage({ schema: cacheSchema, area: "session" });
 ```
 
-`clear()` removes only the keys the schema declares, so another storage over the same area, or other code writing to it, is left alone.
+`clear()` removes only the keys the schema declares, so another storage over the same area, or other code writing to it, is left alone. `clear("undeclared")` and `clear("everything")` list the area through `keys()` and remove what they find in one call.
 
 ### Going through the polyfill, or handing a test a fake
 

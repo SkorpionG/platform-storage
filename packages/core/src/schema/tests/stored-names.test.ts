@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { defineStorageSchema, StorageSchemaError } from "../../index";
 import { themeSchema, userSchema } from "../../../tests/fixtures/schemas";
 import { checkStoredNames, resolveStoredNames } from "../stored-names";
-import type { StoredNames } from "../stored-names";
+import type { ClaimedNames } from "../stored-names";
 
 const schema = defineStorageSchema({
   theme: { schema: themeSchema },
@@ -11,9 +11,9 @@ const schema = defineStorageSchema({
   auth: { schema: userSchema, key: "vendor-token", readFrom: ["vendor-old"], prefixed: false },
 });
 
-function checking(names: Readonly<Record<string, StoredNames>>): () => void {
+function checking(names: Readonly<Record<string, ClaimedNames>>): () => void {
   return () => {
-    checkStoredNames(Object.keys(names), (key) => names[key] as StoredNames);
+    checkStoredNames(Object.keys(names), (key) => names[key] as ClaimedNames);
   };
 }
 
@@ -21,22 +21,54 @@ describe("resolveStoredNames", () => {
   it("leaves every name as declared without a prefix", () => {
     const names = resolveStoredNames(schema, undefined);
 
-    expect(names.get("theme")).toEqual({ current: "theme", old: [] });
-    expect(names.get("user")).toEqual({ current: "u", old: ["old"] });
-    expect(names.get("auth")).toEqual({ current: "vendor-token", old: ["vendor-old"] });
+    expect(names.get("theme")).toEqual({ current: "theme", old: [], readFrom: [], unprefixed: [] });
+    expect(names.get("user")).toEqual({
+      current: "u",
+      old: ["old"],
+      readFrom: ["old"],
+      unprefixed: [],
+    });
+    expect(names.get("auth")).toEqual({
+      current: "vendor-token",
+      old: ["vendor-old"],
+      readFrom: ["vendor-old"],
+      unprefixed: [],
+    });
   });
 
   it("puts the prefix before a key's name and its old names", () => {
     const names = resolveStoredNames(schema, "app:");
 
-    expect(names.get("theme")).toEqual({ current: "app:theme", old: [] });
-    expect(names.get("user")).toEqual({ current: "app:u", old: ["app:old"] });
+    expect(names.get("theme")).toMatchObject({ current: "app:theme", old: [] });
+    expect(names.get("user")).toMatchObject({ current: "app:u", old: ["app:old"] });
   });
 
-  it("leaves a key that opts out exactly as written", () => {
-    expect(resolveStoredNames(schema, "app:").get("auth")).toEqual({
+  it("keeps the names from before the prefix apart, so they can be cleared without being read", () => {
+    const names = resolveStoredNames(schema, "app:");
+
+    expect(names.get("user")).toEqual({
+      current: "app:u",
+      old: ["app:old"],
+      readFrom: ["app:old"],
+      unprefixed: ["u", "old"],
+    });
+  });
+
+  it("reads the names from before the prefix after the prefixed ones, only when asked to", () => {
+    expect(resolveStoredNames(schema, "app:", true).get("user")).toEqual({
+      current: "app:u",
+      old: ["app:old", "u", "old"],
+      readFrom: ["app:old"],
+      unprefixed: ["u", "old"],
+    });
+  });
+
+  it("leaves a key that opts out exactly as written, with no names from before a prefix", () => {
+    expect(resolveStoredNames(schema, "app:", true).get("auth")).toEqual({
       current: "vendor-token",
       old: ["vendor-old"],
+      readFrom: ["vendor-old"],
+      unprefixed: [],
     });
   });
 

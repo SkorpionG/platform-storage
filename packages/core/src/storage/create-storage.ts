@@ -4,6 +4,7 @@ import { STORAGE_ERROR_CODE, STORAGE_OPERATION } from "../errors/codes";
 import {
   StorageSchemaError,
   StorageSerializationError,
+  StorageUnsupportedError,
   StorageValidationError,
   UnknownStorageKeyError,
 } from "../errors/errors";
@@ -14,6 +15,8 @@ import { resolveStoredNames } from "../schema/stored-names";
 import type { Serializer } from "../serializer/serializer";
 import type { SchemaIssue } from "../types/standard-schema";
 import type { MaybePromise } from "../types/utils";
+import { CLEAR_TARGET, needsListing, planClear, readClearTargets } from "./clear-targets";
+import type { ClearTarget } from "./clear-targets";
 import { copyValue } from "./copy-value";
 import { applyInvalidPolicy, resolveOnInvalid } from "./invalid-policy";
 import type { InvalidContext, InvalidPolicy, OnInvalid } from "./invalid-policy";
@@ -66,6 +69,16 @@ interface Change {
   readonly newWire: unknown;
   /** What it held, where the write already read it. */
   readonly alreadyRead?: PreviousWire | undefined;
+}
+
+/** Whether a change removes a key from more than one name, so that a failure partway can leave it changed. */
+function reachesSeveralNames(change: Change): boolean {
+  return change.newWire === undefined && change.entry.oldNames.length > 0;
+}
+
+/** Each key as a change removing it, for the bookkeeping a write that may fail partway needs. */
+function removalsOf(entries: ReadonlyArray<EntryContext>): ReadonlyArray<Change> {
+  return entries.map((entry) => ({ entry, newWire: undefined }));
 }
 
 /** The replacement a key's `recover` produced, already validated. */
@@ -483,7 +496,7 @@ export function createStorage<
   /*
     A write to several keys that fails partway may have changed some of them and not others, and nothing says which. Each key it touched is read again and announced, wherever an announcement would have been owed, before the failure goes on to the caller.
 
-    A write to one key says nothing when it fails, so a listener is never told of a change that did not happen.
+    So may a removal from one key with old names, which reaches several names, one at a time on a backend without a batch call: refused partway, the key can be left reading from a later name. Only a write that reaches one name says nothing when it fails, so a listener is never told of a change that did not happen.
   */
   function attemptWrite(
     changes: ReadonlyArray<Change>,
@@ -491,7 +504,7 @@ export function createStorage<
     write: () => MaybePromise<void>,
   ): MaybePromise<void> {
     const failed = (cause: unknown): never => {
-      if (changes.length < 2) throw cause;
+      if (changes.length < 2 && !changes.some(reachesSeveralNames)) throw cause;
 
       watchers.mayHaveChanged(
         changes
@@ -1008,9 +1021,154 @@ export function createStorage<
     );
   }
 
-  /* Every declared key, in one removal where the backend has a batch call. A refusal then names the batch rather than one key, since nothing says which name the backend refused. */
-  function runClear(io: StorageIo, mode: ExecutionMode): MaybePromise<void> {
-    return runRemoveMany(io, mode, schema.keys);
+  /* Only a cast or a JavaScript caller gets past the types, so a bad target is reported like any other misuse and nothing is removed. */
+  function clearTargets(given: unknown): ReadonlySet<ClearTarget> {
+    try {
+      return readClearTargets(given);
+    } catch (error) {
+      throw report(error as PlatformStorageError);
+    }
+  }
+
+  /*
+    Removing a name a read tries before the one it found something under changes nothing, so only a key whose answer came from a removed name is announced. Which keys those are comes from one fetch made before the removal; what each reads as afterwards is fetched again once it lands, because a synchronous write, another tab or another storage can reach the backend in between, and nothing that comes later in this storage's turns can.
+
+    The storage announces these itself, since a backend only ever reports a name a key stores under, and these are names a key reads from. A key now holding the same stored form as before is not announced.
+
+    Where either fetch fails, nothing says what changed, so the keys that could have are read again.
+  */
+  function removedPartly(
+    io: StorageIo,
+    entries: ReadonlyArray<EntryContext>,
+    names: ReadonlyArray<string>,
+  ): MaybePromise<void> {
+    const remove = (): MaybePromise<void> => io.removeMany(names);
+
+    if (entries.length === 0 || !watchers.isListening()) return remove();
+
+    const removed = new Set(names);
+    const removeThenReread = (moving: ReadonlyArray<EntryContext>): MaybePromise<void> => {
+      const changes = removalsOf(moving);
+
+      return chain(attemptWrite(changes, new Set(changes), remove), () => {
+        watchers.mayHaveChanged(moving.map((entry) => entry.key));
+      });
+    };
+
+    const announce = (
+      moving: ReadonlyArray<Located & { entry: EntryContext }>,
+    ): MaybePromise<void> => {
+      if (moving.length === 0) return remove();
+
+      const changes = removalsOf(moving.map(({ entry }) => entry));
+
+      return chain(attemptWrite(changes, new Set(changes), remove), () =>
+        chain(
+          readPrevious(
+            io,
+            moving.map(({ entry }) => entry),
+          ),
+          (now) => {
+            const told: Array<WrittenChange> = [];
+            const unknown: Array<string> = [];
+
+            for (const { entry, wire } of moving) {
+              const after = now.get(entry.key);
+
+              if (after?.known !== true) unknown.push(entry.key);
+              else if (!isSameWire(after.wire, wire)) {
+                told.push({ key: entry.key, previous: { known: true, wire }, newWire: after.wire });
+              }
+            }
+
+            watchers.wrote(told);
+            if (unknown.length > 0) watchers.mayHaveChanged(unknown);
+          },
+        ),
+      );
+    };
+
+    let held: MaybePromise<ReadonlyMap<string, unknown>>;
+
+    try {
+      held = io.getMany(namesOf(entries));
+    } catch {
+      return removeThenReread(entries);
+    }
+
+    const planned = chain(held, (found) => {
+      const before = snapshotOf(io, found);
+
+      return entries.reduce<MaybePromise<Array<Located & { entry: EntryContext }>>>(
+        (moving, entry) =>
+          chain(moving, (list) =>
+            chain(locate(before, entry), (located) =>
+              located.wire === undefined || !removed.has(located.physicalKey)
+                ? list
+                : [...list, { ...located, entry }],
+            ),
+          ),
+        [],
+      );
+    });
+
+    return isPromiseLike(planned)
+      ? Promise.resolve(planned).then(announce, () => removeThenReread(entries))
+      : announce(planned);
+  }
+
+  /*
+    The targets are checked, and the backend's ability to list them, before anything is removed, so a call that cannot be carried out in full changes nothing.
+
+    The turns taken are those of the keys a read could find something under a removed name for. Those cannot depend on the listing, since `undeclared` never names a declared key and `everything` names them all, so they are known before it.
+
+    Every key is either removed outright, where `declared` or `everything` is asked for, and announced as `removeMany` announces it, or keeps its current name and loses only names it reads from.
+  */
+  function runClear(io: StorageIo, mode: ExecutionMode, given: unknown): MaybePromise<void> {
+    const targets = clearTargets(given);
+    const listing = needsListing(targets);
+    const { keys: list } = io;
+
+    if (listing && list === undefined) {
+      throw report(
+        new StorageUnsupportedError({
+          adapter: adapter.name,
+          operation: STORAGE_OPERATION.Clear,
+          missing: STORAGE_OPERATION.Keys,
+          message: `The ${adapter.name} adapter cannot list the names it holds${mode === "sync" ? " without waiting" : ""}, which \`clear\` needs to find what the schema does not declare. Nothing was removed.`,
+        }),
+      );
+    }
+
+    if (targets.has(CLEAR_TARGET.Unprefixed) && prefix === undefined) {
+      report(
+        new StorageSchemaError(
+          '`clear("unprefixed")` removes the names from before a prefix, and this storage has no `prefix`, so it has nothing to remove.',
+        ),
+      );
+    }
+
+    const plan = (listed: ReadonlyArray<string>): ReturnType<typeof planClear> =>
+      planClear({ targets, storedNames, prefix, listed });
+    const entries = plan([]).keys.map((key) => entryFor(key));
+    const whole = targets.has(CLEAR_TARGET.Declared) || targets.has(CLEAR_TARGET.Everything);
+
+    return inTurnAll(
+      mode,
+      entries.map((entry) => entry.key),
+      () =>
+        chain(listing && list !== undefined ? list() : [], (listed) => {
+          const { names } = plan(listed);
+
+          return whole
+            ? announced(
+                io,
+                entries.map((entry) => ({ entry, newWire: undefined })),
+                () => io.removeMany(names),
+              )
+            : removedPartly(io, entries, names);
+        }),
+    );
   }
 
   /** Raised if a stage the synchronous path relies on turns out to answer asynchronously after all. */
@@ -1044,7 +1202,7 @@ export function createStorage<
     remove: (key) => Promise.resolve().then(() => runRemove(asyncIo, "async", key)),
     removeMany: (keys) => Promise.resolve().then(() => runRemoveMany(asyncIo, "async", keys)),
     has: (key) => Promise.resolve().then(() => runHas(asyncIo, "async", key)),
-    clear: () => Promise.resolve().then(() => runClear(asyncIo, "async")),
+    clear: (target) => Promise.resolve().then(() => runClear(asyncIo, "async", target)),
 
     physicalKey: (key) => entryFor(key).physicalKey,
 
@@ -1089,8 +1247,8 @@ export function createStorage<
       expectSync(runRemove(syncIo, "sync", key), asyncInSyncMode);
     },
     hasSync: (key) => expectSync(runHas(syncIo, "sync", key), asyncInSyncMode),
-    clearSync: () => {
-      expectSync(runClear(syncIo, "sync"), asyncInSyncMode);
+    clearSync: (target) => {
+      expectSync(runClear(syncIo, "sync", target), asyncInSyncMode);
     },
   };
 

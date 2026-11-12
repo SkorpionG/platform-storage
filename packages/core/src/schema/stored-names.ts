@@ -2,10 +2,18 @@ import { StorageSchemaError } from "../errors/errors";
 import type { KeyDefinition } from "./key-definition";
 import type { StorageSchema, StorageSchemaDefinition } from "./storage-schema";
 
-/** Where one key stores its value, and the names it used to, in the order a read tries them. */
-export interface StoredNames {
+/** The names one key claims: where it stores its value, and the names it used to, in the order a read tries them. */
+export interface ClaimedNames {
   readonly current: string;
   readonly old: ReadonlyArray<string>;
+}
+
+/** One key's names as a storage stores them, with the two kinds of old name also kept apart, so `clear` can target either. */
+export interface StoredNames extends ClaimedNames {
+  /** The `readFrom` names, under the prefix where one applies. */
+  readonly readFrom: ReadonlyArray<string>;
+  /** The current and `readFrom` names as written, from before a prefix. Empty where no prefix applies, whether or not a read tries them. */
+  readonly unprefixed: ReadonlyArray<string>;
 }
 
 /*
@@ -15,7 +23,7 @@ export interface StoredNames {
 */
 export function checkStoredNames(
   keys: ReadonlyArray<string>,
-  namesOf: (key: string) => StoredNames,
+  namesOf: (key: string) => ClaimedNames,
 ): void {
   const owners = new Map<string, string>();
 
@@ -76,11 +84,15 @@ export function resolveStoredNames<Definition extends StorageSchemaDefinition>(
     const applies = prefix !== undefined && prefixed !== false;
     const stored = (name: string): string => (applies ? `${prefix}${name}` : name);
     const current = schema.physicalKeys[key];
-    const old = readFrom ?? [];
+    const declaredReadFrom = readFrom ?? [];
+    const prefixedReadFrom = declaredReadFrom.map(stored);
+    const unprefixed = applies ? [current, ...declaredReadFrom] : [];
 
     names.set(key, {
       current: stored(current),
-      old: [...old.map(stored), ...(applies && readUnprefixed ? [current, ...old] : [])],
+      old: [...prefixedReadFrom, ...(readUnprefixed ? unprefixed : [])],
+      readFrom: prefixedReadFrom,
+      unprefixed,
     });
   }
 

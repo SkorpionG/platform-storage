@@ -46,7 +46,7 @@ await storage.get("theme"); // "light" | "dark"
 
 Every method returns a promise, because AsyncStorage only ever answers later: there is no synchronous half here.
 
-Values are stored as JSON text under the physical key, with nothing wrapped around them unless the key declares versions. `clear()` removes only the keys the schema declares, never the rest of the storage.
+Values are stored as JSON text under the physical key, with nothing wrapped around them unless the key declares versions. `clear()` removes only the keys the schema declares, never the rest of the storage. `clear("undeclared")` and `clear("everything")` list what AsyncStorage holds through `getAllKeys`, and throw `StorageUnsupportedError` for an instance without it.
 
 ## API Usage
 

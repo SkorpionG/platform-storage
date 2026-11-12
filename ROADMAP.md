@@ -16,21 +16,9 @@ A key that declares versions is the one exception, because it has to record its 
 
 A platform factory such as `createLocalStorage` cannot take a fallback, so working where the backend is missing means dropping down to `createStorage` and `withFallback`. Accepting a list of adapters would shorten that call without reaching the factories. A list also needs its wire types checked against each other, and `withFallback` can only say which of two halves it chose.
 
-### Choosing what `clear` removes
+### An adapter's own `clear`
 
-`clear()` removes the keys the schema declares and their old names, which is the safe default and stays one. An explicit target, or a list of them added together in one call, could narrow or widen that. The possible targets:
-
-| Target       | Removes                                                                                                       |
-| ------------ | ------------------------------------------------------------------------------------------------------------- |
-| `declared`   | The default. Every name the schema lists: current names and `readFrom` names, and unprefixed names being read |
-| `readFrom`   | Only the names listed in `readFrom`                                                                           |
-| `unprefixed` | Only each key's name without the storage's prefix                                                             |
-| `undeclared` | Stored names the schema does not list                                                                         |
-| `everything` | The whole backend, including data other code owns. Cannot be combined with another target                     |
-
-The default has to include old names, because a read finding a value under one would otherwise bring back what `clear` just removed.
-
-Anything wider than `declared` can delete another program's data on a shared origin, so it has to be asked for by name. `undeclared` and `everything` need an adapter's optional `keys`. `unprefixed` would tidy up after `readUnprefixed`, removing bare names left behind by values that were never read.
+`clear("everything")` lists the backend and then removes what it found, so a name written between the two survives, and a backend without a batch call removes each name in turn. An optional `clear` on the adapter would let it be one native call with nothing missed: `localStorage.clear()`, an area's `clear()`, AsyncStorage's `clear()`. It widens the adapter contract, `withFallback` would have to forward it, and the storage would still have to work out which declared keys to announce.
 
 ### Migrating everything up front
 

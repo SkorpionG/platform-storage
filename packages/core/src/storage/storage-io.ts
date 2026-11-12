@@ -19,19 +19,24 @@ export interface StorageIo {
   getMany(physicalKeys: ReadonlyArray<string>): MaybePromise<ReadonlyMap<string, unknown>>;
   setMany(entries: ReadonlyMap<string, unknown>): MaybePromise<void>;
   removeMany(physicalKeys: ReadonlyArray<string>): MaybePromise<void>;
+  /** Every name the backend holds, where it can list them in this mode. */
+  readonly keys: (() => MaybePromise<ReadonlyArray<string>>) | undefined;
 }
 
-/** How one mode reaches a backend's batch method, where it has one. */
+/** How one mode reaches a backend's batch methods and its listing, where it has them. */
 interface BatchMethods {
   readonly getMany:
     | ((keys: ReadonlyArray<string>) => MaybePromise<ReadonlyMap<string, unknown>>)
     | undefined;
   readonly setMany: ((entries: ReadonlyMap<string, unknown>) => MaybePromise<void>) | undefined;
   readonly removeMany: ((keys: ReadonlyArray<string>) => MaybePromise<void>) | undefined;
+  readonly keys: (() => MaybePromise<ReadonlyArray<string>>) | undefined;
 }
 
 /*
   One backend call where the backend offers one, and otherwise each name in turn through the single-name operations, so a failure there still names the key it happened on. A failure inside a batch call names the batch operation instead, since nothing says which name the backend refused.
+
+  Listing has no fallback, since only the backend knows what it holds beyond what a schema declares.
 */
 function withBatches(
   adapter: StorageAdapter<unknown>,
@@ -39,10 +44,14 @@ function withBatches(
   single: Pick<StorageIo, "get" | "set" | "remove" | "has">,
   batch: BatchMethods,
 ): StorageIo {
-  const { getMany, setMany, removeMany } = batch;
+  const { getMany, setMany, removeMany, keys } = batch;
 
   return {
     ...single,
+    keys:
+      keys === undefined
+        ? undefined
+        : () => callAdapter(adapter, STORAGE_OPERATION.Keys, undefined, report, keys),
     getMany: (physicalKeys) => {
       if (physicalKeys.length === 0) return new Map();
 
@@ -100,7 +109,7 @@ export function createAsyncIo(adapter: StorageAdapter<unknown>, report: ReportEr
       adapter.get(physicalKey),
     );
 
-  const { getMany, setMany, removeMany } = adapter;
+  const { getMany, setMany, removeMany, keys } = adapter;
 
   return withBatches(
     adapter,
@@ -127,9 +136,10 @@ export function createAsyncIo(adapter: StorageAdapter<unknown>, report: ReportEr
       },
     },
     {
-      getMany: getMany === undefined ? undefined : (keys) => getMany.call(adapter, keys),
+      getMany: getMany === undefined ? undefined : (names) => getMany.call(adapter, names),
       setMany: setMany === undefined ? undefined : (entries) => setMany.call(adapter, entries),
-      removeMany: removeMany === undefined ? undefined : (keys) => removeMany.call(adapter, keys),
+      removeMany: removeMany === undefined ? undefined : (names) => removeMany.call(adapter, names),
+      keys: keys === undefined ? undefined : () => keys.call(adapter),
     },
   );
 }
@@ -141,7 +151,7 @@ export function createSyncIo(adapter: SyncStorageAdapter<unknown>, report: Repor
       adapter.getSync(physicalKey),
     );
 
-  const { getManySync, setManySync, removeManySync } = adapter;
+  const { getManySync, setManySync, removeManySync, keysSync } = adapter;
 
   return withBatches(
     adapter,
@@ -167,7 +177,7 @@ export function createSyncIo(adapter: SyncStorageAdapter<unknown>, report: Repor
       },
     },
     {
-      getMany: getManySync === undefined ? undefined : (keys) => getManySync.call(adapter, keys),
+      getMany: getManySync === undefined ? undefined : (names) => getManySync.call(adapter, names),
       setMany:
         setManySync === undefined
           ? undefined
@@ -177,9 +187,10 @@ export function createSyncIo(adapter: SyncStorageAdapter<unknown>, report: Repor
       removeMany:
         removeManySync === undefined
           ? undefined
-          : (keys) => {
-              removeManySync.call(adapter, keys);
+          : (names) => {
+              removeManySync.call(adapter, names);
             },
+      keys: keysSync === undefined ? undefined : () => keysSync.call(adapter),
     },
   );
 }

@@ -325,6 +325,42 @@ export class StorageUnavailableError extends StorageAdapterError {
   }
 }
 
+/** What {@link StorageUnsupportedError} is constructed with. */
+export interface StorageUnsupportedErrorOptions extends StorageAdapterErrorOptions {
+  /** The adapter operation the request needed and the adapter does not offer. A synchronous call needs its synchronous form, so `keys` there means `keysSync`. */
+  readonly missing: StorageOperation;
+}
+
+/**
+ * The backend works, but cannot do what was asked: an operation needed an optional adapter method this adapter does not offer.
+ *
+ * Thrown before anything changes, because doing part of the request would look like success while leaving the rest undone. A narrower request, or an adapter offering the method, is the way past it.
+ *
+ * @param options - Which adapter, the operation that was asked for, and the adapter operation it was `missing`.
+ * @example
+ * ```ts
+ * if (error.code === STORAGE_ERROR_CODE.Unsupported) await storage.clear();
+ * ```
+ */
+export class StorageUnsupportedError extends StorageAdapterError {
+  readonly missing: StorageOperation;
+
+  constructor(options: StorageUnsupportedErrorOptions) {
+    super(
+      {
+        ...options,
+        message:
+          options.message ??
+          `The ${options.adapter} adapter has no \`${options.missing}\`, which \`${options.operation}\` needs for this request.`,
+      },
+      STORAGE_ERROR_CODE.Unsupported,
+    );
+
+    this.name = "StorageUnsupportedError";
+    this.missing = options.missing;
+  }
+}
+
 /** What {@link UnknownStorageKeyError} is constructed with. */
 export interface UnknownStorageKeyErrorOptions {
   readonly key: string;

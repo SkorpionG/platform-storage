@@ -28,6 +28,7 @@ export {
   StorageSchemaError,
   StorageSerializationError,
   StorageUnavailableError,
+  StorageUnsupportedError,
   StorageValidationError,
   UnknownStorageKeyError,
   UnknownStorageVersionError,
@@ -36,6 +37,7 @@ export type {
   StorageAdapterErrorOptions,
   StorageMigrationErrorOptions,
   StorageSerializationErrorOptions,
+  StorageUnsupportedErrorOptions,
   StorageValidationErrorOptions,
   UnknownStorageKeyErrorOptions,
   UnknownStorageVersionErrorOptions,
@@ -71,6 +73,8 @@ export { jsonSerializer } from "./serializer/json-serializer";
 export { passthroughSerializer } from "./serializer/passthrough-serializer";
 export type { SerializationDirection, Serializer } from "./serializer/serializer";
 
+export { CLEAR_TARGET } from "./storage/clear-targets";
+export type { ClearTarget, ClearTargets } from "./storage/clear-targets";
 export { createStorage } from "./storage/create-storage";
 export type {
   CreateStorageOptions,

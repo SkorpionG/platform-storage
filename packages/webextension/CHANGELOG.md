@@ -1,5 +1,34 @@
 # @platform-storage/webextension
 
+## 0.6.0
+
+### Minor Changes
+
+- `clear(target)` and `clearSync(target)` take a target, or a list of them added together, saying what to remove. With none, `clear()` removes exactly what it always has: every name the schema declares.
+
+  - `"declared"` is the default.
+  - `"readFrom"` removes only the old names in `readFrom`, once a rename has run everywhere.
+  - `"unprefixed"` removes the names from before a prefix, to tidy up after `readUnprefixed`, and never one another key stores under.
+  - `"undeclared"` removes stored names the schema does not list, only under the storage's prefix where it has one.
+  - `"everything"` removes the whole backend and has to be asked for on its own. A list cannot hold it, at compile time or at runtime.
+
+  `CLEAR_TARGET` spells the targets, and `ClearTarget` and `ClearTargets` type them.
+
+  `"undeclared"` and `"everything"` list the backend through the adapter's `keys`, or `keysSync` for `clearSync`, and every shipped adapter can. Where an adapter cannot, the call throws the new `StorageUnsupportedError`, code `UNSUPPORTED`, before removing anything. A failure to list reports the `keys` operation through `onError`.
+
+  `"unprefixed"` on a storage with no prefix removes nothing and tells `onError` with a `StorageSchemaError`.
+
+  Watchers hear about a key whose value changed because a name it was reading from was removed, with what it reads as once the removal has landed.
+
+  `clear` and `clearSync` now take an argument, so passing either straight where a callback receives one, such as `onClick={storage.clear}` or `.then(storage.clear)`, no longer typechecks, and from JavaScript rejects with `StorageSchemaError` when the argument is not a target. Wrap it in an arrow function: `onClick={() => storage.clear()}`.
+
+### Patch Changes
+
+- `remove`, `removeSync`, `clear` and `clearSync` now tell watchers about a key that a refused removal changed anyway. A key with old names is removed from each of them, one at a time on a backend without a batch call, so a refusal partway could leave it reading from a later old name while `watch` and `onChange` heard nothing. Each such key is now read again and announced, with `oldValueKnown` `false`, before the call rejects with the same error.
+- Updated dependencies
+- Updated dependencies
+  - @platform-storage/core@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes

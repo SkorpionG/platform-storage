@@ -21,7 +21,7 @@ function holds(storage: SyncPlatformStorage<ScratchDefinition>, name: string): b
   }
 }
 
-/* Through the adapter rather than `window`, so a backend that is not there is reported rather than thrown. */
+/* Through the adapter rather than `window`, so a backend that is not there plants nothing rather than throwing. */
 function plantBare(name: string): void {
   const { adapter } = adopting;
 

@@ -178,6 +178,56 @@ test("the origin inspector follows writes and clears through a prefixed storage"
   await expect(inspector.getByText("team-a:note", { exact: true })).toHaveCount(0);
 });
 
+test("clearing undeclared names stays inside the prefix", async ({ page }) => {
+  await page.goto("/");
+
+  const inspector = page.locator("section", {
+    has: page.getByRole("heading", { name: "What is actually on the origin" }),
+  });
+
+  await page.getByRole("textbox", { name: "Team A note" }).fill("alpha");
+  await page.getByRole("textbox", { name: "Team B note" }).fill("beta");
+  await page.getByRole("button", { name: "Plant a leftover" }).click();
+  await page.getByRole("button", { name: "Plant a foreign key" }).click();
+
+  await expect(inspector.getByText("team-a:draft", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: 'clearSync("undeclared")' }).click();
+
+  await expect(inspector.getByText("team-a:draft", { exact: true })).toHaveCount(0);
+  expect(
+    await page.evaluate(() => ({
+      leftover: window.localStorage.getItem("team-a:draft"),
+      teamA: window.localStorage.getItem("team-a:note"),
+      teamB: window.localStorage.getItem("team-b:note"),
+      foreign: window.localStorage.getItem("analytics:session"),
+    })),
+  ).toEqual({
+    leftover: null,
+    teamA: '"alpha"',
+    teamB: '"beta"',
+    foreign: '"belongs to someone else"',
+  });
+});
+
+test("clearing everything empties the origin, and every hook follows", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    window.localStorage.setItem("visitCount", "7");
+  });
+  await page.reload();
+  await expect(page.getByLabel("Visit count")).toContainText("7");
+
+  await page.getByRole("textbox", { name: "Team A note" }).fill("alpha");
+  await page.getByRole("button", { name: "Plant a foreign key" }).click();
+  await page.getByRole("button", { name: 'clearSync("everything")' }).click();
+
+  await expect(page.getByLabel("Visit count")).toContainText("0");
+  await expect(page.getByLabel("Team A reads as")).toContainText("undefined");
+  await expect(page.getByText("Nothing stored yet.")).toBeVisible();
+  expect(await page.evaluate(() => window.localStorage.length)).toBe(0);
+});
+
 test("adopting a prefix moves a value left under the bare name", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => {

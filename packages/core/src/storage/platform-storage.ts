@@ -3,6 +3,7 @@ import type { PlatformStorageError } from "../errors/errors";
 import type { GetResult, KeyOf, SetValue } from "../schema/key-definition";
 import type { StorageSchema, StorageSchemaDefinition } from "../schema/storage-schema";
 import type { Serializer } from "../serializer/serializer";
+import type { ClearTargets } from "./clear-targets";
 import type { InvalidPolicy, OnInvalid } from "./invalid-policy";
 
 /** What a single `get` accepts, on top of the key. */
@@ -137,11 +138,15 @@ export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
   /** Whether anything is stored, without validating it. */
   has(key: KeyOf<Definition>): Promise<boolean>;
   /**
-   * Removes only the keys this schema declares, never anything else sharing the backend, in one call where the backend has a batch call.
+   * Removes what the target names, in one call where the backend has a batch call. With no target, only the names this schema declares, never anything else sharing the backend.
    *
-   * A failure reports what the backend refused: `removeMany`, naming no single key, where it removed them together, or `remove` and the key where it went one at a time. Nothing reports `clear`, which names the method rather than a call any adapter receives.
+   * A target or a list of them reaches further, and anything wider than `declared` has to be asked for by name: `readFrom`, `unprefixed`, `undeclared`, or `everything` on its own. See {@link CLEAR_TARGET}.
+   *
+   * `undeclared` and `everything` list what the backend holds through the adapter's `keys`, and throw `StorageUnsupportedError` before removing anything where it has none. A name written between the listing and the removal survives. `unprefixed` on a storage with no prefix removes nothing and tells `onError`.
+   *
+   * A failure reports what the backend refused: `removeMany`, naming no single key, where it removed them together, `remove` and the name where it went one at a time, or `keys` where listing failed.
    */
-  clear(): Promise<void>;
+  clear(target?: ClearTargets): Promise<void>;
 
   /** The name the backend stores this key under, the storage's `prefix` included, for tooling that has to address it directly. */
   physicalKey(key: KeyOf<Definition>): string;
@@ -193,7 +198,7 @@ export interface SyncStorageMethods<Definition extends StorageSchemaDefinition> 
   removeSync(key: KeyOf<Definition>): void;
   removeManySync(keys: ReadonlyArray<KeyOf<Definition>>): void;
   hasSync(key: KeyOf<Definition>): boolean;
-  clearSync(): void;
+  clearSync(target?: ClearTargets): void;
 }
 
 /** A storage whose backend can also answer immediately, so it carries `getSync` and its siblings as well. */

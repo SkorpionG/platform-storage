@@ -1,6 +1,7 @@
 import { describe, expectTypeOf, it } from "vitest";
 
 import {
+  CLEAR_TARGET,
   createStorage,
   defineKey,
   defineStorageSchema,
@@ -18,6 +19,8 @@ import {
   withFallback,
 } from "../index";
 import type {
+  ClearTarget,
+  ClearTargets,
   InvalidPolicy,
   JsonValue,
   KeyDefinition,
@@ -55,6 +58,7 @@ describe("@platform-storage/core entry point", () => {
     expectTypeOf(Object.values(STORAGE_ERROR_CODE)).toEqualTypeOf<Array<StorageErrorCode>>();
     expectTypeOf(Object.values(STORAGE_OPERATION)).toEqualTypeOf<Array<StorageOperation>>();
     expectTypeOf(Object.values(INVALID_POLICY)).toEqualTypeOf<Array<InvalidPolicy>>();
+    expectTypeOf(Object.values(CLEAR_TARGET)).toEqualTypeOf<Array<ClearTarget>>();
     expectTypeOf(DEFAULT_INVALID_POLICY).toEqualTypeOf<InvalidPolicy>();
   });
 
@@ -65,6 +69,15 @@ describe("@platform-storage/core entry point", () => {
     expectTypeOf(storage.getSync("theme")).toEqualTypeOf<"light" | "dark">();
     // @ts-expect-error - "nope" is not one of the declared keys
     void storage.get("nope");
+  });
+
+  it("accepts one clear target, or a list that leaves out everything", () => {
+    expectTypeOf<"everything">().toExtend<ClearTargets>();
+    expectTypeOf<ReadonlyArray<"readFrom" | "unprefixed">>().toExtend<ClearTargets>();
+    expectTypeOf<Array<"declared" | "undeclared">>().toExtend<ClearTargets>();
+    expectTypeOf<Array<"everything">>().not.toExtend<ClearTargets>();
+    expectTypeOf<Array<"declared" | "everything">>().not.toExtend<ClearTargets>();
+    expectTypeOf<"nothing">().not.toExtend<ClearTargets>();
   });
 
   it("narrows an adapter to its synchronous form, which is what unlocks the synchronous half", () => {
@@ -103,6 +116,8 @@ describe("what the entry point deliberately withholds", () => {
     expectTypeOf(entry).not.toHaveProperty("unwrapStored");
     expectTypeOf(entry).not.toHaveProperty("resolveStoredNames");
     expectTypeOf(entry).not.toHaveProperty("checkStoredNames");
+    expectTypeOf(entry).not.toHaveProperty("readClearTargets");
+    expectTypeOf(entry).not.toHaveProperty("planClear");
   });
 });
 

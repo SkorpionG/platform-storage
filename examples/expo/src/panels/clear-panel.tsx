@@ -36,13 +36,26 @@ export function ClearPanel() {
 
       <Field
         label="Then clear the schema's keys"
-        hint="Every declared key goes; the foreign one is untouched, because the library removes what it declared one key at a time rather than emptying the store."
+        hint="Every declared key goes; the foreign one is untouched, because the library removes only the names it declared, in one call where AsyncStorage has one, rather than emptying the store."
       >
         <Control>
           <Button
             variant="outlined"
             label="clear()"
             onPress={() => void local.clear().then(check)}
+          />
+        </Control>
+      </Field>
+
+      <Field
+        label="Or clear what the schema does not declare"
+        hint='clear("undeclared") lists the store and removes every name the schema does not list. This storage has no prefix to stay inside, so the foreign key goes too, which is why it has to be asked for by name.'
+      >
+        <Control>
+          <Button
+            variant="outlined"
+            label='clear("undeclared")'
+            onPress={() => void local.clear("undeclared").then(check)}
           />
         </Control>
       </Field>

@@ -7,7 +7,11 @@ function toneFor(code: string): BadgeTone {
   if (code === STORAGE_ERROR_CODE.Validation || code === STORAGE_ERROR_CODE.Serialization) {
     return "warning";
   }
-  if (code === STORAGE_ERROR_CODE.Unavailable || code === STORAGE_ERROR_CODE.Adapter) {
+  if (
+    code === STORAGE_ERROR_CODE.Unavailable ||
+    code === STORAGE_ERROR_CODE.Unsupported ||
+    code === STORAGE_ERROR_CODE.Adapter
+  ) {
     return "danger";
   }
   return "neutral";

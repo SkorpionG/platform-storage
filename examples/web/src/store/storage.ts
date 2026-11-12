@@ -63,8 +63,11 @@ function scratchStorage(
   });
 }
 
+/** Team A's prefix, which the clear panel plants a leftover under. */
+export const TEAM_A_PREFIX = "team-a:";
+
 /** Two storages over one schema and one `localStorage`, each inside its own prefix, so neither sees or clears the other's values. */
-export const teamA: SyncPlatformStorage<ScratchDefinition> = scratchStorage("team-a:", false);
+export const teamA: SyncPlatformStorage<ScratchDefinition> = scratchStorage(TEAM_A_PREFIX, false);
 export const teamB: SyncPlatformStorage<ScratchDefinition> = scratchStorage("team-b:", false);
 
 /** A storage adopting a prefix: it moves a value stored under the bare name in under `app:` the first time it reads it. */

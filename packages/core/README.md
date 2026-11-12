@@ -205,9 +205,45 @@ Removes several keys, and the old names they declare, in one call to the backend
 
 Whether anything is stored, without validating or deserializing it.
 
-#### `clear(): Promise<void>`
+#### `clear(target?): Promise<void>`
 
-Removes only the keys this schema declares, and the old names they declare in `readFrom`, never anything else sharing the backend. It is `removeMany` over every declared key, so it is one call where the backend has a batch call. A refusal there reports the `removeMany` operation without naming a key, since nothing says which name the backend refused.
+Removes what the target names, in one call where the backend has a batch call. With no target, only the names this schema declares, never anything else sharing the backend.
+
+```ts
+await storage.clear(); // the same as clear("declared")
+await storage.clear("undeclared");
+await storage.clear(["readFrom", "unprefixed"]); // several, added together
+await storage.clear("everything"); // only on its own
+```
+
+| Target       | Removes                                                                                                                                                   |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `declared`   | The default. Every name the storage reads: current names, `readFrom` names, and the names from before the prefix while `readUnprefixed` is on             |
+| `readFrom`   | Only the `readFrom` names, under the prefix, once a rename has run everywhere                                                                             |
+| `unprefixed` | Only the names from before the prefix, whether or not `readUnprefixed` is on, to tidy up after [adopting a prefix](#adopting-a-prefix)                    |
+| `undeclared` | The stored names the schema does not list, such as a key since deleted from it. Only under the prefix where there is one, and the whole backend otherwise |
+| `everything` | The whole backend, data other code owns included, prefix or not. Cannot be given in a list                                                                |
+
+With `prefix: "app:"`, a schema declaring `theme` with `readFrom: ["colorMode"]`, and a backend holding `app:theme`, `app:colorMode`, `theme`, `app:draft` and `analytics:session`:
+
+- `declared` removes `app:theme` and `app:colorMode`, and `theme` too while `readUnprefixed` is on.
+- `readFrom` removes `app:colorMode`.
+- `unprefixed` removes `theme`.
+- `undeclared` removes `app:draft`.
+- `everything` removes all five.
+
+Anything wider than `declared` can delete data other code owns, so it has to be asked for by name. A few more rules:
+
+- `CLEAR_TARGET` spells each target. A list is typed so that it cannot hold `everything`.
+- `undeclared` and `everything` list what the backend holds through the adapter's `keys`, or `keysSync` for `clearSync`. Where it has none, the call throws `StorageUnsupportedError` before removing anything, even the rest of a list. Every adapter this project ships can list its names.
+- A name written between the listing and the removal survives it.
+- `undeclared` matches the prefix as written, so `"app:"` also takes the names of a storage under `"app:v2:"`.
+- `unprefixed` never removes a name another key stores under or reads from. On a storage with no prefix it removes nothing and tells `onError` with a `StorageSchemaError`, because there the bare names are the current ones.
+- A target that is not one throws `StorageSchemaError`. An empty list removes nothing.
+
+Old names are removed before current ones, so a removal that stops partway leaves a value where a retry finds it. A refusal reports the `removeMany` operation without naming a key, since nothing says which name the backend refused, or `remove` and the name on a backend that goes one at a time, or `keys` where listing failed.
+
+Watchers hear about each key whose value changed. Removing a `readFrom` or bare name a key was reading from changes that key, to whatever a later name holds or its default, and is announced whatever the backend reports. `undeclared` changes no declared key, so nobody hears of it.
 
 #### `physicalKey(key): string`
 
@@ -257,6 +293,8 @@ const names = await storage.adapter.keys?.();
 ```
 
 This calls the adapter rather than a storage, so a failure arrives as the backend reported it and `onError` does not hear about it.
+
+`clear("undeclared")` and `clear("everything")` list through it on a storage's behalf, and there a failure does reach `onError`, reported as the `keys` operation.
 
 ### Following what a backend reports
 
@@ -378,6 +416,7 @@ const stop = storage.watch("theme", ({ oldValue, newValue }) => {
 - A listener hears only changes that arrive after it started listening. A write still under way when it starts counts, with `oldValueKnown` `false`.
 - A key's stored old names are not reported, and moving a value from one is not a change. In a context the backend tells, the move can arrive as the key going from empty to its value, and overwriting a value still under an old name reports the old value as empty.
 - A read saving a migration or a `recover` is not a change either, so neither `watch` nor `onChange` hears of it, in this context or another. Between two contexts on different releases, or with a step that gives a different answer each time, the save can arrive as one extra change, and one saved under a new name after a `readFrom` hit can arrive as the key going from empty to its value.
+- A write that fails says nothing, since nothing changed, unless it may have changed something before failing. A batch, or a `remove` or `clear` of a key with old names, can be refused partway, so each key it touched is read again and announced with `oldValueKnown` `false` before the call rejects.
 - Another tab clearing all of `localStorage` says nothing about what it replaced, so `oldValueKnown` is `false` and `oldValue` is what an empty key reads as.
 - A second storage over the same `localStorage` in one document hears nothing, because the browser does not tell a page about its own writes. A write of an identical value may or may not be reported.
 - AsyncStorage reports nothing, so React Native hears writes made through the same storage only.
@@ -398,7 +437,7 @@ When the current name holds nothing, a read tries the old names in order. A valu
 - If the move fails, the read still returns the value, `onError` hears about it, and the old value stays for the next read to try.
 - A [versioned key](#versioned-keys) found under an old name runs its chain, and the latest version is what gets written to the current name.
 - `has` counts the old names, and `set`, `remove` and `clear` clear them.
-- Delete the entry once the old names no longer matter. Keeping it costs only an extra lookup when the key is empty.
+- Delete the entry once the old names no longer matter. Keeping it costs only an extra lookup when the key is empty. `clear("readFrom")` removes whatever is still under the old names first; once the entry is gone they are no longer declared, and only `clear("undeclared")` reaches them.
 
 ## Prefixing stored names
 
@@ -413,7 +452,7 @@ A prefix lets several storages, or a storage and other code, share one backend w
 - It is taken literally: `"app:"` gives `app:theme`, and `"app"` would give `apptheme`. The separator is yours to choose.
 - A key's `readFrom` names take the prefix too, so a storage only ever looks inside its own prefix.
 - `prefixed: false` keeps a key and its `readFrom` names exactly as written, for a name something else owns, such as another library's token.
-- `physicalKey(key)` answers with the prefixed name. `clear()` removes only this storage's names, so a second storage under another prefix is left alone.
+- `physicalKey(key)` answers with the prefixed name. `clear()` removes only this storage's names, so a second storage under another prefix is left alone, and `clear("undeclared")` stays inside the prefix.
 - A prefix can make two names clash where the schema alone could not, such as a key opting out with `key: "app:user"` beside `user` under `"app:"`. `createStorage` checks the final names and throws `StorageSchemaError`.
 
 ### Adopting a prefix
@@ -428,7 +467,7 @@ A read tries each key's prefixed names first, then the same names without the pr
 
 It needs a `prefix`. Asking without one is refused with `StorageSchemaError` when the storage is built; the types do not catch it, so that `CreateStorageOptions` stays an interface you can extend and `Omit` from.
 
-Turn it off once old data has moved. While it is on, the bare names count as this storage's:
+Turn it off once old data has moved, and `clear("unprefixed")` removes whatever bare names were never read. While it is on, the bare names count as this storage's:
 
 - On a backend other code shares, a bare `theme` may be someone else's, and a read would take it and delete it.
 - `has` counts the bare names, and `clear()` and every write remove them.
@@ -549,12 +588,15 @@ Every error extends `PlatformStorageError` and carries a `code`.
 | `StorageAdapterError`        | `ADAPTER`         | The backend itself failed                            |
 | `StorageQuotaExceededError`  | `QUOTA`           | The backend has run out of room                      |
 | `StorageUnavailableError`    | `UNAVAILABLE`     | The backend is not there at all                      |
+| `StorageUnsupportedError`    | `UNSUPPORTED`     | The backend lacks an optional method a request needs |
 | `UnknownStorageKeyError`     | `UNKNOWN_KEY`     | A key the schema does not declare                    |
 | `StorageSchemaError`         | `INVALID_SCHEMA`  | The schema, or the way it is used, is wrong          |
 | `StorageMigrationError`      | `MIGRATION`       | A step in a version chain failed                     |
 | `UnknownStorageVersionError` | `UNKNOWN_VERSION` | A stored value is newer than any declared version    |
 
-`StorageQuotaExceededError` and `StorageUnavailableError` both extend `StorageAdapterError`, so catching that one still catches both. A full backend is worth telling apart because it is the one failure an application can usually act on: evict something and the same write succeeds. Recognizing it is each adapter's job, since only the adapter knows how its own platform reports one, and a platform that gives no usable signal reports the general `ADAPTER` code instead.
+`StorageQuotaExceededError`, `StorageUnavailableError` and `StorageUnsupportedError` all extend `StorageAdapterError`, so catching that one still catches all three. A full backend is worth telling apart because it is the one failure an application can usually act on: evict something and the same write succeeds. Recognizing it is each adapter's job, since only the adapter knows how its own platform reports one, and a platform that gives no usable signal reports the general `ADAPTER` code instead.
+
+`StorageUnsupportedError` is thrown before anything changes, because doing part of a request would look like success while leaving the rest undone. It names the adapter operation that was `missing`, which for a synchronous call means its synchronous form, such as `keysSync` for `keys`. A narrower request, or an adapter offering that operation, is the way past it.
 
 Branch on the code rather than the class, and spell it with `STORAGE_ERROR_CODE` rather than the string. Prefer `isPlatformStorageError`, `isStorageValidationError` and `isStorageQuotaError` to `instanceof`: an application that resolves two copies of this package holds two copies of each class, and `instanceof` then fails across them.
 
