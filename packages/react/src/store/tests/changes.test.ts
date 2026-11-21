@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { asyncStorage, syncStorage } from "../../../tests/fakes/storages";
-import { announceWrite, generationOf, notifyStorageChanged, subscribeToStorage } from "../changes";
+import {
+  announceWrite,
+  announceWrites,
+  generationOf,
+  notifyStorageChanged,
+  subscribeToKeys,
+  subscribeToStorage,
+} from "../changes";
 
 describe("subscribeToStorage", () => {
   it("calls a key's listener when that key changes", () => {
@@ -252,5 +259,78 @@ describe("announceWrite", () => {
     announceWrite(storage, "theme" as never);
 
     expect(listener).toHaveBeenCalledOnce();
+  });
+});
+
+describe("announceWrites", () => {
+  it("moves the generation of each key it names, and of no other", () => {
+    const storage = syncStorage();
+    const before = {
+      theme: generationOf(storage, "theme"),
+      user: generationOf(storage, "user"),
+      visits: generationOf(storage, "visitCount"),
+    };
+
+    announceWrites(storage, ["theme", "user"]);
+
+    expect(generationOf(storage, "theme")).toBeGreaterThan(before.theme);
+    expect(generationOf(storage, "user")).toBeGreaterThan(before.user);
+    expect(generationOf(storage, "visitCount")).toBe(before.visits);
+  });
+
+  it("stays quiet while the storage is being followed, as announceWrite does", () => {
+    const storage = syncStorage();
+    const listener = vi.fn();
+
+    subscribeToStorage(storage, listener, "theme");
+    announceWrites(storage, ["theme", "user"]);
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("subscribeToKeys", () => {
+  it("calls the listener for a change to any of its keys, and for no other", () => {
+    const storage = syncStorage();
+    const listener = vi.fn();
+
+    subscribeToKeys(storage, ["theme", "user"], listener);
+    notifyStorageChanged(storage, "theme");
+    notifyStorageChanged(storage, "user");
+    notifyStorageChanged(storage, "visitCount");
+
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("calls the listener once per key for a change naming none", () => {
+    const storage = syncStorage();
+    const listener = vi.fn();
+
+    subscribeToKeys(storage, ["theme", "user"], listener);
+    notifyStorageChanged(storage);
+
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops calling the listener for every key once it unsubscribes", () => {
+    const storage = syncStorage();
+    const listener = vi.fn();
+
+    const stop = subscribeToKeys(storage, ["theme", "user"], listener);
+    stop();
+    notifyStorageChanged(storage, "theme");
+    notifyStorageChanged(storage, "user");
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("follows the storage while it listens, so a write made through it arrives by itself", () => {
+    const storage = syncStorage();
+    const listener = vi.fn();
+
+    subscribeToKeys(storage, ["theme", "user"], listener);
+    storage.setSync("user", { id: "u_1", name: "Ada" });
+
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });

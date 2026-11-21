@@ -79,6 +79,30 @@ The writer alone, for a component that writes a key it never displays and should
 
 A writer takes no options of its own, because a write has none to take. The invalid-data policy is a rule for reads, and it stays where it is declared.
 
+### `useStorageValues(storage, keys)`
+
+Several keys through one hook, read during the render, and a writer for them.
+
+**Parameters:**
+
+- `storage: SyncPlatformStorage` — a storage whose backend answers immediately.
+- `keys: ReadonlyArray<KeyOf<Definition>>` — which keys to read, as a literal list, since the answer is typed from it. A key listed twice is read once.
+
+**Returns:** `[values, writer]`, where `values` is an object keyed by the keys asked for, each typed as `useStorageValue` would type it, and `writer` is `SyncStorageValuesWriter`:
+
+- `set(values): void` — writes any of the hook's keys in one call, as the storage's `setMany` does. Every value is validated before any is written, so one refusal throws `StorageValidationError`, writes nothing and announces nothing. A key set to `undefined` is removed.
+- `remove(keys?): void` — removes the keys given, or every key the hook reads when given none.
+
+```tsx
+const [{ theme, user }, writer] = useStorageValues(storage, ["theme", "user"]);
+
+<button onClick={() => writer.remove()}>Sign out</button>;
+```
+
+The object keeps its identity until one of its keys changes, and a change to any other key re-renders nothing. Only the keys that changed are read again, each once, and a key another hook also shows is read once for both. Keys that moved together before anything read them, such as after a change naming no key, are read in one call where the backend has a batch call. The list may be written inline: a new array on every render neither resubscribes nor rebuilds the answer. On a server, `values` is what the schema declares for each key, as [`readDeclaredValues`](#readdeclaredvaluestorage-key-and-readdeclaredvaluesstorage-keys) answers.
+
+A list typed more widely than what it holds, such as an `Array` of every key, claims keys the answer will not have, as with core's `getMany`.
+
 ### `useAsyncStorageValue(storage, key)`
 
 The same pair over any storage, including one that only answers later.
@@ -106,20 +130,51 @@ The asynchronous writer alone.
 
 **Returns:** `AsyncStorageWriter<Definition[Key]>` — `set(value): Promise<void>`, `update(updater): Promise<void>` and `remove(): Promise<void>`. Each promise settles exactly as the storage's own does, so a refused write is a rejection rather than a silent success, and nothing is announced when one fails.
 
+### `useAsyncStorageValues(storage, keys)`
+
+The same over any storage, including one that only answers later, with every key read in one backend call. That is what an extension's rate-limited `sync` area and AsyncStorage's native bridge want.
+
+**Parameters:**
+
+- `storage: PlatformStorage` — any storage, synchronous backend or not.
+- `keys: ReadonlyArray<KeyOf<Definition>>` — which keys to read, as a literal list. A key listed twice is read once.
+
+**Returns:** `[result, writer]`. `result` has one status for the whole read, since one call lands or fails as a whole:
+
+| `status`    | `values`                 | `error`                |
+| ----------- | ------------------------ | ---------------------- |
+| `"loading"` | `undefined`              | `undefined`            |
+| `"ready"`   | every key, as one object | `undefined`            |
+| `"failed"`  | `undefined`              | `PlatformStorageError` |
+
+`writer` is `AsyncStorageValuesWriter`: `set(values): Promise<void>` and `remove(keys?): Promise<void>`, each settling exactly as the storage's `setMany` and `removeMany` do.
+
+```tsx
+const [result, writer] = useAsyncStorageValues(storage, ["theme", "user"]);
+
+if (result.status === "loading") return <Spinner />;
+if (result.status === "failed") return <Problem error={result.error} />;
+
+return <button onClick={() => void writer.remove()}>{result.values.theme}</button>;
+```
+
+A change to any of the keys reads them all again in one call, and changes arriving together, such as a `clear()` naming every key, are read once. A change landing while a read is under way starts a read of its own, and the answer it overtook is never shown, so a backend call that never settles cannot hold the keys back. As with `useAsyncStorageValue`, a write does not send the result back to `"loading"`.
+
 ### `createStorageHooks(storage)`
 
 The hooks bound to one storage, so it is not repeated at every call site and each key keeps its own type.
 
 **Parameters:** `storage: PlatformStorage | SyncPlatformStorage`
 
-**Returns:** `{ useValue, useWriter, notifyChanged }`. A storage that answers immediately yields the synchronous hooks; anything else yields the asynchronous ones, so the same application code works on every platform.
+**Returns:** `{ useValue, useValues, useWriter, notifyChanged }`. A storage that answers immediately yields the synchronous hooks; anything else yields the asynchronous ones, so the same application code works on every platform. `useValues(keys)` is `useStorageValues` or `useAsyncStorageValues` bound to the storage.
 
 Declare it beside the schema rather than inside a component. It builds hooks; it is not one.
 
 ```tsx
-export const { useValue, useWriter, notifyChanged } = createStorageHooks(storage);
+export const { useValue, useValues, useWriter, notifyChanged } = createStorageHooks(storage);
 
 const [theme, writer] = useValue("theme");
+const [{ user }] = useValues(["theme", "user"]);
 ```
 
 ### `useHydrated()`
@@ -142,9 +197,13 @@ For a write made past the library, and for following a storage rather than one k
 
 **Returns:** `subscribeToStorage` returns an unsubscribe function.
 
-### `readDeclaredValue(storage, key)`
+### `readDeclaredValue(storage, key)` and `readDeclaredValues(storage, keys)`
 
-From the `@platform-storage/react/server` subpath. What the key reads as with nothing stored, which is what a server render answers with. The only export that carries no `"use client"`, so a Server Component can call it without pulling the hooks into the server bundle.
+From the `@platform-storage/react/server` subpath. What a key reads as with nothing stored, which is what a server render answers with, and the same for several keys as one object, which is what `useStorageValues` renders on a server. The only exports that carry no `"use client"`, so a Server Component can call them without pulling the hooks into the server bundle.
+
+```tsx
+const { theme, user } = readDeclaredValues(storage, ["theme", "user"]);
+```
 
 ## Examples
 
@@ -242,7 +301,7 @@ export default function Page() {
 
 Every hook here works wherever React does, including React Native. What differs is the storage behind it:
 
-- **Web storage answers immediately**, so `useStorageValue` and `useStorageWriter` read and write during the render.
+- **Web storage answers immediately**, so `useStorageValue`, `useStorageValues` and `useStorageWriter` read and write during the render.
 - **Extension storage areas and AsyncStorage only answer later.** Those storages have no `getSync` at all, and the synchronous hooks refuse them at compile time rather than failing at runtime.
 
 ## License

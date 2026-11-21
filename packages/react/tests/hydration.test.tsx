@@ -5,8 +5,10 @@ import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useAsyncStorageValue } from "../src/hooks/use-async-storage-value";
+import { useAsyncStorageValues } from "../src/hooks/use-async-storage-values";
 import { useHydrated } from "../src/hooks/use-hydrated";
 import { useStorageValue } from "../src/hooks/use-storage-value";
+import { useStorageValues } from "../src/hooks/use-storage-values";
 import type { TestDefinition } from "./fakes/schema";
 import { asyncStorage, syncStorage } from "./fakes/storages";
 
@@ -120,6 +122,41 @@ describe("an asynchronous read across the hydration boundary", () => {
     const { server, complaints } = await hydrate(<AsyncTheme storage={storage} />);
 
     /* A server cannot wait for a backend it has no access to, so `loading` is the honest answer and the one the browser's first pass has to repeat. */
+    expect(server).toContain("loading");
+    expect(complaints).toStrictEqual([]);
+  });
+});
+
+describe("several keys across the hydration boundary", () => {
+  it("renders what the schema declares for each on the server, then hydrates to what is stored", async () => {
+    const storage = syncStorage();
+    storage.setManySync({ theme: "dark", recentSearches: ["coffee"] });
+
+    function Summary() {
+      const [{ theme, recentSearches }] = useStorageValues(storage, ["theme", "recentSearches"]);
+
+      return <span>{`${theme}:${recentSearches.join(",")}`}</span>;
+    }
+
+    const { server, hydrated, complaints } = await hydrate(<Summary />);
+
+    expect(server).toContain("system:");
+    expect(hydrated).toBe("dark:coffee");
+    expect(complaints).toStrictEqual([]);
+  });
+
+  it("says the batch is still loading on the server, and hydrates without a mismatch", async () => {
+    const storage = asyncStorage();
+    await storage.set("theme", "dark");
+
+    function Summary() {
+      const [result] = useAsyncStorageValues(storage, ["theme", "user"]);
+
+      return <span>{result.status}</span>;
+    }
+
+    const { server, complaints } = await hydrate(<Summary />);
+
     expect(server).toContain("loading");
     expect(complaints).toStrictEqual([]);
   });

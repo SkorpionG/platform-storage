@@ -1,5 +1,6 @@
 import { createStorage, memoryAdapter } from "@platform-storage/core";
 import type {
+  GetManyResult,
   GetResult,
   KeyOf,
   PlatformStorage,
@@ -8,7 +9,7 @@ import type {
   SyncPlatformStorage,
 } from "@platform-storage/core";
 
-import { cachedRead } from "./snapshot";
+import { cachedRead, cachedReads } from "./snapshot";
 
 /*
   A generation of its own, never zero, so a write in the browser cannot invalidate the values the first client render still has to match. Nothing writes to the twin, so one constant covers its whole life.
@@ -56,4 +57,25 @@ export function readDeclaredValue<
   Key extends KeyOf<Definition>,
 >(storage: PlatformStorage<Definition>, key: Key): GetResult<Definition[Key]> {
   return cachedRead(declaredTwin(storage.schema), key, DECLARED_GENERATION);
+}
+
+/**
+ * What several keys read as with nothing stored at all, as one object.
+ *
+ * The batch twin of {@link readDeclaredValue}, and what a server renders for a hook reading several keys. It holds its identity for the life of the page, so the browser's first render matches it exactly.
+ *
+ * @param storage - Any storage. Only its schema is read; its backend is never touched.
+ * @param keys - Which keys to answer for, as a literal list so the answer is typed from them. Each is answered once, whatever the order or repetition.
+ * @returns Each key with its declared default, or `undefined` where it has none.
+ * @example
+ * ```tsx
+ * // In a Server Component.
+ * const { theme, user } = readDeclaredValues(storage, ["theme", "user"]);
+ * ```
+ */
+export function readDeclaredValues<
+  Definition extends StorageSchemaDefinition,
+  Key extends KeyOf<Definition>,
+>(storage: PlatformStorage<Definition>, keys: ReadonlyArray<Key>): GetManyResult<Definition, Key> {
+  return cachedReads(declaredTwin(storage.schema), keys, () => DECLARED_GENERATION);
 }

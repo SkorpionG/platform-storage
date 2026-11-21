@@ -50,3 +50,14 @@ export function failingStorage(message = "refused"): PlatformStorage<TestDefinit
 
   return createStorage({ schema: testSchema, adapter });
 }
+
+/**
+ * The same storage with nothing to follow, standing in for a hand-written one that offers no `onChange`, so the hooks' own announcements are all that reach a reader.
+ *
+ * The cast keeps the storage's own type: the hooks accept such a stand-in at runtime, and the tests need its keys typed to call them.
+ */
+export function unfollowable<Storage extends PlatformStorage<TestDefinition>>(
+  storage: Storage,
+): Storage {
+  return { ...storage, onChange: undefined } as unknown as Storage;
+}

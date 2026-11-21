@@ -1,9 +1,11 @@
 import { appSchema } from "@examples/schema";
 import { Badge, Button, Card, Code, Field } from "@examples/ui";
+import { useAsyncStorageValues } from "@platform-storage/react";
 import { isPlatformStorageError } from "@platform-storage/webextension";
 import { useState } from "react";
 
-import { areaCalls, countedSync } from "../store/storages";
+import { NotReady } from "../async-value";
+import { areaCalls, countedSync, sync } from "../store/storages";
 
 interface Outcome {
   readonly tone: "info" | "danger";
@@ -38,6 +40,19 @@ const RUNS = {
 
 type RunName = keyof typeof RUNS;
 
+/* Over `sync` rather than the counted storage, so that its reads never land inside a run the panel is counting. Both are the same area, so a write from the buttons below shows up here. */
+function LiveRead() {
+  const [result] = useAsyncStorageValues(sync, ["theme", "fontScale"]);
+
+  if (result.status !== "ready") return <NotReady stored={result} />;
+
+  return (
+    <Badge tone="info">
+      {result.values.theme} · {result.values.fontScale}×
+    </Badge>
+  );
+}
+
 export function BatchPanel() {
   const [outcomes, setOutcomes] = useState<Partial<Record<RunName, Outcome>>>({});
 
@@ -63,6 +78,18 @@ export function BatchPanel() {
       description="The sync area limits how often it may be written, and every call crosses into the browser. getMany, setMany and removeMany reach it once for any number of keys."
     >
       <div className="divide-y divide-line">
+        <Field
+          label="Follow two keys through one hook"
+          hint={
+            <>
+              <Code>useAsyncStorageValues</Code> reads both in one area call, and again in one call
+              whenever either changes, here or in another context.
+            </>
+          }
+        >
+          <LiveRead />
+        </Field>
+
         <Field
           label="Read every key, one at a time"
           hint={

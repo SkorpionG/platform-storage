@@ -4,6 +4,7 @@ import { MigrationPanel } from "./panels/migration-panel";
 import { PrefixPanel } from "./panels/prefix-panel";
 import { SchemaPanel } from "./panels/schema-panel";
 import { SessionPanel } from "./panels/session-panel";
+import { SummaryPanel } from "./panels/summary-panel";
 import { SyncPanel } from "./panels/sync-panel";
 import { UnavailablePanel } from "./panels/unavailable-panel";
 import { ValuesPanel } from "./panels/values-panel";
@@ -19,6 +20,7 @@ export function CommonPanels({ schemaSource }: CommonPanelsProps) {
     <>
       <SchemaPanel source={schemaSource} />
       <ValuesPanel />
+      <SummaryPanel />
       <CorruptPanel />
       <MigrationPanel />
       <PrefixPanel />

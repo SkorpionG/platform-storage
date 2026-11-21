@@ -105,6 +105,14 @@ export function announceWrite<Definition extends StorageSchemaDefinition>(
   if (channelFor(storage).stopRelay === undefined) notifyStorageChanged(storage, key);
 }
 
+/** Tells this channel about a write a hook just made to several keys, each as {@link announceWrite} would. */
+export function announceWrites<Definition extends StorageSchemaDefinition>(
+  storage: PlatformStorage<Definition>,
+  keys: ReadonlyArray<KeyOf<Definition>>,
+): void {
+  for (const key of keys) announceWrite(storage, key);
+}
+
 /* The first listener starts following the storage and the last one stops, so a storage nothing displays costs nothing. A hand-written stand-in may not offer `onChange`, and then its writers keep announcing for themselves. */
 function retain<Definition extends StorageSchemaDefinition>(
   storage: PlatformStorage<Definition>,
@@ -182,5 +190,22 @@ export function subscribeToStorage<Definition extends StorageSchemaDefinition>(
   return () => {
     listeners.delete(listener);
     release();
+  };
+}
+
+/**
+ * Calls the listener whenever any of these keys changes.
+ *
+ * One subscription per key, so a change to a key outside the list calls nothing. A change naming no key reaches every key's listeners, so the listener can be called once for each of them in a row.
+ */
+export function subscribeToKeys<Definition extends StorageSchemaDefinition>(
+  storage: PlatformStorage<Definition>,
+  keys: ReadonlyArray<KeyOf<Definition>>,
+  listener: () => void,
+): () => void {
+  const stops = keys.map((key) => subscribeToStorage(storage, listener, key));
+
+  return () => {
+    for (const stop of stops) stop();
   };
 }

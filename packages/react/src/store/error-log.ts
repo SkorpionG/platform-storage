@@ -52,7 +52,7 @@ export function recordStorageError(error: PlatformStorageError): void {
   if (flushing) return;
   flushing = true;
 
-  /* A resolved promise rather than `queueMicrotask`, which every runtime has but TypeScript declares only in `lib.dom` and `lib.webworker`: a React Native application compiles with neither, and this package has to typecheck there too. */
+  /* A resolved promise rather than `queueMicrotask`, which a React Native application compiles without. */
   void Promise.resolve().then(() => {
     flushing = false;
     const batch = queued;

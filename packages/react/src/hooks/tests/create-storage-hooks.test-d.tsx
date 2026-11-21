@@ -2,7 +2,14 @@ import { describe, expectTypeOf, it } from "vitest";
 
 import { asyncStorage, syncStorage } from "../../../tests/fakes/storages";
 import type { TestDefinition } from "../../../tests/fakes/schema";
-import type { AsyncStorageWriter, AsyncStoredValue, SyncStorageWriter } from "../../types/hooks";
+import type {
+  AsyncStorageValuesWriter,
+  AsyncStorageWriter,
+  AsyncStoredValue,
+  AsyncStoredValues,
+  SyncStorageValuesWriter,
+  SyncStorageWriter,
+} from "../../types/hooks";
 import { createStorageHooks } from "../create-storage-hooks";
 import { useAsyncStorageValue } from "../use-async-storage-value";
 import type { AsyncStorageHooks, SyncStorageHooks } from "../create-storage-hooks";
@@ -66,6 +73,32 @@ describe("createStorageHooks", () => {
       if (result.status === "ready") {
         expectTypeOf(result.value).toEqualTypeOf<"light" | "dark" | "system">();
       }
+
+      return null;
+    }
+
+    void Probe;
+  });
+
+  it("binds several keys through useValues, typed for each kind of storage", () => {
+    function Probe() {
+      const [values, writer] = immediate.useValues(["theme", "displayName"]);
+      const [result, eventualWriter] = eventual.useValues(["theme", "displayName"]);
+
+      expectTypeOf(values.theme).toEqualTypeOf<"light" | "dark" | "system">();
+      expectTypeOf(values.displayName).toEqualTypeOf<string | undefined>();
+      expectTypeOf(writer).toEqualTypeOf<
+        SyncStorageValuesWriter<TestDefinition, "theme" | "displayName">
+      >();
+      expectTypeOf(result).toEqualTypeOf<
+        AsyncStoredValues<TestDefinition, "theme" | "displayName">
+      >();
+      expectTypeOf(eventualWriter).toEqualTypeOf<
+        AsyncStorageValuesWriter<TestDefinition, "theme" | "displayName">
+      >();
+
+      // @ts-expect-error - "nope" is not one of the keys the schema declares.
+      immediate.useValues(["theme", "nope"]);
 
       return null;
     }

@@ -58,10 +58,6 @@ An adapter over `document.cookie`, for a small value that has to be shared acros
 
 ## React
 
-### Several keys through one hook
-
-A hook reading several keys at once, the way `getMany` does. A snapshot has to keep its identity until one of its keys changes, which for several keys means tracking a generation per key and building the answer again only when one of them moves.
-
 ### Suspense for the asynchronous hooks
 
 A variant of the asynchronous value hook built on `use()`, so a component can render behind a boundary instead of branching on a status. Additive: the status-returning hook stays. It needs a cache keyed on the promise rather than the value, and a decision about what a refetch does to a boundary that has already resolved.

@@ -4,15 +4,25 @@ import {
   createStorageHooks,
   STORED_VALUE_STATUS,
   useAsyncStorageValue,
+  useAsyncStorageValues,
   useAsyncStorageWriter,
   useHydrated,
   useStorageErrors,
   useStorageValue,
+  useStorageValues,
   useStorageWriter,
 } from "../index";
 import type * as entry from "../index";
-import type { AsyncStoredValue, StorageErrorEntry, StoredValueStatus } from "../index";
-import { readDeclaredValue } from "../server";
+import type {
+  AsyncStorageValuesWriter,
+  AsyncStoredValue,
+  AsyncStoredValues,
+  StorageErrorEntry,
+  StoredValueStatus,
+  SyncStorageValuesWriter,
+} from "../index";
+import type * as serverEntry from "../server";
+import { readDeclaredValue, readDeclaredValues } from "../server";
 
 describe("@platform-storage/react entry point", () => {
   it("exports the hooks an application reaches for", () => {
@@ -20,6 +30,8 @@ describe("@platform-storage/react entry point", () => {
     expectTypeOf(useStorageWriter).toBeFunction();
     expectTypeOf(useAsyncStorageValue).toBeFunction();
     expectTypeOf(useAsyncStorageWriter).toBeFunction();
+    expectTypeOf(useStorageValues).toBeFunction();
+    expectTypeOf(useAsyncStorageValues).toBeFunction();
     expectTypeOf(createStorageHooks).toBeFunction();
     expectTypeOf(useHydrated).returns.toEqualTypeOf<boolean>();
     expectTypeOf(useStorageErrors).returns.toEqualTypeOf<ReadonlyArray<StorageErrorEntry>>();
@@ -27,6 +39,26 @@ describe("@platform-storage/react entry point", () => {
 
   it("keeps the declared read on its own entry, where no client directive reaches it", () => {
     expectTypeOf(readDeclaredValue).toBeFunction();
+    expectTypeOf(readDeclaredValues).toBeFunction();
+  });
+
+  it("keeps every hook off the server entry", () => {
+    expectTypeOf<typeof serverEntry>().not.toHaveProperty("useStorageValue");
+    expectTypeOf<typeof serverEntry>().not.toHaveProperty("useStorageValues");
+    expectTypeOf<typeof serverEntry>().not.toHaveProperty("useAsyncStorageValues");
+  });
+
+  it("publishes the writer types for several keys", () => {
+    expectTypeOf<SyncStorageValuesWriter<never, never>["remove"]>().toBeFunction();
+    expectTypeOf<AsyncStorageValuesWriter<never, never>["remove"]>().toBeFunction();
+  });
+
+  it("keeps the store internals unpublished", () => {
+    expectTypeOf<typeof entry>().not.toHaveProperty("subscribeToKeys");
+    expectTypeOf<typeof entry>().not.toHaveProperty("announceWrites");
+    expectTypeOf<typeof entry>().not.toHaveProperty("readStorageValues");
+    expectTypeOf<typeof entry>().not.toHaveProperty("getAsyncValuesSnapshot");
+    expectTypeOf<typeof entry>().not.toHaveProperty("useKeyList");
   });
 
   it("re-exports nothing from core, because a platform package already provides it", () => {
@@ -42,6 +74,7 @@ describe("STORED_VALUE_STATUS", () => {
   */
   it("names every status an asynchronous read can report, and no others", () => {
     expectTypeOf<StoredValueStatus>().toEqualTypeOf<AsyncStoredValue<never>["status"]>();
+    expectTypeOf<StoredValueStatus>().toEqualTypeOf<AsyncStoredValues<never, never>["status"]>();
   });
 
   it("is the union the type derives from", () => {

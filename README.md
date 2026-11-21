@@ -200,6 +200,12 @@ const { theme, user } = await storage.getMany(["theme", "user"]);
 await storage.setMany({ theme: "dark", user });
 ```
 
+In React, `useStorageValues` and `useAsyncStorageValues` read several keys through one hook, in one backend call wherever the backend can take them together.
+
+```tsx
+const [{ theme, user }, writer] = useStorageValues(storage, ["theme", "user"]);
+```
+
 ## Why
 
 Key-value storage APIs have no idea what you intend to keep in them, so every project rebuilds the same scaffolding:

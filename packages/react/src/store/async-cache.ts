@@ -1,12 +1,14 @@
-import {
-  isPlatformStorageError,
+import type {
+  KeyOf,
+  PlatformStorage,
   PlatformStorageError,
-  STORAGE_ERROR_CODE,
+  StorageSchemaDefinition,
 } from "@platform-storage/core";
-import type { KeyOf, PlatformStorage, StorageSchemaDefinition } from "@platform-storage/core";
 
 import type { AsyncStoredValue } from "../types/hooks";
 import { generationOf, subscribeToStorage } from "./changes";
+import { entriesFor } from "./per-storage";
+import { asStorageError } from "./storage-error";
 
 /*
   One object for every key that has not been read yet, so a first snapshot holds its identity across renders.
@@ -40,11 +42,7 @@ interface AsyncState {
 const states = new WeakMap<object, Map<string, AsyncState>>();
 
 function stateFor(storage: object, key: string): AsyncState {
-  const existing = states.get(storage);
-  const byKey = existing ?? new Map<string, AsyncState>();
-
-  if (existing === undefined) states.set(storage, byKey);
-
+  const byKey = entriesFor(states, storage);
   const state = byKey.get(key);
 
   if (state !== undefined) return state;
@@ -65,17 +63,6 @@ function stateFor(storage: object, key: string): AsyncState {
 function publish(state: AsyncState, snapshot: StoredSnapshot): void {
   state.snapshot = snapshot;
   for (const listener of Array.from(state.listeners)) listener();
-}
-
-/* The engine names the adapter and the operation for whatever a backend throws, so a rejection arriving here is already one of this library's errors. The other branch guards a broken contract rather than a reachable path, and keeps the reported type honest if one ever arrives. */
-function asStorageError(cause: unknown): PlatformStorageError {
-  if (isPlatformStorageError(cause)) return cause;
-
-  return new PlatformStorageError(
-    STORAGE_ERROR_CODE.Adapter,
-    cause instanceof Error ? cause.message : "The storage failed for an unknown reason.",
-    { cause },
-  );
 }
 
 /*

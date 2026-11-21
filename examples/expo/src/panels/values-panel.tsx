@@ -1,7 +1,7 @@
 import { KEY_NOTES } from "@examples/schema";
 import type { AppKey } from "@examples/schema";
 import { Button, Picker, Row, Slider, Switch } from "@expo/ui";
-import { useAsyncStorageValue } from "@platform-storage/react";
+import { useAsyncStorageValue, useAsyncStorageValues } from "@platform-storage/react";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -47,6 +47,34 @@ function ValueRow({ storageKey, stored, children, usage }: RowProps) {
       }
     >
       {children}
+    </Field>
+  );
+}
+
+/* Four of the keys above through one hook: AsyncStorage answers all of them in one call across the native bridge, and again in one call whenever any of them changes. */
+function Summary() {
+  const palette = usePalette();
+  const [result] = useAsyncStorageValues(local, [
+    "displayName",
+    "theme",
+    "fontScale",
+    "visitCount",
+  ]);
+
+  return (
+    <Field
+      label="Four keys through one hook"
+      hint="useAsyncStorageValues reads these four in one call, with one status for all of them, and re-reads them together when any one changes."
+    >
+      {result.status === "ready" ? (
+        <Text style={{ fontSize: 14, lineHeight: 20, color: palette.body }}>
+          {result.values.displayName ?? "Someone"} reads in {result.values.theme} at{" "}
+          {Math.round(result.values.fontScale * 100)}%, and has visited {result.values.visitCount}{" "}
+          {result.values.visitCount === 1 ? "time" : "times"}.
+        </Text>
+      ) : (
+        <NotReady stored={result} />
+      )}
     </Field>
   );
 }
@@ -249,6 +277,8 @@ export function ValuesPanel() {
           <NotReady stored={nickname} />
         )}
       </ValueRow>
+
+      <Summary />
 
       <Note>
         Storing null under Last dismissed and then removing it shows the difference the library

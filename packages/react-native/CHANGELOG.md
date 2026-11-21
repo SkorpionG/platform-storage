@@ -1,5 +1,24 @@
 # @platform-storage/react-native
 
+## 0.7.0
+
+### Minor Changes
+
+- `useStorageValues(storage, keys)` reads several keys through one hook, and `useAsyncStorageValues(storage, keys)` does the same over a storage that only answers later. The synchronous hook returns `[values, writer]` and the asynchronous one `[result, writer]`, with the values inside `result` once it is ready. The values are keyed by the keys asked for and typed as the single-key hooks type them, and the writer is limited to those keys: `set(values)` writes any of them in one call, as `setMany` does, and `remove(keys?)` removes the keys given or every key the hook reads.
+
+  The synchronous hook reads during the render. Its answer keeps its identity until one of its keys changes, only the keys that changed are read again, each once, and a key another hook also shows is read once for both.
+
+  The asynchronous hook reads every key in one backend call and reports one status for the whole read: `loading`, then `ready` with every key, or `failed` with the error. A change to any key reads them all again in one call, changes arriving together, such as a `clear()`, are read once, and an answer a later read overtook is never shown.
+
+  `createStorageHooks` now hands back `useValues` beside `useValue`. `@platform-storage/react/server` adds `readDeclaredValues(storage, keys)`, what several keys read as with nothing stored, which is what the synchronous hook renders on a server. Adds the `SyncStorageValuesWriter`, `AsyncStorageValuesWriter` and `AsyncStoredValues` types.
+
+  A key list may be written inline, since a new array on every render neither resubscribes nor rebuilds the answer. Pass it as a literal list, so the answer is typed from it.
+
+### Patch Changes
+
+- Updated dependencies
+  - @platform-storage/core@0.7.0
+
 ## 0.6.0
 
 ### Minor Changes

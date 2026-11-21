@@ -15,6 +15,14 @@ export interface AsyncValueProps {
   };
 }
 
+/** Only what a placeholder reads, so one read of a key or of several keys at once can be handed over as it is. */
+export interface NotReadyProps {
+  readonly stored: {
+    readonly status: StoredValueStatus;
+    readonly error: PlatformStorageError | undefined;
+  };
+}
+
 /**
  * What an asynchronous read currently says.
  *
@@ -35,7 +43,7 @@ export function AsyncValue({ stored }: AsyncValueProps) {
  *
  * It takes the read rather than rendering a fixed caption, because "still reading" and "the read failed" are different things to say and a control slot that says the first about the second is lying. The web examples need none of this: web storage answers during the render.
  */
-export function NotReady({ stored }: AsyncValueProps) {
+export function NotReady({ stored }: NotReadyProps) {
   if (stored.status === STORED_VALUE_STATUS.Failed) {
     return <Badge tone="danger">{stored.error?.code ?? "failed"}</Badge>;
   }

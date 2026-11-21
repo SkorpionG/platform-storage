@@ -8,18 +8,23 @@
 export { createStorageHooks } from "./hooks/create-storage-hooks";
 export type { AsyncStorageHooks, SyncStorageHooks } from "./hooks/create-storage-hooks";
 export { useAsyncStorageValue, useAsyncStorageWriter } from "./hooks/use-async-storage-value";
+export { useAsyncStorageValues } from "./hooks/use-async-storage-values";
 export { useHydrated } from "./hooks/use-hydrated";
 export { useStorageErrors } from "./hooks/use-storage-errors";
 export { useStorageValue, useStorageWriter } from "./hooks/use-storage-value";
+export { useStorageValues } from "./hooks/use-storage-values";
 
 export { notifyStorageChanged, subscribeToStorage } from "./store/changes";
 export { clearStorageErrors, recordStorageError } from "./store/error-log";
 
 export { STORED_VALUE_STATUS } from "./types/hooks";
 export type {
+  AsyncStorageValuesWriter,
   AsyncStorageWriter,
   AsyncStoredValue,
+  AsyncStoredValues,
   StorageErrorEntry,
   StoredValueStatus,
+  SyncStorageValuesWriter,
   SyncStorageWriter,
 } from "./types/hooks";

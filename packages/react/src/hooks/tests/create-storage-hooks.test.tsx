@@ -124,6 +124,57 @@ describe("createStorageHooks over a storage that answers immediately", () => {
   });
 });
 
+describe("useValues from createStorageHooks", () => {
+  it("reads several keys at once from a storage that answers immediately", () => {
+    const storage = syncStorage();
+    storage.setSync("theme", "dark");
+    const { useValues } = createStorageHooks(storage);
+
+    function Widget() {
+      const [values, writer] = useValues(["theme", "visitCount"]);
+
+      return (
+        <button type="button" onClick={() => writer.set({ visitCount: 2 })}>
+          {`${values.theme}:${String(values.visitCount)}`}
+        </button>
+      );
+    }
+
+    render(<Widget />);
+
+    expect(screen.getByRole("button").textContent).toBe("dark:0");
+
+    act(() => screen.getByRole("button").click());
+
+    expect(screen.getByRole("button").textContent).toBe("dark:2");
+  });
+
+  it("reports one status for several keys from a storage that answers later", async () => {
+    const storage = asyncStorage();
+    const { useValues } = createStorageHooks(storage);
+
+    function Widget() {
+      const [result] = useValues(["theme", "visitCount"]);
+
+      return (
+        <span data-testid="value">
+          {result.status === "ready"
+            ? `${result.values.theme}:${String(result.values.visitCount)}`
+            : result.status}
+        </span>
+      );
+    }
+
+    render(<Widget />);
+
+    expect(screen.getByTestId("value").textContent).toBe("loading");
+
+    await settled();
+
+    expect(screen.getByTestId("value").textContent).toBe("system:0");
+  });
+});
+
 describe("createStorageHooks over a storage that only answers later", () => {
   it("reports a status rather than a bare value", async () => {
     const storage = asyncStorage();

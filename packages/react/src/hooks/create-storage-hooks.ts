@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  GetManyResult,
   GetResult,
   KeyOf,
   PlatformStorage,
@@ -9,15 +10,28 @@ import type {
 } from "@platform-storage/core";
 
 import { notifyStorageChanged } from "../store/changes";
-import type { AsyncStorageWriter, AsyncStoredValue, SyncStorageWriter } from "../types/hooks";
+import type {
+  AsyncStorageValuesWriter,
+  AsyncStorageWriter,
+  AsyncStoredValue,
+  AsyncStoredValues,
+  SyncStorageValuesWriter,
+  SyncStorageWriter,
+} from "../types/hooks";
 import { useAsyncStorageValue, useAsyncStorageWriter } from "./use-async-storage-value";
+import { useAsyncStorageValues } from "./use-async-storage-values";
 import { useStorageValue, useStorageWriter } from "./use-storage-value";
+import { useStorageValues } from "./use-storage-values";
 
 /** The hooks of a storage that answers immediately, already bound to it. */
 export interface SyncStorageHooks<Definition extends StorageSchemaDefinition> {
   useValue<Key extends KeyOf<Definition>>(
     key: Key,
   ): readonly [GetResult<Definition[Key]>, SyncStorageWriter<Definition[Key]>];
+  /** Several keys through one hook, as `useStorageValues` reads them. */
+  useValues<Key extends KeyOf<Definition>>(
+    keys: ReadonlyArray<Key>,
+  ): readonly [GetManyResult<Definition, Key>, SyncStorageValuesWriter<Definition, Key>];
   useWriter<Key extends KeyOf<Definition>>(key: Key): SyncStorageWriter<Definition[Key]>;
   /** For a write made past the library. */
   notifyChanged(key?: KeyOf<Definition>): void;
@@ -28,6 +42,10 @@ export interface AsyncStorageHooks<Definition extends StorageSchemaDefinition> {
   useValue<Key extends KeyOf<Definition>>(
     key: Key,
   ): readonly [AsyncStoredValue<Definition[Key]>, AsyncStorageWriter<Definition[Key]>];
+  /** Several keys through one hook, as `useAsyncStorageValues` reads them. */
+  useValues<Key extends KeyOf<Definition>>(
+    keys: ReadonlyArray<Key>,
+  ): readonly [AsyncStoredValues<Definition, Key>, AsyncStorageValuesWriter<Definition, Key>];
   useWriter<Key extends KeyOf<Definition>>(key: Key): AsyncStorageWriter<Definition[Key]>;
   notifyChanged(key?: KeyOf<Definition>): void;
 }
@@ -45,10 +63,10 @@ function answersImmediately<Definition extends StorageSchemaDefinition>(
  * Declare it beside the schema, not inside a component: it builds hooks, it is not one.
  *
  * @param storage - The storage to bind to. Its shape decides which half of the API the hooks serve.
- * @returns `useValue` and `useWriter`, already bound to that storage.
+ * @returns `useValue`, `useValues`, `useWriter` and `notifyChanged`, already bound to that storage.
  * @example
  * ```ts
- * export const { useValue, useWriter } = createStorageHooks(storage);
+ * export const { useValue, useValues, useWriter } = createStorageHooks(storage);
  *
  * const [theme, writer] = useValue("theme");
  * ```
@@ -82,13 +100,24 @@ export function createStorageHooks<Definition extends StorageSchemaDefinition>(
       return useStorageValue(immediate, key);
     }
 
+    function useSyncValues<Key extends KeyOf<Definition>>(
+      keys: ReadonlyArray<Key>,
+    ): readonly [GetManyResult<Definition, Key>, SyncStorageValuesWriter<Definition, Key>] {
+      return useStorageValues(immediate, keys);
+    }
+
     function useSyncWriter<Key extends KeyOf<Definition>>(
       key: Key,
     ): SyncStorageWriter<Definition[Key]> {
       return useStorageWriter(immediate, key);
     }
 
-    return { useValue: useSyncValue, useWriter: useSyncWriter, notifyChanged };
+    return {
+      useValue: useSyncValue,
+      useValues: useSyncValues,
+      useWriter: useSyncWriter,
+      notifyChanged,
+    };
   }
 
   function useAsyncValue<Key extends KeyOf<Definition>>(
@@ -97,11 +126,22 @@ export function createStorageHooks<Definition extends StorageSchemaDefinition>(
     return useAsyncStorageValue(storage, key);
   }
 
+  function useAsyncValues<Key extends KeyOf<Definition>>(
+    keys: ReadonlyArray<Key>,
+  ): readonly [AsyncStoredValues<Definition, Key>, AsyncStorageValuesWriter<Definition, Key>] {
+    return useAsyncStorageValues(storage, keys);
+  }
+
   function useAsyncWriter<Key extends KeyOf<Definition>>(
     key: Key,
   ): AsyncStorageWriter<Definition[Key]> {
     return useAsyncStorageWriter(storage, key);
   }
 
-  return { useValue: useAsyncValue, useWriter: useAsyncWriter, notifyChanged };
+  return {
+    useValue: useAsyncValue,
+    useValues: useAsyncValues,
+    useWriter: useAsyncWriter,
+    notifyChanged,
+  };
 }

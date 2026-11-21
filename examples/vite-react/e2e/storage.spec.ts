@@ -37,6 +37,36 @@ test("every hook follows another tab clearing the whole origin", async ({ contex
   await expect(page.getByLabel("Visit count")).toContainText("0");
 });
 
+test("a hook over several keys follows another tab, its own writer and a clear", async ({
+  context,
+  page,
+}) => {
+  await page.goto("/");
+
+  const summary = page.getByLabel("Summary");
+
+  await expect(summary).toContainText("reads in system at 100%, and has visited 0 times");
+
+  const other = await context.newPage();
+
+  await other.goto("/");
+  await other.evaluate(() => {
+    window.localStorage.setItem("visitCount", "7");
+    window.localStorage.setItem("displayName", JSON.stringify("Ada"));
+  });
+
+  await expect(summary).toContainText("Ada reads in system at 100%, and has visited 7 times");
+
+  await page.getByRole("button", { name: "Dark and larger" }).click();
+
+  await expect(summary).toContainText("Ada reads in dark at 125%");
+  expect(await page.evaluate(() => window.localStorage.getItem("fontScale"))).toBe("1.25");
+
+  await page.getByRole("button", { name: "clearSync()", exact: true }).click();
+
+  await expect(summary).toContainText("Someone reads in system at 100%, and has visited 0 times");
+});
+
 test("a value moves from its old name the first time it is read", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => {

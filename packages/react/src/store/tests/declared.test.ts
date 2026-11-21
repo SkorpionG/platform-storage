@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { asyncStorage, syncStorage } from "../../../tests/fakes/storages";
 import { notifyStorageChanged } from "../changes";
-import { readDeclaredValue } from "../declared";
+import { readDeclaredValue, readDeclaredValues } from "../declared";
 
 describe("readDeclaredValue", () => {
   it("answers with the schema's default, whatever the storage holds", () => {
@@ -48,6 +48,44 @@ describe("readDeclaredValue", () => {
   it("shares one answer between storages over the same schema", () => {
     expect(readDeclaredValue(syncStorage(), "recentSearches")).toBe(
       readDeclaredValue(asyncStorage(), "recentSearches"),
+    );
+  });
+});
+
+describe("readDeclaredValues", () => {
+  it("answers with each key's default, whatever the storage holds", () => {
+    const storage = syncStorage();
+    storage.setSync("theme", "dark");
+
+    expect(readDeclaredValues(storage, ["theme", "displayName", "lastDismissed"])).toEqual({
+      theme: "system",
+      displayName: undefined,
+      lastDismissed: null,
+    });
+  });
+
+  it("holds its identity through a write, so a first client render can match it", () => {
+    const storage = syncStorage();
+    const before = readDeclaredValues(storage, ["recentSearches", "theme"]);
+
+    storage.setSync("theme", "dark");
+    notifyStorageChanged(storage, "theme");
+    notifyStorageChanged(storage);
+
+    expect(readDeclaredValues(storage, ["theme", "recentSearches"])).toBe(before);
+  });
+
+  it("shares each key's answer with readDeclaredValue", () => {
+    const storage = syncStorage();
+
+    expect(readDeclaredValues(storage, ["recentSearches"]).recentSearches).toBe(
+      readDeclaredValue(storage, "recentSearches"),
+    );
+  });
+
+  it("answers for a storage with no synchronous half, and shares one answer per schema", () => {
+    expect(readDeclaredValues(asyncStorage(), ["theme", "recentSearches"])).toBe(
+      readDeclaredValues(syncStorage(), ["recentSearches", "theme"]),
     );
   });
 });
