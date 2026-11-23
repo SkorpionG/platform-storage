@@ -5,6 +5,7 @@ import * as z from "zod";
 import {
   createWebExtensionStorage,
   defineStorageSchema,
+  memoryAdapter,
   webExtensionStorageAdapter,
   passthroughSerializer,
   resolveWebExtensionStorage,
@@ -105,5 +106,19 @@ describe("where the storage puts its names", () => {
 
   it("leaves readUnprefixed without a prefix to be refused when the storage is built", () => {
     void createWebExtensionStorage({ schema, readUnprefixed: true });
+  });
+});
+
+describe("the fallback", () => {
+  it("takes memory, or an adapter holding JSON values, and stays asynchronous", () => {
+    expectTypeOf(createWebExtensionStorage({ schema, fallback: "memory" })).toEqualTypeOf<
+      PlatformStorage<typeof schema.definition>
+    >();
+    void createWebExtensionStorage({
+      schema,
+      fallback: memoryAdapter({ serializer: passthroughSerializer }),
+    });
+    // @ts-expect-error Only "memory" is a name a fallback can be given by.
+    void createWebExtensionStorage({ schema, fallback: "disk" });
   });
 });

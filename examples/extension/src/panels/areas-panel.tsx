@@ -1,10 +1,11 @@
 import { Button, Card, Code, Field, TextField } from "@examples/ui";
 import { useAsyncStorageValue } from "@platform-storage/react";
+import { hasFallback } from "@platform-storage/webextension";
 import type { PlatformStorage } from "@platform-storage/webextension";
 import type { AppDefinition } from "@examples/schema";
 
 import { AsyncValue, NotReady } from "../async-value";
-import { local, session, sync } from "../store/storages";
+import { local, session, sessionOrMemory, sync } from "../store/storages";
 
 interface AreaRowProps {
   readonly storage: PlatformStorage<AppDefinition>;
@@ -14,6 +15,8 @@ interface AreaRowProps {
 
 function AreaRow({ storage, label, note }: AreaRowProps) {
   const [name, writer] = useAsyncStorageValue(storage, "displayName");
+  /* `undefined` until the hook's first read decides it and renders the row again, since asking never forces the choice. */
+  const chosen = hasFallback(storage.adapter) ? storage.adapter.chosen() : undefined;
 
   return (
     <Field
@@ -21,6 +24,11 @@ function AreaRow({ storage, label, note }: AreaRowProps) {
       hint={
         <>
           <AsyncValue stored={name} />
+          {chosen === undefined ? null : (
+            <span className="ml-1.5 text-faint">
+              · chose <output aria-label={`${label} chose`}>{chosen}</output>
+            </span>
+          )}
           <p className="mt-1 text-soft">{note}</p>
         </>
       }
@@ -68,13 +76,19 @@ export function AreasPanel() {
           label="storage.session"
           note="Held in memory and emptied when the browser closes. Absent on Manifest V2 and before Chrome 102 or Firefox 115."
         />
+        <AreaRow
+          storage={sessionOrMemory}
+          label="storage.session, or memory"
+          note='The same area built with fallback: "memory". Where the area is there it chooses it; where it is not, it answers from memory instead of reporting itself unavailable.'
+        />
       </div>
 
       <p className="mt-3 text-xs leading-relaxed text-soft">
         The Firefox build of this extension is Manifest V2, where <Code>storage.session</Code> does
         not exist. The row above does not crash there: addressing a missing area is reported as{" "}
         <Code>StorageUnavailableError</Code>, the same way a missing extension API is, and the read
-        comes back as a failure the row can render.
+        comes back as a failure the row can render. The row below it is the same area with a
+        fallback, which on Firefox chooses memory and answers instead.
       </p>
     </Card>
   );

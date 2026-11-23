@@ -12,9 +12,9 @@ A key that declares versions is the one exception, because it has to record its 
 
 ## Next
 
-### A fallback without leaving the platform factories
+### A list of adapters
 
-A platform factory such as `createLocalStorage` cannot take a fallback, so working where the backend is missing means dropping down to `createStorage` and `withFallback`. Accepting a list of adapters would shorten that call without reaching the factories. A list also needs its wire types checked against each other, and `withFallback` can only say which of two halves it chose.
+`createStorage` and every platform factory take one `fallback`, which covers a browser storage that has to work on a server. A list, trying each adapter in turn, would cover a third choice such as `localStorage`, then `sessionStorage`, then memory. It needs each adapter's wire type checked against the others through tuple types, an answer to which adapter was chosen that `chosen()` cannot give for more than two halves, and a rule that the storage answers immediately only when every adapter does.
 
 ### An adapter's own `clear`
 

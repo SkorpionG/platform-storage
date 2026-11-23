@@ -40,10 +40,41 @@ describe("CreateStorageResult", () => {
     >();
   });
 
-  it("decides on the adapter alone, whatever the adapter transports", () => {
+  it("decides on the adapter alone, whatever the adapter transports, when there is no fallback", () => {
     expectTypeOf<CreateStorageResult<Definition, SyncStorageAdapter<JsonValue>>>().toEqualTypeOf<
       SyncPlatformStorage<Definition>
     >();
+  });
+
+  it("keeps the synchronous half with a fallback that answers immediately, or memory", () => {
+    expectTypeOf<
+      CreateStorageResult<Definition, SyncStorageAdapter<string>, SyncStorageAdapter<string>>
+    >().toEqualTypeOf<SyncPlatformStorage<Definition>>();
+    expectTypeOf<
+      CreateStorageResult<Definition, SyncStorageAdapter<string>, "memory">
+    >().toEqualTypeOf<SyncPlatformStorage<Definition>>();
+  });
+
+  /* The union a factory's own option type passes through, which is why the check does not distribute over it. */
+  it("keeps it for a fallback that may be either, or absent", () => {
+    expectTypeOf<
+      CreateStorageResult<
+        Definition,
+        SyncStorageAdapter<string>,
+        SyncStorageAdapter<string> | "memory" | undefined
+      >
+    >().toEqualTypeOf<SyncPlatformStorage<Definition>>();
+  });
+
+  it("drops it with a fallback that only answers later", () => {
+    expectTypeOf<
+      CreateStorageResult<Definition, SyncStorageAdapter<string>, StorageAdapter<string>>
+    >().toEqualTypeOf<PlatformStorage<Definition>>();
+  });
+
+  it("refuses a fallback that is not one", () => {
+    // @ts-expect-error A number is neither an adapter nor "memory".
+    expectTypeOf<CreateStorageResult<Definition, SyncStorageAdapter<string>, number>>();
   });
 });
 

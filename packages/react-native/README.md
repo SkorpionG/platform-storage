@@ -60,7 +60,8 @@ Builds a storage over an AsyncStorage instance, with the adapter supplied for yo
 
 - `options`: everything `createStorage` takes apart from `adapter`, plus the instance:
   - `schema: StorageSchema` — from `defineStorageSchema`. Required.
-  - `asyncStorage: AsyncStorageLike` — the instance your application supplies. Required.
+  - `asyncStorage: AsyncStorageLike | null | undefined` — the instance your application supplies. Required, but it may be `null` or `undefined` where there is none, such as on Expo's web build; every operation then reports `StorageUnavailableError`, unless a `fallback` takes over.
+  - `fallback?: StorageAdapter<string> | "memory"` — used where `asyncStorage` is not there.
   - `name?: string` — what errors report. Defaults to `"AsyncStorage"`.
   - `serializer?: Serializer<string>` — replaces the JSON default. AsyncStorage transports strings, so the wire type is `string`.
   - `prefix?: string` — put before every stored name, so the storage can share a backend. See [Prefixing stored names](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#prefixing-stored-names).
@@ -81,6 +82,13 @@ const storage = createReactNativeStorage({
   onInvalid: "throw",
   onError: (error) => console.warn(error.code, error.message),
 });
+
+// Where the native module may be missing, such as Expo's web build.
+const anywhere = createReactNativeStorage({
+  schema,
+  asyncStorage: Platform.OS === "web" ? undefined : AsyncStorage,
+  fallback: "memory",
+});
 ```
 
 ### `asyncStorageAdapter(asyncStorage, options?)`
@@ -89,11 +97,11 @@ The adapter the factory above is built from, for `createStorage` or anything els
 
 **Parameters:**
 
-- `asyncStorage: AsyncStorageLike` — the instance. Required.
+- `asyncStorage: AsyncStorageLike | null | undefined` — the instance, or `null` or `undefined` where there is none.
 - `options?`:
   - `name?: string` — what errors report. Defaults to `"AsyncStorage"`.
 
-**Returns:** `StorageAdapter<string>`, which can also list every name the storage holds through `keys()` when the instance has `getAllKeys`, and work on several names in one call when it has AsyncStorage 3's or 2's batch methods. AsyncStorage reports no changes, so `watch` and `onChange` hear writes made through the same storage only.
+**Returns:** `StorageAdapter<string>`, which can also list every name the storage holds through `keys()` when the instance has `getAllKeys`, and work on several names in one call when it has AsyncStorage 3's or 2's batch methods. `isAvailable()` answers whether the instance has `getItem`, `setItem` and `removeItem`. Where it is not there, or lacks one of them, every operation reports `StorageUnavailableError`, which is what lets a fallback take over, and `keys()` is still offered so a storage falling back to memory can clear what its schema does not declare. AsyncStorage reports no changes, so `watch` and `onChange` hear writes made through the same storage only.
 
 AsyncStorage reports a missing key as `null`; the adapter maps that to `undefined`, because a schema may legitimately store `null` and the two cannot share a meaning.
 

@@ -1,5 +1,17 @@
 # @platform-storage/core
 
+## 0.8.0
+
+### Minor Changes
+
+- `createStorage` and every platform factory take a `fallback`: an adapter to use where the main one is not there, or `"memory"`. A server-rendered app no longer has to drop down to `createStorage` and `withFallback`; `createLocalStorage({ schema, fallback: "memory" })` answers from memory where there is no `window` and from `localStorage` in a browser.
+
+  The two are paired through `withFallback`, so the choice is made on first use and then kept. A storage carries `getSync` and the rest only when both answer immediately, which `"memory"` always does. The web factories' fallback has to answer immediately, so they keep returning a `SyncPlatformStorage`.
+
+  `withFallback(primary, "memory")` takes the same shorthand. `hasFallback(storage.adapter)` reaches `chosen()`, which says which half a storage settled on. Adds the `FallbackOption` type.
+
+  `asyncStorageAdapter` now reports a missing instance rather than failing on it: `isAvailable()` answers whether the instance has `getItem`, `setItem` and `removeItem`, and every operation over one that is not there, or lacks one of those, reports `StorageUnavailableError`. `createReactNativeStorage` takes `asyncStorage: null` or `undefined` for that case, so a `fallback` can take over, as on Expo's web build.
+
 ## 0.7.0
 
 ### Minor Changes

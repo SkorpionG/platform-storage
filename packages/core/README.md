@@ -123,15 +123,16 @@ Builds a storage over a schema and a backend.
 - `options`:
   - `schema: StorageSchema` — from `defineStorageSchema`. Required.
   - `adapter: StorageAdapter<Wire>` — the backend. Required.
+  - `fallback?: StorageAdapter<Wire> | "memory"` — used where `adapter` is not available, such as a server render with no `window`. `"memory"` builds an in-memory adapter, which holds whatever `adapter` would. The two are paired through [`withFallback`](#withfallbackprimary-fallback).
   - `serializer?: Serializer<Wire>` — replaces the adapter's own, typed against what that adapter transports.
   - `prefix?: string` — put before every stored name, so the storage can share a backend. See [Prefixing stored names](#prefixing-stored-names).
   - `readUnprefixed?: boolean` — also read each key's names without the prefix, to move existing values in. Only with a `prefix`.
   - `onInvalid?: OnInvalid` — the policy for every key that does not declare its own. Defaults to `"fallback"`.
   - `onError?: (error: PlatformStorageError) => void` — called for every failure, whether thrown or handled.
 
-**Returns:** `PlatformStorage<Definition>`, plus the synchronous methods when the adapter can answer immediately.
+**Returns:** `PlatformStorage<Definition>`, plus the synchronous methods when the adapter, and the fallback where there is one, can answer immediately. `"memory"` always can.
 
-**Throws:** `StorageSchemaError` if `prefix` is empty or not a string, if `readUnprefixed` is not a boolean or is asked for without a `prefix`, or if the names a prefix gives clash.
+**Throws:** `StorageSchemaError` if `fallback` is neither an adapter nor `"memory"`, if `prefix` is empty or not a string, if `readUnprefixed` is not a boolean or is asked for without a `prefix`, or if the names a prefix gives clash.
 
 ```ts
 const storage = createStorage({
@@ -270,7 +271,7 @@ A backend that keeps everything in a `Map`. Useful in tests, as the second half 
 - `options?`:
   - `name?: string` — what errors report. Defaults to `"memory"`.
   - `initial?: Record<string, Wire>` — values to start from, already serialized, as though a previous run had written them.
-  - `serializer?: Serializer<Wire>` — what to hold values in. Defaults to JSON text, and is required for anything else, such as pairing with an extension area through `withFallback`.
+  - `serializer?: Serializer<Wire>` — what to hold values in. Defaults to JSON text, and is required for anything else, such as standing in for an extension area as a storage's own adapter. As a fallback it only types the adapter to match, since the pair serializes with the primary's; `"memory"` builds one that matches for you.
 
 **Returns:** `MemoryStorageAdapter`, which also exposes `entries` so a test can assert against it without going back through a storage. Values are copied on the way in and out, as a real backend would, so changing one you read does not change what is stored.
 
@@ -278,7 +279,15 @@ A backend that keeps everything in a `Map`. Useful in tests, as the second half 
 
 Builds one adapter that uses the first backend where it exists and the second where it does not. The choice is made on first use, which following its changes counts as, and then kept, so a value cannot be written to one and read from the other. The result is synchronous only when both halves are, and can list keys or work on several names in one call only when both halves can.
 
-The result also has `chosen()`, answering `"primary"` or `"fallback"`, or `undefined` until first use has decided. Asking never forces the decision.
+`fallback` is another adapter transporting the same wire type, or `"memory"` for an in-memory adapter. The pair serializes with the primary's serializer whichever half it chose, and memory holds whatever it is given, so the one word is right on every platform: text for web storage and AsyncStorage, JSON values for an extension area.
+
+The result also has `chosen()`, answering `"primary"` or `"fallback"`, or `undefined` until first use has decided. Asking never forces the decision. A storage built with a `fallback` holds this pairing as its `adapter`, and `hasFallback` reaches `chosen()` from there:
+
+```ts
+if (hasFallback(storage.adapter)) console.info(storage.adapter.chosen());
+```
+
+The wire types are checked in the direction a read depends on: a fallback answering with something the primary never would, such as JSON values standing in for text, is refused. The reverse is accepted, since text is itself a JSON value. That is harmless for memory, which holds whatever the storage gives it, and wrong for a backend that holds only text: `localStorageAdapter()` as an extension area's fallback would store `"[object Object]"`. Give an extension storage `"memory"` or an adapter that holds JSON values.
 
 ### `defineSyncAdapter(definition)`
 
@@ -389,17 +398,20 @@ A backend that can work on several names in one call can say so through the opti
 
 ### Surviving a server render
 
-Pair a platform adapter with memory, and one storage works both where the backend exists and where it does not.
+Give a storage a fallback, and one storage works both where the backend exists and where it does not.
 
 ```ts
-import { createStorage, memoryAdapter, withFallback } from "@platform-storage/core";
+import { createStorage } from "@platform-storage/core";
 import { localStorageAdapter } from "@platform-storage/web";
 
 export const storage = createStorage({
   schema,
-  adapter: withFallback(localStorageAdapter(), memoryAdapter({ name: "server-memory" })),
+  adapter: localStorageAdapter(),
+  fallback: "memory",
 });
 ```
+
+Every platform factory takes the same option, so `createLocalStorage({ schema, fallback: "memory" })` is the same storage. Underneath, both pair the adapters through `withFallback`, which is still there for building one adapter out of two on its own.
 
 ## Following changes
 

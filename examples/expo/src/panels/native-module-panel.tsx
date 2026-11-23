@@ -1,3 +1,5 @@
+import { useAsyncStorageValue } from "@platform-storage/react";
+import { hasFallback } from "@platform-storage/react-native";
 import { Text } from "react-native";
 
 import { Badge } from "../components/badge";
@@ -5,8 +7,22 @@ import { Card } from "../components/card";
 import { Field } from "../components/field";
 import { Note } from "../components/note";
 import { usePalette } from "../hooks/use-palette";
-import { failing, local } from "../store/storages";
+import { AsyncValue } from "../components/async-value";
+import { failing, local, withoutDevice } from "../store/storages";
 import { MONO } from "../theme";
+
+/* `undefined` until the hook's first read decides it and renders this again, since asking never forces the choice. */
+function WithoutDevice() {
+  const [theme] = useAsyncStorageValue(withoutDevice, "theme");
+  const chosen = hasFallback(withoutDevice.adapter) ? withoutDevice.adapter.chosen() : undefined;
+
+  return (
+    <>
+      <AsyncValue stored={theme} />
+      {chosen === undefined ? null : <Badge tone="info">{`chose ${chosen}`}</Badge>}
+    </>
+  );
+}
 
 export function NativeModulePanel() {
   const palette = usePalette();
@@ -29,6 +45,13 @@ export function NativeModulePanel() {
         hint="The refusing storage on the Resilience tab is built over an object literal with three methods and nothing behind them. The library cannot tell it from the real one, because it never went looking for one."
       >
         <Badge tone="info">{failing.adapter.name}</Badge>
+      </Field>
+
+      <Field
+        label="No device at all, and a fallback"
+        hint={`Built with asyncStorage: null and fallback: "memory", as an app would on Expo's web build. The instance is not there, so the storage chooses memory and answers instead of reporting itself unavailable.`}
+      >
+        <WithoutDevice />
       </Field>
 
       <Field

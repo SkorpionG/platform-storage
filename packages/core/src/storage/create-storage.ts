@@ -1,5 +1,7 @@
 import { isSyncStorageAdapter } from "../adapter/adapter";
-import type { StorageAdapter } from "../adapter/adapter";
+import type { StorageAdapter, WireOf } from "../adapter/adapter";
+import { withFallback } from "../adapter/with-fallback";
+import type { FallbackOption } from "../adapter/with-fallback";
 import { STORAGE_ERROR_CODE, STORAGE_OPERATION } from "../errors/codes";
 import {
   StorageSchemaError,
@@ -93,6 +95,15 @@ interface ReadOutcome {
   readonly wire: unknown;
   /** Set where the value answered with stands in for stored data this code cannot judge, so nothing derived from it may replace that data. */
   readonly refusal?: FailedDecode["error"] | undefined;
+}
+
+/* What every operation needs, checked where a value may have come from outside the types. */
+function isAdapterShaped(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+
+  return ["get", "set", "remove"].every(
+    (method) => typeof Reflect.get(value, method) === "function",
+  );
 }
 
 /* A write may have landed since the read this repair came from, and a repair must never destroy newer data. */
@@ -326,9 +337,9 @@ function repairedForm(entry: EntryContext, wire: unknown): MaybePromise<unknown>
  *
  * Most applications reach for a platform factory instead, such as `createLocalStorage`. Use this one to pair a schema with an adapter of your own.
  *
- * @param options - The `schema`, the `adapter` to store through, and optionally `prefix` to put before every stored name, `readUnprefixed` to move existing values in under it, `onInvalid` for the storage-wide invalid-data policy and `onError` to observe every failure.
- * @returns A storage over that schema. It carries the synchronous half as well when the adapter can answer immediately.
- * @throws {StorageSchemaError} If `prefix` is empty or not a string, `readUnprefixed` is not a boolean or is asked for without a prefix, or the names it gives clash: two keys under one name, or an old name that is another key's current name or is claimed by two keys.
+ * @param options - The `schema`, the `adapter` to store through, and optionally `fallback` to use where that adapter is not available, `prefix` to put before every stored name, `readUnprefixed` to move existing values in under it, `onInvalid` for the storage-wide invalid-data policy and `onError` to observe every failure.
+ * @returns A storage over that schema. It carries the synchronous half as well when the adapter, and the fallback where there is one, can answer immediately.
+ * @throws {StorageSchemaError} If `fallback` is neither an adapter nor `"memory"`, if `prefix` is empty or not a string, `readUnprefixed` is not a boolean or is asked for without a prefix, or the names it gives clash: two keys under one name, or an old name that is another key's current name or is claimed by two keys.
  * @example
  * ```ts
  * const storage = createStorage({ schema, adapter: memoryAdapter() });
@@ -340,14 +351,46 @@ function repairedForm(entry: EntryContext, wire: unknown): MaybePromise<unknown>
 export function createStorage<
   Definition extends StorageSchemaDefinition,
   Adapter extends StorageAdapter<unknown>,
->(options: CreateStorageOptions<Definition, Adapter>): CreateStorageResult<Definition, Adapter> {
-  const { schema, adapter, prefix, readUnprefixed } = options;
-  const serializer: Serializer<unknown> = options.serializer ?? adapter.serializer;
+>(options: CreateStorageOptions<Definition, Adapter>): CreateStorageResult<Definition, Adapter>;
+/**
+ * The same, with a `fallback` to use where the adapter is not there.
+ *
+ * An overload of its own rather than a defaulted type parameter, because a default would stop an adapter written inline as the fallback from having its methods typed from the option.
+ */
+export function createStorage<
+  Definition extends StorageSchemaDefinition,
+  Adapter extends StorageAdapter<unknown>,
+  Fallback extends FallbackOption<WireOf<Adapter>> | undefined,
+>(
+  options: CreateStorageOptions<Definition, Adapter, Fallback>,
+): CreateStorageResult<Definition, Adapter, Fallback>;
+export function createStorage<
+  Definition extends StorageSchemaDefinition,
+  Adapter extends StorageAdapter<unknown>,
+  Fallback extends FallbackOption<WireOf<Adapter>> | undefined,
+>(
+  options: CreateStorageOptions<Definition, Adapter, Fallback>,
+): CreateStorageResult<Definition, Adapter, Fallback> {
+  const { schema, prefix, readUnprefixed, fallback } = options;
 
   const report = (error: PlatformStorageError): PlatformStorageError => {
     options.onError?.(error);
     return error;
   };
+
+  /* Only a cast or a JavaScript caller gets here with anything else, and a fallback that is not one would otherwise fail on its first use, far from where it was given. */
+  if (fallback !== undefined && fallback !== "memory" && !isAdapterShaped(fallback)) {
+    throw report(
+      new StorageSchemaError(
+        '`fallback` has to be an adapter with `get`, `set` and `remove`, or `"memory"`. Leave it out to use the adapter alone.',
+      ),
+    );
+  }
+
+  /* Paired before anything else reads it, so every operation, the synchronous half and every error message see one adapter. */
+  const adapter: StorageAdapter<unknown> =
+    fallback === undefined ? options.adapter : withFallback<unknown>(options.adapter, fallback);
+  const serializer: Serializer<unknown> = options.serializer ?? adapter.serializer;
 
   if (prefix !== undefined && (typeof prefix !== "string" || prefix === "")) {
     throw report(
@@ -1212,10 +1255,10 @@ export function createStorage<
   };
 
   /*
-    The two returns below are the one place a conditional return type has to be asserted: whether the synchronous half exists is decided by a runtime check that the type system expresses as `Adapter extends SyncStorageAdapter`, and nothing can prove the two agree. They are kept adjacent so the pair is read together.
+    The two returns below are the one place a conditional return type has to be asserted: whether the synchronous half exists is decided by a runtime check, on the adapter after any fallback is paired with it, that the type system expresses through `CreateStorageResult` from both, and nothing can prove the two agree. They are kept adjacent so the pair is read together.
   */
   if (syncIo === undefined) {
-    return storage as CreateStorageResult<Definition, Adapter>;
+    return storage as CreateStorageResult<Definition, Adapter, Fallback>;
   }
 
   const syncMethods: SyncStorageMethods<Definition> = {
@@ -1252,5 +1295,5 @@ export function createStorage<
     },
   };
 
-  return { ...storage, ...syncMethods } as CreateStorageResult<Definition, Adapter>;
+  return { ...storage, ...syncMethods } as CreateStorageResult<Definition, Adapter, Fallback>;
 }

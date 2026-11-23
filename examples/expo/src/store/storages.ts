@@ -48,3 +48,15 @@ export const failing: PlatformStorage<AppDefinition> = createReactNativeStorage(
   name: "AsyncStorage (refusing)",
   onError: recordStorageError,
 });
+
+/**
+ * A storage handed no instance at all, as on Expo's web build where the native module is missing, falling back to memory.
+ *
+ * `asyncStorage` is still written down, so leaving the device out is a decision rather than an omission. Without the fallback every operation would report `StorageUnavailableError`.
+ */
+export const withoutDevice: PlatformStorage<AppDefinition> = createReactNativeStorage({
+  schema: appSchema,
+  asyncStorage: null,
+  fallback: "memory",
+  onError: recordStorageError,
+});

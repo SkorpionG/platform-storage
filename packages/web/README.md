@@ -59,6 +59,7 @@ Builds a storage over `localStorage`, with the adapter supplied for you.
 
 - `options`: everything `createStorage` takes apart from `adapter`:
   - `schema: StorageSchema` — from `defineStorageSchema`. Required.
+  - `fallback?: SyncStorageAdapter<string> | "memory"` — used where web storage is not there, such as a server render with no `window`. It has to answer immediately, so the storage keeps its synchronous half either way. See [Surviving a server render](#surviving-a-server-render).
   - `serializer?: Serializer<string>` — replaces the JSON default. Web storage transports strings, so the wire type is `string`.
   - `prefix?: string` — put before every stored name, so the storage can share a backend. See [Prefixing stored names](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#prefixing-stored-names).
   - `readUnprefixed?: boolean` — also read each key's names without the prefix, to move existing values in. See [Adopting a prefix](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#adopting-a-prefix).
@@ -150,23 +151,15 @@ document.documentElement.dataset["theme"] = storage.getSync("theme");
 
 ### Surviving a server render
 
-`localStorageAdapter` reaches for `window.localStorage` on every operation and reports a missing or refused storage as `StorageUnavailableError`. Pair it with memory and one storage works in both places:
+`localStorageAdapter` reaches for `window.localStorage` on every operation and reports a missing or refused storage as `StorageUnavailableError`. Give the factory a fallback and one storage works in both places:
 
 ```ts
-import {
-  createStorage,
-  localStorageAdapter,
-  memoryAdapter,
-  withFallback,
-} from "@platform-storage/web";
+import { createLocalStorage } from "@platform-storage/web";
 
-export const storage = createStorage({
-  schema,
-  adapter: withFallback(localStorageAdapter(), memoryAdapter({ name: "server-memory" })),
-});
+export const storage = createLocalStorage({ schema, fallback: "memory" });
 ```
 
-The choice is made on first use and then kept, so a value is never written to one backend and read from the other.
+The choice is made on first use and then kept, so a value is never written to one backend and read from the other. `hasFallback(storage.adapter)` reaches `chosen()`, which says which one it settled on. Underneath, the factory pairs the two through `withFallback`, which is still there for building the same adapter by hand: `createStorage({ schema, adapter: withFallback(localStorageAdapter(), memoryAdapter()) })`.
 
 That is half of what a server-rendered app needs; the other half is React's. A synchronous read during render answers with the declared defaults on a server and with the stored values in a browser, so the first client render has to be handed the server's answer or hydration fails. `@platform-storage/react` supplies that through `readDeclaredValue`.
 

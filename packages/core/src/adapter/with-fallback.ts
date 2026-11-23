@@ -1,10 +1,42 @@
 import { isSyncStorageAdapter } from "./adapter";
 import type { StorageAdapter, SyncStorageAdapter } from "./adapter";
+import { memoryAdapter } from "./memory-adapter";
 
 /** Which of its two backends a `withFallback` adapter settled on. */
 export interface FallbackChoice {
   /** `"primary"` or `"fallback"`, or `undefined` until first use decides. Asking never forces the decision. */
   chosen(): "primary" | "fallback" | undefined;
+}
+
+/** What a fallback can be: another adapter transporting the same wire type, or `"memory"` for one built to match. */
+export type FallbackOption<Wire> = StorageAdapter<Wire> | "memory";
+
+/**
+ * Whether an adapter is a `withFallback` pairing, so it can say which half it settled on.
+ *
+ * A storage built with a `fallback` holds such a pairing as its `adapter`, typed only as an adapter, so this is how to reach `chosen()` from the storage.
+ *
+ * @param adapter - Any adapter, such as a storage's own.
+ * @returns `true` for an adapter that can say which half it chose, such as one `withFallback` built, narrowing it so `chosen` is callable.
+ * @example
+ * ```ts
+ * if (hasFallback(storage.adapter)) console.info(storage.adapter.chosen());
+ * ```
+ */
+export function hasFallback<Wire>(
+  adapter: StorageAdapter<Wire>,
+): adapter is StorageAdapter<Wire> & FallbackChoice {
+  return "chosen" in adapter && typeof adapter.chosen === "function";
+}
+
+/* Memory holds whatever the storage hands it, and the storage serializes with the primary's serializer whichever half it chose, so one word is right on every platform. Building it with that same serializer keeps its type, and what it says about itself, in agreement with the primary. */
+function resolveFallback<Wire>(
+  primary: StorageAdapter<Wire>,
+  fallback: FallbackOption<Wire>,
+): StorageAdapter<Wire> {
+  return fallback === "memory"
+    ? memoryAdapter({ name: "memory", serializer: primary.serializer })
+    : fallback;
 }
 
 /*
@@ -41,28 +73,29 @@ function offered<Name extends string, Method>(
  * The result is synchronous only when both halves are, since the type has to describe whichever one is chosen.
  *
  * @param primary - The backend to prefer. Its `isAvailable` decides; an adapter without one is treated as available.
- * @param fallback - Used when the primary is not available. It must transport the same wire type.
+ * @param fallback - Used when the primary is not available. It must transport the same wire type, or be `"memory"` for an in-memory adapter built to match the primary's.
  * @returns One adapter over both, which can say which half it settled on. Synchronous only when both halves are, and able to list keys or work on several names at once only when both halves can.
  * @example
  * ```ts
  * const storage = createStorage({
  *   schema,
- *   adapter: withFallback(localStorageAdapter(), memoryAdapter()),
+ *   adapter: withFallback(localStorageAdapter(), "memory"),
  * });
  * ```
  */
 export function withFallback<Wire>(
   primary: SyncStorageAdapter<Wire>,
-  fallback: SyncStorageAdapter<Wire>,
+  fallback: SyncStorageAdapter<Wire> | "memory",
 ): SyncStorageAdapter<Wire> & FallbackChoice;
 export function withFallback<Wire>(
   primary: StorageAdapter<Wire>,
-  fallback: StorageAdapter<Wire>,
+  fallback: FallbackOption<Wire>,
 ): StorageAdapter<Wire> & FallbackChoice;
 export function withFallback<Wire>(
   primary: StorageAdapter<Wire>,
-  fallback: StorageAdapter<Wire>,
+  given: FallbackOption<Wire>,
 ): StorageAdapter<Wire> & FallbackChoice {
+  const fallback = resolveFallback(primary, given);
   let chosen: StorageAdapter<Wire> | undefined;
 
   const select = (): StorageAdapter<Wire> => {

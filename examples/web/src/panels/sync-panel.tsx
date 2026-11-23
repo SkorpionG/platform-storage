@@ -60,9 +60,8 @@ export function SyncPanel() {
 
       <p className="mt-3 text-xs leading-relaxed text-soft">
         The synchronous half is what makes a server-rendered first paint possible without a loading
-        state. Pair <Code>localStorageAdapter()</Code> with <Code>memoryAdapter()</Code> through{" "}
-        <Code>withFallback</Code> and the same code runs on a server, where no <Code>window</Code>{" "}
-        exists.
+        state. Give <Code>createLocalStorage</Code> a <Code>fallback</Code> and the same code runs
+        on a server, where no <Code>window</Code> exists.
       </p>
     </Card>
   );

@@ -1,4 +1,5 @@
 import type { StorageAdapter, SyncStorageAdapter, WireOf } from "../adapter/adapter";
+import type { FallbackOption } from "../adapter/with-fallback";
 import type { PlatformStorageError } from "../errors/errors";
 import type { GetResult, KeyOf, SetValue } from "../schema/key-definition";
 import type { StorageSchema, StorageSchemaDefinition } from "../schema/storage-schema";
@@ -57,9 +58,18 @@ export interface StorageChange<Definition, Key extends string = string> {
 export interface CreateStorageOptions<
   Definition extends StorageSchemaDefinition,
   Adapter extends StorageAdapter<unknown>,
+  Fallback extends FallbackOption<WireOf<Adapter>> | undefined = undefined,
 > {
   readonly schema: StorageSchema<Definition>;
   readonly adapter: Adapter;
+  /**
+   * Used where `adapter` is not available, such as a server render with no `window`: another adapter transporting the same wire type, or `"memory"` for one built to match.
+   *
+   * The two are paired through {@link withFallback}, so the choice is made on first use and then kept. The storage carries the synchronous half only when both answer immediately, and `"memory"` always does.
+   *
+   * Typed by the third type parameter, which defaults to `undefined`. A wrapper that builds its options from this type and forwards a fallback names it, as `FallbackOption<string> | undefined` for one transporting text.
+   */
+  readonly fallback?: Fallback | undefined;
   /** Replaces the adapter's own serializer. Typed against what that adapter transports. */
   readonly serializer?: Serializer<WireOf<Adapter>> | undefined;
   /**
@@ -205,11 +215,18 @@ export interface SyncStorageMethods<Definition extends StorageSchemaDefinition> 
 export type SyncPlatformStorage<Definition extends StorageSchemaDefinition> =
   PlatformStorage<Definition> & SyncStorageMethods<Definition>;
 
-/** Which of the two storage shapes {@link createStorage} answers with, decided by whether the adapter can answer immediately. */
+/**
+ * Which of the two storage shapes {@link createStorage} answers with, decided by whether the adapter can answer immediately.
+ *
+ * With a fallback, both have to: the storage does not know which it will use until its first operation. `"memory"` always answers immediately.
+ */
 export type CreateStorageResult<
   Definition extends StorageSchemaDefinition,
   Adapter extends StorageAdapter<unknown>,
+  Fallback extends FallbackOption<WireOf<Adapter>> | undefined = undefined,
 > =
   Adapter extends SyncStorageAdapter<unknown>
-    ? SyncPlatformStorage<Definition>
+    ? [Fallback] extends [SyncStorageAdapter<unknown> | "memory" | undefined]
+      ? SyncPlatformStorage<Definition>
+      : PlatformStorage<Definition>
     : PlatformStorage<Definition>;

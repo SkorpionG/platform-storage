@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as z from "zod";
 
-import { defineStorageSchema, StorageValidationError } from "../index";
+import { defineStorageSchema, hasFallback, StorageValidationError } from "../index";
 import { createWebExtensionStorage } from "../web-extension-storage";
 import { fakeStorageNamespace } from "../../tests/fakes/fake-web-extension-storage";
 
@@ -131,5 +131,33 @@ describe("createWebExtensionStorage", () => {
 
     await expect(storage.get("theme")).rejects.toThrow(StorageValidationError);
     expect(onError).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("createWebExtensionStorage with a fallback", () => {
+  it("answers from memory holding JSON values where there is no extension API", async () => {
+    const storage = createWebExtensionStorage({
+      schema,
+      storage: () => undefined,
+      fallback: "memory",
+    });
+
+    await storage.set("user", { id: "u1", name: "Ada" });
+
+    expect(await storage.get("user")).toEqual({ id: "u1", name: "Ada" });
+    expect(hasFallback(storage.adapter) && storage.adapter.chosen()).toBe("fallback");
+  });
+
+  it("uses the area where it is there", async () => {
+    const namespace = fakeStorageNamespace();
+    const storage = createWebExtensionStorage({
+      schema,
+      storage: () => namespace,
+      fallback: "memory",
+    });
+
+    await storage.set("theme", "dark");
+
+    expect(namespace.local.entries.get("theme")).toBe("dark");
   });
 });

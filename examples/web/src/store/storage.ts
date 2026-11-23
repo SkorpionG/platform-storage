@@ -1,31 +1,24 @@
 import { appSchema, DECLARED_DEFAULTS, scratchSchema } from "@examples/schema";
 import type { AppDefinition, ScratchDefinition } from "@examples/schema";
 import { recordStorageError } from "@platform-storage/react";
-import {
-  createLocalStorage,
-  createStorage,
-  localStorageAdapter,
-  memoryAdapter,
-  sessionStorageAdapter,
-  withFallback,
-} from "@platform-storage/web";
+import { createLocalStorage, createSessionStorage, memoryAdapter } from "@platform-storage/web";
 import type { SyncPlatformStorage } from "@platform-storage/web";
 
 /**
- * The same schema over `localStorage`, paired with memory for a render that has no `window`.
+ * The same schema over `localStorage`, falling back to memory for a render that has no `window`.
  *
- * `withFallback` decides on first use and then keeps the decision, so a server reads memory and a browser reads the origin, and a value can never be written to one and read back from the other.
+ * The choice is made on first use and then kept, so a server reads memory and a browser reads the origin, and a value can never be written to one and read back from the other. Memory is named `server-memory`, so the pair's name says where it is used.
  */
-export const local: SyncPlatformStorage<AppDefinition> = createStorage({
+export const local: SyncPlatformStorage<AppDefinition> = createLocalStorage({
   schema: appSchema,
-  adapter: withFallback(localStorageAdapter(), memoryAdapter({ name: "server-memory" })),
+  fallback: memoryAdapter({ name: "server-memory" }),
   onError: recordStorageError,
 });
 
 /** The same arrangement over `sessionStorage`. Neither storage knows about the other. */
-export const session: SyncPlatformStorage<AppDefinition> = createStorage({
+export const session: SyncPlatformStorage<AppDefinition> = createSessionStorage({
   schema: appSchema,
-  adapter: withFallback(sessionStorageAdapter(), memoryAdapter({ name: "server-memory" })),
+  fallback: memoryAdapter({ name: "server-memory" }),
   onError: recordStorageError,
 });
 
@@ -34,15 +27,15 @@ export const session: SyncPlatformStorage<AppDefinition> = createStorage({
  *
  * A callback is the fourth thing `onInvalid` accepts, and it is declared here rather than per call because the storage-level layer is typed against `unknown`, so one function can serve every key. Per call the return is checked against the single key being read, which is stricter and the better choice when the key is known.
  */
-export const localRecovering: SyncPlatformStorage<AppDefinition> = createStorage({
+export const localRecovering: SyncPlatformStorage<AppDefinition> = createLocalStorage({
   schema: appSchema,
-  adapter: withFallback(localStorageAdapter(), memoryAdapter({ name: "server-memory" })),
+  fallback: memoryAdapter({ name: "server-memory" }),
   onError: recordStorageError,
   onInvalid: (context) => DECLARED_DEFAULTS[context.key],
 });
 
 /**
- * `localStorage` with nothing behind it, for the panel that shows what the unguarded pairing does where there is no `window`.
+ * `localStorage` with no fallback, for the panel that shows what a storage without one does where there is no `window`.
  *
  * No `onError`, because on a server that observer is one module-level log shared by every request that happens to be rendering.
  */
@@ -54,9 +47,9 @@ function scratchStorage(
   prefix: string,
   readUnprefixed: boolean,
 ): SyncPlatformStorage<ScratchDefinition> {
-  return createStorage({
+  return createLocalStorage({
     schema: scratchSchema,
-    adapter: withFallback(localStorageAdapter(), memoryAdapter({ name: "server-memory" })),
+    fallback: memoryAdapter({ name: "server-memory" }),
     onError: recordStorageError,
     prefix,
     readUnprefixed,

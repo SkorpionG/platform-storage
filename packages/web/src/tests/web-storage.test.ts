@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as z from "zod";
 
-import { defineStorageSchema, StorageValidationError } from "../index";
+import { defineStorageSchema, hasFallback, memoryAdapter, StorageValidationError } from "../index";
 import {
   createLocalStorage,
   createSessionStorage,
@@ -114,5 +114,18 @@ describe("createSessionStorage", () => {
     local.setSync("theme", "dark");
 
     expect(session.getSync("theme")).toBe("light");
+  });
+});
+
+describe("a factory with a fallback, where web storage is there", () => {
+  it("stores in web storage and leaves the fallback empty", () => {
+    const spare = memoryAdapter();
+    const storage = createLocalStorage({ schema, fallback: spare });
+
+    storage.setSync("theme", "dark");
+
+    expect(localStorage.getItem("theme")).toBe('"dark"');
+    expect(spare.entries.size).toBe(0);
+    expect(hasFallback(storage.adapter) && storage.adapter.chosen()).toBe("primary");
   });
 });

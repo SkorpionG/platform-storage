@@ -33,6 +33,14 @@ export const session: PlatformStorage<AppDefinition> = createWebExtensionStorage
   onError: recordStorageError,
 });
 
+/** The same `session` area, falling back to memory where it is absent, so a Manifest V2 build answers where `session` alone reports itself unavailable. Memory holds JSON values, as an area does. */
+export const sessionOrMemory: PlatformStorage<AppDefinition> = createWebExtensionStorage({
+  schema: appSchema,
+  area: "session",
+  fallback: "memory",
+  onError: recordStorageError,
+});
+
 /**
  * The same `local` area, read through a storage-level callback policy.
  *

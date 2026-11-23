@@ -7,6 +7,7 @@ import {
   defineStorageSchema,
   defineVersions,
   DEFAULT_INVALID_POLICY,
+  hasFallback,
   INVALID_POLICY,
   isPlatformStorageError,
   isStorageSchema,
@@ -20,6 +21,7 @@ import {
 } from "../index";
 import type {
   ClearTarget,
+  FallbackOption,
   ClearTargets,
   InvalidPolicy,
   JsonValue,
@@ -138,6 +140,11 @@ describe("the adapter additions", () => {
     expectTypeOf<StorageAdapter["keys"]>().toEqualTypeOf<
       (() => Promise<ReadonlyArray<string>>) | undefined
     >();
+  });
+
+  it("publishes the fallback option and the guard that reaches a pairing's choice", () => {
+    expectTypeOf<FallbackOption<string>>().toEqualTypeOf<StorageAdapter<string> | "memory">();
+    expectTypeOf(hasFallback).toBeFunction();
   });
 
   it("says withFallback can report which half it chose", () => {

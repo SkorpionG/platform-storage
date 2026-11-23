@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as z from "zod";
 
-import { defineStorageSchema, StorageValidationError } from "../index";
+import { defineStorageSchema, hasFallback, memoryAdapter, StorageValidationError } from "../index";
 import { createReactNativeStorage } from "../react-native-storage";
 import { fakeAsyncStorage } from "../../tests/fakes/fake-async-storage";
 
@@ -67,5 +67,40 @@ describe("createReactNativeStorage", () => {
     await expect(storage.get("theme")).rejects.toThrow(StorageValidationError);
     expect(onError).toHaveBeenCalledTimes(1);
     expect(storage.adapter.name).toBe("device");
+  });
+});
+
+describe("createReactNativeStorage with a fallback", () => {
+  it("answers from memory where there is no instance", async () => {
+    const storage = createReactNativeStorage({
+      schema,
+      asyncStorage: undefined,
+      fallback: "memory",
+    });
+
+    await storage.set("user", { id: "u1", name: "Ada" });
+
+    expect(await storage.get("user")).toEqual({ id: "u1", name: "Ada" });
+    expect(hasFallback(storage.adapter) && storage.adapter.chosen()).toBe("fallback");
+  });
+
+  it("can still clear what the schema does not declare, through memory's own listing", async () => {
+    const storage = createReactNativeStorage({ schema, asyncStorage: null, fallback: "memory" });
+
+    await storage.set("theme", "dark");
+    await storage.clear("everything");
+
+    expect(await storage.get("theme")).toBe("light");
+  });
+
+  it("uses the instance where it is there, leaving the fallback empty", async () => {
+    const asyncStorage = fakeAsyncStorage();
+    const spare = memoryAdapter();
+    const storage = createReactNativeStorage({ schema, asyncStorage, fallback: spare });
+
+    await storage.set("theme", "dark");
+
+    expect(asyncStorage.entries.get("theme")).toBe('"dark"');
+    expect(spare.entries.size).toBe(0);
   });
 });

@@ -8,6 +8,7 @@ import {
   jsonSerializer,
   STORAGE_ERROR_CODE,
   StorageAdapterError,
+  StorageUnavailableError,
   StorageValidationError,
 } from "../index";
 import { asyncStorageAdapter } from "../async-storage-adapter";
@@ -41,6 +42,16 @@ describe("asyncStorageAdapter", () => {
 
   it("reports a missing key as undefined, where AsyncStorage itself says null", async () => {
     expect(await asyncStorageAdapter(fakeAsyncStorage()).get("absent")).toBeUndefined();
+  });
+
+  it("reaches the instance in the order it was called", async () => {
+    const adapter = asyncStorageAdapter(fakeAsyncStorage());
+
+    const writing = adapter.set("theme", '"dark"');
+    const reading = adapter.get("theme");
+    await writing;
+
+    expect(await reading).toBe('"dark"');
   });
 
   it("removes a key", async () => {
@@ -319,5 +330,66 @@ describe("batches over AsyncStorage", () => {
     expect(adapter.getMany).toBeUndefined();
     expect(adapter.setMany).toBeUndefined();
     expect(adapter.removeMany).toBeUndefined();
+  });
+});
+
+describe("an instance that is not there", () => {
+  it("says whether the instance has what every operation needs", () => {
+    const { getItem, setItem, removeItem } = fakeAsyncStorage();
+
+    expect(asyncStorageAdapter(fakeAsyncStorage()).isAvailable?.()).toBe(true);
+    expect(asyncStorageAdapter({ getItem, setItem, removeItem }).isAvailable?.()).toBe(true);
+    expect(
+      asyncStorageAdapter({ getItem, setItem } as unknown as AsyncStorageLike).isAvailable?.(),
+    ).toBe(false);
+    expect(asyncStorageAdapter(null).isAvailable?.()).toBe(false);
+    expect(asyncStorageAdapter(undefined).isAvailable?.()).toBe(false);
+  });
+
+  it("reports every operation as unavailable, naming the operation and the key, rather than failing on nothing", async () => {
+    const adapter = asyncStorageAdapter(undefined, { name: "device" });
+
+    await expect(adapter.get("theme")).rejects.toBeInstanceOf(StorageUnavailableError);
+    await expect(adapter.set("theme", '"dark"')).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Unavailable,
+      adapter: "device",
+      operation: "set",
+      physicalKey: "theme",
+    });
+    await expect(adapter.remove("theme")).rejects.toMatchObject({ operation: "remove" });
+  });
+
+  it("offers no batch methods, and a listing that reports itself unavailable", async () => {
+    const adapter = asyncStorageAdapter(null);
+
+    expect(adapter.getMany).toBeUndefined();
+    expect(adapter.setMany).toBeUndefined();
+    expect(adapter.removeMany).toBeUndefined();
+    await expect(adapter.keys?.()).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Unavailable,
+      operation: "keys",
+    });
+  });
+
+  it("treats an instance lacking one of the three methods as not there", async () => {
+    const { setItem, removeItem, getAllKeys, getMany } = fakeAsyncStorage();
+    const partial = { setItem, removeItem, getAllKeys, getMany } as unknown as AsyncStorageLike;
+    const adapter = asyncStorageAdapter(partial);
+
+    await expect(adapter.get("theme")).rejects.toBeInstanceOf(StorageUnavailableError);
+    expect(adapter.getMany).toBeUndefined();
+    await expect(adapter.keys?.()).rejects.toBeInstanceOf(StorageUnavailableError);
+  });
+
+  it("reaches a storage over it as unavailable, through onError", async () => {
+    const codes: Array<string> = [];
+    const storage = createStorage({
+      schema,
+      adapter: asyncStorageAdapter(null),
+      onError: (error) => codes.push(error.code),
+    });
+
+    await expect(storage.get("theme")).rejects.toBeInstanceOf(StorageUnavailableError);
+    expect(codes).toEqual([STORAGE_ERROR_CODE.Unavailable]);
   });
 });

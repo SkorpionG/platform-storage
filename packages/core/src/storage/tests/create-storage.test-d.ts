@@ -164,11 +164,12 @@ describe("createStorage options", () => {
     void createStorage({ schema, adapter: memoryAdapter(), serializer: jsonSerializer });
   });
 
+  /* Reported on the call rather than the property: `createStorage` has two overloads, and a refused option leaves neither matching. */
   it("rejects a serializer for a different wire type", () => {
+    // @ts-expect-error - this adapter transports strings, not JSON values
     void createStorage({
       schema,
       adapter: memoryAdapter(),
-      // @ts-expect-error - this adapter transports strings, not JSON values
       serializer: { serialize: () => ({}), deserialize: (wire: object) => wire },
     });
   });

@@ -9,10 +9,17 @@ import { webStorageAdapter } from "./web-storage-adapter";
 import type { WebStorageAdapterOptions } from "./web-storage-adapter";
 
 /** Everything `createStorage` takes apart from the adapter, which the factory supplies. */
-export type CreateWebStorageOptions<Definition extends StorageSchemaDefinition> = Omit<
+export interface CreateWebStorageOptions<Definition extends StorageSchemaDefinition> extends Omit<
   CreateStorageOptions<Definition, SyncStorageAdapter<string>>,
-  "adapter"
->;
+  "adapter" | "fallback"
+> {
+  /**
+   * Used where web storage is not there, such as a server render with no `window`: another adapter that answers immediately, or `"memory"`.
+   *
+   * It has to answer immediately, so the storage keeps its synchronous half whichever backend it ends up on.
+   */
+  readonly fallback?: SyncStorageAdapter<string> | "memory" | undefined;
+}
 
 /*
   Both adapters read the storage off `window` rather than off `globalThis`. Node exposes a `localStorage` of its own, and a server has to look unavailable to these adapters so that `withFallback` moves on to the next backend instead of writing somewhere the browser will never read.
@@ -57,7 +64,7 @@ export function sessionStorageAdapter(
  *
  * Web storage answers immediately, so the result carries the synchronous half as well: a first render can read `getSync` without a loading state.
  *
- * @param options - The `schema`, and optionally `prefix`, `readUnprefixed`, `onInvalid` and `onError`. The adapter is supplied for you.
+ * @param options - The `schema`, and optionally `fallback` for where there is no web storage, `prefix`, `readUnprefixed`, `onInvalid` and `onError`. The adapter is supplied for you.
  * @returns A storage carrying both halves of the API.
  * @throws {StorageSchemaError} If `prefix` is empty, `readUnprefixed` is asked for without one, or the names a prefix gives clash.
  * @example
@@ -79,7 +86,7 @@ export function createLocalStorage<Definition extends StorageSchemaDefinition>(
  *
  * Otherwise exactly {@link createLocalStorage}, including the synchronous half.
  *
- * @param options - The `schema`, and optionally `prefix`, `readUnprefixed`, `onInvalid` and `onError`.
+ * @param options - The `schema`, and optionally `fallback`, `prefix`, `readUnprefixed`, `onInvalid` and `onError`.
  * @returns A storage carrying both halves of the API.
  * @throws {StorageSchemaError} If `prefix` is empty, `readUnprefixed` is asked for without one, or the names a prefix gives clash.
  * @example

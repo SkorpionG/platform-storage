@@ -56,6 +56,7 @@ Builds a storage over one WebExtension storage area, with the adapter supplied f
   - `area?: "local" | "sync" | "session"` — which area to store in. Defaults to `"local"`.
   - `storage?: () => WebExtensionStorageNamespace | null | undefined` — where to find the `storage` namespace. Defaults to `resolveWebExtensionStorage`. Give one to go through a polyfill, or to hand a test a fake.
   - `name?: string` — what errors report. Defaults to the area's own name, such as `storage.local`.
+  - `fallback?: StorageAdapter<JsonValue> | "memory"` — used where the area is not there, such as a page or a test with no extension API, or `session` on Firefox's Manifest V2. `"memory"` holds JSON values, as an area does. Do not give it an adapter holding only text, such as `localStorageAdapter()`: the types cannot refuse one, since text is itself a JSON value, and it would store an object as `"[object Object]"`.
   - `serializer?: Serializer<JsonValue>` — replaces the passthrough default. An area transports JSON values, so the wire type is `JsonValue`.
   - `prefix?: string` — put before every stored name, so the storage can share a backend. See [Prefixing stored names](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#prefixing-stored-names).
   - `readUnprefixed?: boolean` — also read each key's names without the prefix, to move existing values in. See [Adopting a prefix](https://github.com/SkorpionG/platform-storage/tree/main/packages/core#adopting-a-prefix).

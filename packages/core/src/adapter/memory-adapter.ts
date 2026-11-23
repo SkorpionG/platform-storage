@@ -25,7 +25,7 @@ export interface MemoryStorageAdapter<Wire = string> extends SyncStorageAdapter<
 /**
  * A backend that keeps everything in memory.
  *
- * Useful for tests, for server rendering, and as the second half of `withFallback` where a real backend may be missing. It transports strings through the JSON serializer rather than holding values directly, so a suite exercises the same serialization every other adapter does. Give it a `serializer` to pair it with a backend that transports something else, such as an extension area. Values are copied on the way in and out, as a real backend would, so changing one you read does not change what is stored.
+ * Useful for tests, for server rendering, and as the second half of `withFallback` where a real backend may be missing. It transports strings through the JSON serializer rather than holding values directly, so a suite exercises the same serialization every other adapter does. Give it a `serializer` to hold something other than text, such as the JSON values an extension area holds. Paired as a fallback, its serializer only types it to match, since the pair serializes with the primary's; `"memory"` builds one that matches for you. Values are copied on the way in and out, as a real backend would, so changing one you read does not change what is stored.
  *
  * @param options - `name` for error messages, `initial` to start from values a previous run would have written, and `serializer` to hold something other than text. All optional.
  * @returns An adapter holding its own `entries` map.

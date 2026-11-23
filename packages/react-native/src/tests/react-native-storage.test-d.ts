@@ -110,3 +110,19 @@ describe("where the storage puts its names", () => {
     });
   });
 });
+
+describe("where there may be no instance", () => {
+  it("takes null or undefined for the instance, with or without a fallback", () => {
+    expectTypeOf(
+      createReactNativeStorage({ schema, asyncStorage: undefined, fallback: "memory" }),
+    ).toEqualTypeOf<PlatformStorage<typeof schema.definition>>();
+    void createReactNativeStorage({ schema, asyncStorage: null });
+    // @ts-expect-error Only "memory" is a name a fallback can be given by.
+    void createReactNativeStorage({ schema, asyncStorage: null, fallback: "disk" });
+  });
+
+  it("still asks for the instance to be written down, so leaving it out is a decision", () => {
+    // @ts-expect-error `asyncStorage` is required, even where it is `undefined`.
+    void createReactNativeStorage({ schema, fallback: "memory" });
+  });
+});

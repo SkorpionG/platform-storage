@@ -106,6 +106,12 @@ const area = createWebExtensionStorage({ schema });
 area.getSync("theme"); // ❌ Type error: an area only ever answers later
 ```
 
+On a server there is no `window`, so give the storage a fallback, and the same storage answers from memory there and from `localStorage` in a browser:
+
+```ts
+const storage = createLocalStorage({ schema, fallback: "memory" });
+```
+
 ### 5. One schema, every platform
 
 Switching platform means switching the import. The schema module itself has no DOM types and does not change.

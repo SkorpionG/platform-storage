@@ -302,7 +302,7 @@ export class StorageQuotaExceededError extends StorageAdapterError {
 /**
  * The backend is not there at all: no `window`, a storage the browser refuses to hand over, an extension API missing from this context.
  *
- * Pair an adapter with `memoryAdapter()` through {@link withFallback} where this is expected rather than exceptional, such as a server render.
+ * Give the storage a `fallback`, such as `"memory"`, where this is expected rather than exceptional, such as a server render.
  *
  * @param options - Which adapter was unreachable, and on which operation.
  * @example
