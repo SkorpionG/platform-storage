@@ -74,7 +74,7 @@ function offered<Name extends string, Method>(
  *
  * @param primary - The backend to prefer. Its `isAvailable` decides; an adapter without one is treated as available.
  * @param fallback - Used when the primary is not available. It must transport the same wire type, or be `"memory"` for an in-memory adapter built to match the primary's.
- * @returns One adapter over both, which can say which half it settled on. Synchronous only when both halves are, and able to list keys or work on several names at once only when both halves can.
+ * @returns One adapter over both, which can say which half it settled on. Synchronous only when both halves are, and able to list keys, clear itself or work on several names at once only when both halves can.
  * @example
  * ```ts
  * const storage = createStorage({
@@ -128,6 +128,7 @@ export function withFallback<Wire>(
       return chosen === primary ? "primary" : "fallback";
     },
     ...offered("keys", eitherOf(primary, primary.keys, fallback, fallback.keys, usesPrimary)),
+    ...offered("clear", eitherOf(primary, primary.clear, fallback, fallback.clear, usesPrimary)),
     ...offered(
       "getMany",
       eitherOf(primary, primary.getMany, fallback, fallback.getMany, usesPrimary),
@@ -170,6 +171,16 @@ export function withFallback<Wire>(
     ...offered(
       "keysSync",
       eitherOf(syncPrimary, syncPrimary.keysSync, syncFallback, syncFallback.keysSync, usesPrimary),
+    ),
+    ...offered(
+      "clearSync",
+      eitherOf(
+        syncPrimary,
+        syncPrimary.clearSync,
+        syncFallback,
+        syncFallback.clearSync,
+        usesPrimary,
+      ),
     ),
     ...offered(
       "getManySync",

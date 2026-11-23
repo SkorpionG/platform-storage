@@ -223,7 +223,7 @@ await storage.clear("everything"); // only on its own
 | `readFrom`   | Only the `readFrom` names, under the prefix, once a rename has run everywhere                                                                             |
 | `unprefixed` | Only the names from before the prefix, whether or not `readUnprefixed` is on, to tidy up after [adopting a prefix](#adopting-a-prefix)                    |
 | `undeclared` | The stored names the schema does not list, such as a key since deleted from it. Only under the prefix where there is one, and the whole backend otherwise |
-| `everything` | The whole backend, data other code owns included, prefix or not. Cannot be given in a list                                                                |
+| `everything` | The whole backend, data other code owns included, prefix or not, in one call where the adapter has its own `clear`. Cannot be given in a list             |
 
 With `prefix: "app:"`, a schema declaring `theme` with `readFrom: ["colorMode"]`, and a backend holding `app:theme`, `app:colorMode`, `theme`, `app:draft` and `analytics:session`:
 
@@ -236,13 +236,14 @@ With `prefix: "app:"`, a schema declaring `theme` with `readFrom: ["colorMode"]`
 Anything wider than `declared` can delete data other code owns, so it has to be asked for by name. A few more rules:
 
 - `CLEAR_TARGET` spells each target. A list is typed so that it cannot hold `everything`.
-- `undeclared` and `everything` list what the backend holds through the adapter's `keys`, or `keysSync` for `clearSync`. Where it has none, the call throws `StorageUnsupportedError` before removing anything, even the rest of a list. Every adapter this project ships can list its names.
-- A name written between the listing and the removal survives it.
+- `everything` goes through the adapter's own `clear`, or `clearSync` for `clearSync`, where it has one: one call, with nothing written in between left behind. Every adapter this project ships has one, AsyncStorage's wherever the instance it was given does.
+- `undeclared`, and `everything` on an adapter without its own `clear`, list what the backend holds through the adapter's `keys`, or `keysSync` for `clearSync`. Where it has none, the call throws `StorageUnsupportedError` before removing anything, even the rest of a list. Every adapter this project ships can list its names.
+- A name written between a listing and the removal survives it.
 - `undeclared` matches the prefix as written, so `"app:"` also takes the names of a storage under `"app:v2:"`.
 - `unprefixed` never removes a name another key stores under or reads from. On a storage with no prefix it removes nothing and tells `onError` with a `StorageSchemaError`, because there the bare names are the current ones.
 - A target that is not one throws `StorageSchemaError`. An empty list removes nothing.
 
-Old names are removed before current ones, so a removal that stops partway leaves a value where a retry finds it. A refusal reports the `removeMany` operation without naming a key, since nothing says which name the backend refused, or `remove` and the name on a backend that goes one at a time, or `keys` where listing failed.
+Old names are removed before current ones, so a removal that stops partway leaves a value where a retry finds it. A refusal reports the `removeMany` operation without naming a key, since nothing says which name the backend refused, or `remove` and the name on a backend that goes one at a time, `keys` where listing failed, or `clear` where the adapter's own `clear` did.
 
 Watchers hear about each key whose value changed. Removing a `readFrom` or bare name a key was reading from changes that key, to whatever a later name holds or its default, and is announced whatever the backend reports. `undeclared` changes no declared key, so nobody hears of it.
 
@@ -277,7 +278,7 @@ A backend that keeps everything in a `Map`. Useful in tests, as the second half 
 
 ### `withFallback(primary, fallback)`
 
-Builds one adapter that uses the first backend where it exists and the second where it does not. The choice is made on first use, which following its changes counts as, and then kept, so a value cannot be written to one and read from the other. The result is synchronous only when both halves are, and can list keys or work on several names in one call only when both halves can.
+Builds one adapter that uses the first backend where it exists and the second where it does not. The choice is made on first use, which following its changes counts as, and then kept, so a value cannot be written to one and read from the other. The result is synchronous only when both halves are, and can list keys, clear itself or work on several names in one call only when both halves can.
 
 `fallback` is another adapter transporting the same wire type, or `"memory"` for an in-memory adapter. The pair serializes with the primary's serializer whichever half it chose, and memory holds whatever it is given, so the one word is right on every platform: text for web storage and AsyncStorage, JSON values for an extension area.
 
@@ -291,7 +292,7 @@ The wire types are checked in the direction a read depends on: a fallback answer
 
 ### `defineSyncAdapter(definition)`
 
-Builds a full adapter from its synchronous half, so each operation is written once and the asynchronous methods are derived. Every method is called on the definition, so one written with method syntax can reach the others through `this`. The optional batch methods `getManySync`, `setManySync` and `removeManySync` are carried through the same way.
+Builds a full adapter from its synchronous half, so each operation is written once and the asynchronous methods are derived. Every method is called on the definition, so one written with method syntax can reach the others through `this`. The optional `getManySync`, `setManySync`, `removeManySync`, `keysSync` and `clearSync` are carried through the same way.
 
 ### Listing what a backend holds
 
@@ -303,7 +304,24 @@ const names = await storage.adapter.keys?.();
 
 This calls the adapter rather than a storage, so a failure arrives as the backend reported it and `onError` does not hear about it.
 
-`clear("undeclared")` and `clear("everything")` list through it on a storage's behalf, and there a failure does reach `onError`, reported as the `keys` operation.
+`clear("undeclared")` lists through it on a storage's behalf, as does `clear("everything")` on an adapter without its own `clear`, and there a failure does reach `onError`, reported as the `keys` operation.
+
+### Clearing a whole backend
+
+An adapter may offer `clear()`, and a synchronous one `clearSync()`, removing everything the backend holds in one call, data other code owns included. `clear("everything")` uses it where it is offered, so nothing written between a listing and a removal survives, and no backend is asked to remove each name in turn:
+
+```ts
+const adapter = defineSyncAdapter({
+  name: "memory",
+  serializer: jsonSerializer,
+  getSync: (key) => store.get(key),
+  setSync: (key, value) => void store.set(key, value),
+  removeSync: (key) => void store.delete(key),
+  clearSync: () => store.clear(),
+});
+```
+
+No other target calls it, since each of them has to leave something behind. A refusal reaches `onError` reported as the `clear` operation.
 
 ### Following what a backend reports
 
@@ -608,7 +626,7 @@ Every error extends `PlatformStorageError` and carries a `code`.
 
 `StorageQuotaExceededError`, `StorageUnavailableError` and `StorageUnsupportedError` all extend `StorageAdapterError`, so catching that one still catches all three. A full backend is worth telling apart because it is the one failure an application can usually act on: evict something and the same write succeeds. Recognizing it is each adapter's job, since only the adapter knows how its own platform reports one, and a platform that gives no usable signal reports the general `ADAPTER` code instead.
 
-`StorageUnsupportedError` is thrown before anything changes, because doing part of a request would look like success while leaving the rest undone. It names the adapter operation that was `missing`, which for a synchronous call means its synchronous form, such as `keysSync` for `keys`. A narrower request, or an adapter offering that operation, is the way past it.
+`StorageUnsupportedError` is thrown before anything changes, because doing part of a request would look like success while leaving the rest undone. It names the adapter operation that was `missing`, which for a synchronous call means its synchronous form, such as `keysSync` for `keys`. `clear("everything")` names `keys` too, though the adapter's own `clear` would have served as well. A narrower request, or an adapter offering that operation, is the way past it.
 
 Branch on the code rather than the class, and spell it with `STORAGE_ERROR_CODE` rather than the string. Prefer `isPlatformStorageError`, `isStorageValidationError` and `isStorageQuotaError` to `instanceof`: an application that resolves two copies of this package holds two copies of each class, and `instanceof` then fails across them.
 

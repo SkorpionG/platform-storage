@@ -15,12 +15,13 @@ describe("AsyncStorageLike", () => {
     expectTypeOf<Conforms<AsyncStorage>>().toEqualTypeOf<true>();
   });
 
-  it("asks for only the three operations a key-value adapter needs, and may offer a listing and batches", () => {
+  it("asks for only the three operations a key-value adapter needs, and may offer a listing, a clear and batches", () => {
     expectTypeOf<keyof AsyncStorageLike>().toEqualTypeOf<
       | "getItem"
       | "setItem"
       | "removeItem"
       | "getAllKeys"
+      | "clear"
       | "getMany"
       | "setMany"
       | "removeMany"
@@ -31,5 +32,6 @@ describe("AsyncStorageLike", () => {
     expectTypeOf<Pick<AsyncStorageLike, "getAllKeys">>().toEqualTypeOf<{
       getAllKeys?(): Promise<ReadonlyArray<string>>;
     }>();
+    expectTypeOf<Pick<AsyncStorageLike, "clear">>().toEqualTypeOf<{ clear?(): Promise<void> }>();
   });
 });

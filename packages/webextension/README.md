@@ -83,7 +83,7 @@ The adapter the factory above is built from, for `createStorage` or anything els
 
 - `options?`: `area`, `storage` and `name`, exactly as above.
 
-**Returns:** `StorageAdapter<JsonValue>`, which can also list every name the area holds through `keys()`, read, write and remove several names in one call through `getMany`, `setMany` and `removeMany`, and follow every context's changes through `subscribe`. One call for several names matters most on the `sync` area, whose writes are rate-limited.
+**Returns:** `StorageAdapter<JsonValue>`, which can also list every name the area holds through `keys()`, clear all of it through `clear()`, read, write and remove several names in one call through `getMany`, `setMany` and `removeMany`, and follow every context's changes through `subscribe`. One call for several names matters most on the `sync` area, whose writes are rate-limited.
 
 ### `resolveWebExtensionStorage()`
 
@@ -143,7 +143,7 @@ const synced = createWebExtensionStorage({ schema: syncedSchema, area: "sync" })
 const perSession = createWebExtensionStorage({ schema: cacheSchema, area: "session" });
 ```
 
-`clear()` removes only the keys the schema declares, so another storage over the same area, or other code writing to it, is left alone. `clear("undeclared")` and `clear("everything")` list the area through `keys()` and remove what they find in one call.
+`clear()` removes only the keys the schema declares, so another storage over the same area, or other code writing to it, is left alone. `clear("undeclared")` lists the area through `keys()` and removes what it finds in one call. `clear("everything")` is one call to the area's own `clear()`, which every context hears about through `storage.onChanged`, one change per removed name. A stand-in area without `clear()` is listed and emptied in two calls instead, so a name written in between survives.
 
 ### Going through the polyfill, or handing a test a fake
 

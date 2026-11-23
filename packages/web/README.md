@@ -43,7 +43,7 @@ storage.getSync("theme"); // "light" | "dark", read during a render
 
 Web storage answers immediately, so the storage also carries the synchronous half. `createSessionStorage` is the same over `sessionStorage`: each is a storage of its own, so one schema can back both without either seeing the other's values.
 
-Values are stored as JSON text under the physical key, with nothing wrapped around them unless the key declares versions. `clear()` removes only the keys the schema declares, never the rest of an origin that other code shares. Every target `clear` accepts works here, `undeclared` and `everything` through `keysSync()`.
+Values are stored as JSON text under the physical key, with nothing wrapped around them unless the key declares versions. `clear()` removes only the keys the schema declares, never the rest of an origin that other code shares. Every target `clear` accepts works here: `undeclared` through `keysSync()`, and `everything` through one `Storage.clear()` call, which other tabs hear about as a `storage` event with no key.
 
 `getMany`, `setMany` and `removeMany` work here as everywhere, but web storage has no batch call, so each name is reached in turn. They still save code, and a batch still takes every key's turn at once.
 
@@ -91,7 +91,7 @@ The adapters the factories above are built from, for `createStorage`, for `withF
 - `options?`:
   - `name?: string` — what errors report. Defaults to `"localStorage"` or `"sessionStorage"`.
 
-**Returns:** `SyncStorageAdapter<string>`, which can also list every name the storage holds through `keysSync()` and `keys()`, and follow changes from other tabs through `subscribe`.
+**Returns:** `SyncStorageAdapter<string>`, which can also list every name the storage holds through `keysSync()` and `keys()`, clear all of it in one call through `clearSync()` and `clear()`, and follow changes from other tabs through `subscribe`.
 
 ### `webStorageAdapter(getStorage, options?)`
 

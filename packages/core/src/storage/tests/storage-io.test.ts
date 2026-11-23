@@ -249,3 +249,44 @@ describe("batches through StorageIo", () => {
     await expect(io.getMany(["a"])).rejects.toMatchObject({ operation: "get", physicalKey: "a" });
   });
 });
+
+describe("clearing through StorageIo", () => {
+  it("reaches the backend's own clear in each mode, without a promise on the synchronous path", async () => {
+    const adapter = memoryAdapter({ initial: { a: "1" } });
+    const syncIo = createSyncIo(adapter, passThrough);
+
+    expect(isPromiseLike(syncIo.clear?.())).toBe(false);
+    expect(adapter.entries.size).toBe(0);
+
+    adapter.setSync("b", "2");
+    await createAsyncIo(adapter, passThrough).clear?.();
+
+    expect(adapter.entries.size).toBe(0);
+  });
+
+  it("offers no clear where the backend has none", () => {
+    const adapter = adapterWithoutPresenceCheck("no-clear");
+
+    expect(createAsyncIo(adapter, passThrough).clear).toBeUndefined();
+    expect(createSyncIo(adapter, passThrough).clear).toBeUndefined();
+  });
+
+  it("names the clear operation, and no key, when the backend refuses", async () => {
+    const adapter = {
+      ...memoryAdapter(),
+      clear: () => Promise.reject(new Error("denied")),
+      clearSync: () => {
+        throw new Error("denied");
+      },
+    };
+
+    await expect(createAsyncIo(adapter, passThrough).clear?.()).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Adapter,
+      operation: "clear",
+      physicalKey: undefined,
+    });
+    expect(() => createSyncIo(adapter, passThrough).clear?.()).toThrow(
+      expect.objectContaining({ operation: "clear" }),
+    );
+  });
+});

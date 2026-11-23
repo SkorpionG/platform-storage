@@ -136,7 +136,7 @@ await storage.clear();
 localStorage.getItem("analytics:session"); // "abc" — untouched
 ```
 
-Anything wider is asked for by name: `clear("undeclared")` removes leftovers the schema no longer lists, and `clear("everything")` empties the whole backend.
+Anything wider is asked for by name: `clear("undeclared")` removes leftovers the schema no longer lists, and `clear("everything")` empties the whole backend, in one call to the backend's own `clear` where it has one.
 
 ### 7. Errors you can branch on
 

@@ -1165,20 +1165,26 @@ export function createStorage<
 
     The turns taken are those of the keys a read could find something under a removed name for. Those cannot depend on the listing, since `undeclared` never names a declared key and `everything` names them all, so they are known before it.
 
-    Every key is either removed outright, where `declared` or `everything` is asked for, and announced as `removeMany` announces it, or keeps its current name and loses only names it reads from.
+    Every key is either removed outright, where `declared` or `everything` is asked for, and announced as `removeMany` announces it, or keeps its current name and loses only names it reads from. `everything` goes through the backend's own `clear` where it has one, in one call that nothing written in between survives.
   */
   function runClear(io: StorageIo, mode: ExecutionMode, given: unknown): MaybePromise<void> {
     const targets = clearTargets(given);
-    const listing = needsListing(targets);
-    const { keys: list } = io;
+    const { keys: list, clear: clearAll } = io;
+    const everything = targets.has(CLEAR_TARGET.Everything);
+    const wipe = everything ? clearAll : undefined;
+    const listing = needsListing(targets, clearAll !== undefined);
 
     if (listing && list === undefined) {
+      const waiting = mode === "sync" ? " without waiting" : "";
+
       throw report(
         new StorageUnsupportedError({
           adapter: adapter.name,
           operation: STORAGE_OPERATION.Clear,
           missing: STORAGE_OPERATION.Keys,
-          message: `The ${adapter.name} adapter cannot list the names it holds${mode === "sync" ? " without waiting" : ""}, which \`clear\` needs to find what the schema does not declare. Nothing was removed.`,
+          message: everything
+            ? `The ${adapter.name} adapter can neither clear itself nor list the names it holds${waiting}, and \`clear("everything")\` needs one of the two. Nothing was removed.`
+            : `The ${adapter.name} adapter cannot list the names it holds${waiting}, which \`clear\` needs to find what the schema does not declare. Nothing was removed.`,
         }),
       );
     }
@@ -1202,12 +1208,14 @@ export function createStorage<
       () =>
         chain(listing && list !== undefined ? list() : [], (listed) => {
           const { names } = plan(listed);
+          const removal = (): MaybePromise<void> =>
+            wipe === undefined ? io.removeMany(names) : wipe();
 
           return whole
             ? announced(
                 io,
                 entries.map((entry) => ({ entry, newWire: undefined })),
-                () => io.removeMany(names),
+                removal,
               )
             : removedPartly(io, entries, names);
         }),

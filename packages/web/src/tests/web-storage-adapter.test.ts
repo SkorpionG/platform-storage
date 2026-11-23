@@ -332,6 +332,71 @@ describe("listing what the storage holds", () => {
   });
 });
 
+describe("clearing the whole storage", () => {
+  it("removes every name in one call, ones no schema declares included, on both halves", async () => {
+    window.localStorage.setItem("theme", '"dark"');
+    window.localStorage.setItem("someone-elses-key", "x");
+    const adapter = webStorageAdapter(() => window.localStorage);
+
+    adapter.clearSync?.();
+
+    expect(window.localStorage.length).toBe(0);
+
+    window.localStorage.setItem("theme", '"dark"');
+    await adapter.clear?.();
+
+    expect(window.localStorage.length).toBe(0);
+  });
+
+  it("leaves the other storage alone", () => {
+    window.sessionStorage.setItem("theme", '"dark"');
+
+    webStorageAdapter(() => window.localStorage).clearSync?.();
+
+    expect(window.sessionStorage.getItem("theme")).toBe('"dark"');
+    window.sessionStorage.clear();
+  });
+
+  it("is what clearSync of everything calls, once, with no listing", () => {
+    const real = window.localStorage;
+    const cleared = vi.fn(() => {
+      real.clear();
+    });
+    const listed = vi.fn((index: number) => real.key(index));
+    const observed: Storage = {
+      get length() {
+        return real.length;
+      },
+      key: listed,
+      clear: cleared,
+      getItem: (key) => real.getItem(key),
+      setItem: (key, value) => {
+        real.setItem(key, value);
+      },
+      removeItem: (key) => {
+        real.removeItem(key);
+      },
+    };
+    const storage = createStorage({ schema, adapter: webStorageAdapter(() => observed) });
+
+    real.setItem("theme", '"dark"');
+    real.setItem("someone-elses-key", "x");
+    storage.clearSync("everything");
+
+    expect(cleared).toHaveBeenCalledOnce();
+    expect(listed).not.toHaveBeenCalled();
+    expect(real.length).toBe(0);
+  });
+
+  it("reports an unreachable storage as unavailable, naming the operation", () => {
+    const adapter = webStorageAdapter(refusedStorage, { name: "prefs" });
+
+    expect(() => adapter.clearSync?.()).toThrow(
+      expect.objectContaining({ code: STORAGE_ERROR_CODE.Unavailable, operation: "clear" }),
+    );
+  });
+});
+
 function fire(init: StorageEventInit): void {
   window.dispatchEvent(new StorageEvent("storage", init));
 }

@@ -21,9 +21,11 @@ export interface StorageIo {
   removeMany(physicalKeys: ReadonlyArray<string>): MaybePromise<void>;
   /** Every name the backend holds, where it can list them in this mode. */
   readonly keys: (() => MaybePromise<ReadonlyArray<string>>) | undefined;
+  /** Removes everything the backend holds in one call, where it can in this mode. */
+  readonly clear: (() => MaybePromise<void>) | undefined;
 }
 
-/** How one mode reaches a backend's batch methods and its listing, where it has them. */
+/** How one mode reaches a backend's batch methods, its listing and its own `clear`, where it has them. */
 interface BatchMethods {
   readonly getMany:
     | ((keys: ReadonlyArray<string>) => MaybePromise<ReadonlyMap<string, unknown>>)
@@ -31,12 +33,13 @@ interface BatchMethods {
   readonly setMany: ((entries: ReadonlyMap<string, unknown>) => MaybePromise<void>) | undefined;
   readonly removeMany: ((keys: ReadonlyArray<string>) => MaybePromise<void>) | undefined;
   readonly keys: (() => MaybePromise<ReadonlyArray<string>>) | undefined;
+  readonly clear: (() => MaybePromise<void>) | undefined;
 }
 
 /*
   One backend call where the backend offers one, and otherwise each name in turn through the single-name operations, so a failure there still names the key it happened on. A failure inside a batch call names the batch operation instead, since nothing says which name the backend refused.
 
-  Listing has no fallback, since only the backend knows what it holds beyond what a schema declares.
+  Listing and clearing have no fallback here, since only the backend knows what it holds beyond what a schema declares. Without its own `clear`, a storage lists and removes instead.
 */
 function withBatches(
   adapter: StorageAdapter<unknown>,
@@ -44,7 +47,7 @@ function withBatches(
   single: Pick<StorageIo, "get" | "set" | "remove" | "has">,
   batch: BatchMethods,
 ): StorageIo {
-  const { getMany, setMany, removeMany, keys } = batch;
+  const { getMany, setMany, removeMany, keys, clear } = batch;
 
   return {
     ...single,
@@ -52,6 +55,10 @@ function withBatches(
       keys === undefined
         ? undefined
         : () => callAdapter(adapter, STORAGE_OPERATION.Keys, undefined, report, keys),
+    clear:
+      clear === undefined
+        ? undefined
+        : () => callAdapter(adapter, STORAGE_OPERATION.Clear, undefined, report, clear),
     getMany: (physicalKeys) => {
       if (physicalKeys.length === 0) return new Map();
 
@@ -109,7 +116,7 @@ export function createAsyncIo(adapter: StorageAdapter<unknown>, report: ReportEr
       adapter.get(physicalKey),
     );
 
-  const { getMany, setMany, removeMany, keys } = adapter;
+  const { getMany, setMany, removeMany, keys, clear } = adapter;
 
   return withBatches(
     adapter,
@@ -140,6 +147,7 @@ export function createAsyncIo(adapter: StorageAdapter<unknown>, report: ReportEr
       setMany: setMany === undefined ? undefined : (entries) => setMany.call(adapter, entries),
       removeMany: removeMany === undefined ? undefined : (names) => removeMany.call(adapter, names),
       keys: keys === undefined ? undefined : () => keys.call(adapter),
+      clear: clear === undefined ? undefined : () => clear.call(adapter),
     },
   );
 }
@@ -151,7 +159,7 @@ export function createSyncIo(adapter: SyncStorageAdapter<unknown>, report: Repor
       adapter.getSync(physicalKey),
     );
 
-  const { getManySync, setManySync, removeManySync, keysSync } = adapter;
+  const { getManySync, setManySync, removeManySync, keysSync, clearSync } = adapter;
 
   return withBatches(
     adapter,
@@ -191,6 +199,12 @@ export function createSyncIo(adapter: SyncStorageAdapter<unknown>, report: Repor
               removeManySync.call(adapter, names);
             },
       keys: keysSync === undefined ? undefined : () => keysSync.call(adapter),
+      clear:
+        clearSync === undefined
+          ? undefined
+          : () => {
+              clearSync.call(adapter);
+            },
     },
   );
 }

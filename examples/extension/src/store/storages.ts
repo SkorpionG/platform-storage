@@ -75,7 +75,7 @@ function tally<Value>(call: () => Promise<Value>): Promise<Value> {
 }
 
 function counted(adapter: StorageAdapter<JsonValue>): StorageAdapter<JsonValue> {
-  const { getMany, setMany, removeMany } = adapter;
+  const { getMany, setMany, removeMany, clear } = adapter;
 
   return {
     ...adapter,
@@ -91,6 +91,7 @@ function counted(adapter: StorageAdapter<JsonValue>): StorageAdapter<JsonValue> 
     ...(removeMany === undefined
       ? {}
       : { removeMany: (keys) => tally(() => removeMany.call(adapter, keys)) }),
+    ...(clear === undefined ? {} : { clear: () => tally(() => clear.call(adapter)) }),
   };
 }
 

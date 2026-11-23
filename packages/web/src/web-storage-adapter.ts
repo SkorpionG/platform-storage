@@ -95,7 +95,7 @@ export function isWebStorageAvailable(getStorage: WebStorageSource): boolean {
  *
  * @param getStorage - Reaches for the storage, on every operation.
  * @param options - `name` to change what error messages call it. Defaults to `"web-storage"`.
- * @returns A synchronous adapter over that storage, able to list every name it holds and to follow changes from other tabs.
+ * @returns A synchronous adapter over that storage, able to list every name it holds, to clear itself in one call, and to follow changes from other tabs.
  * @example
  * ```ts
  * const adapter = webStorageAdapter(() => window.localStorage, { name: "localStorage" });
@@ -179,6 +179,9 @@ export function webStorageAdapter(
       return Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
         (key) => key !== null,
       );
+    },
+    clearSync: () => {
+      reach(STORAGE_OPERATION.Clear).clear();
     },
   });
 }

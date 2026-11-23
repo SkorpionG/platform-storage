@@ -15,7 +15,7 @@ export { useStorageValue, useStorageWriter } from "./hooks/use-storage-value";
 export { useStorageValues } from "./hooks/use-storage-values";
 
 export { notifyStorageChanged, subscribeToStorage } from "./store/changes";
-export { clearStorageErrors, recordStorageError } from "./store/error-log";
+export { clearStorageErrors, createStorageErrorLog, recordStorageError } from "./store/error-log";
 
 export { STORED_VALUE_STATUS } from "./types/hooks";
 export type {
@@ -24,6 +24,7 @@ export type {
   AsyncStoredValue,
   AsyncStoredValues,
   StorageErrorEntry,
+  StorageErrorLog,
   StoredValueStatus,
   SyncStorageValuesWriter,
   SyncStorageWriter,

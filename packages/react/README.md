@@ -181,13 +181,37 @@ const [{ user }] = useValues(["theme", "user"]);
 
 **Returns:** `boolean` — `false` through a server render and the browser's first pass, `true` from the moment hydration ends. For rendering something browser-only without causing a mismatch.
 
-### `useStorageErrors()`
+### `useStorageErrors(log?)`
 
-**Returns:** `ReadonlyArray<StorageErrorEntry>`, newest first. Each entry is `{ id, error, at, count }`, carrying the error itself rather than a copy of its fields, so `isStorageValidationError` and the rest still apply. Identical repeats collapse into `count`. Empty on a server.
+**Parameters:**
+
+- `log?: StorageErrorLog` — the log to read, from `createStorageErrorLog()` and built once outside any component. Defaults to the shared log `recordStorageError` collects into.
+
+**Returns:** `ReadonlyArray<StorageErrorEntry>`, newest first. Each entry is `{ id, error, at, count }`, carrying the error itself rather than a copy of its fields, so `isStorageValidationError` and the rest still apply. Identical repeats collapse into `count`. Empty on a server whichever log it reads, since the browser's first pass has to print the same.
 
 ### `recordStorageError(error)` and `clearStorageErrors()`
 
-`recordStorageError` is what you pass as a storage's `onError`; `clearStorageErrors` empties the log, for a control that dismisses what has been read.
+The shared log, one per process. `recordStorageError` is what you pass as a storage's `onError`; `clearStorageErrors` empties it, for a control that dismisses what has been read.
+
+### `createStorageErrorLog()`
+
+A log of its own, for storages whose failures should be kept apart from every other storage's. Exported from `@platform-storage/react` and from `@platform-storage/react/server`, so a Server Component can call it.
+
+**Returns:** `StorageErrorLog`:
+
+- `record(error)` — the observer to hand to a storage's `onError`.
+- `entries()` — every failure collected so far, newest first, as the same array until something changes.
+- `clear()` — empties it.
+- `subscribe(listener)` — calls `listener` whenever it changes, and returns a function that stops.
+
+|                   | The shared log                           | A log of its own                         |
+| ----------------- | ---------------------------------------- | ---------------------------------------- |
+| Who reports to it | every storage given `recordStorageError` | only the storages given its `record`     |
+| Lifetime          | the whole process                        | whatever holds it: one request, one part |
+| Read by           | `useStorageErrors()`                     | `useStorageErrors(log)` or `entries()`   |
+| Emptied by        | `clearStorageErrors()`                   | `clear()`                                |
+
+A failure is published at once while nothing is listening, which is always the case on a server, so `entries()` answers the moment a read has failed. While something listens, it waits for the end of the turn, because a failure arriving during a render must not move another component's state in the middle of it.
 
 ### `notifyStorageChanged(storage, key?)` and `subscribeToStorage(storage, listener, key?)`
 
@@ -199,7 +223,7 @@ For a write made past the library, and for following a storage rather than one k
 
 ### `readDeclaredValue(storage, key)` and `readDeclaredValues(storage, keys)`
 
-From the `@platform-storage/react/server` subpath. What a key reads as with nothing stored, which is what a server render answers with, and the same for several keys as one object, which is what `useStorageValues` renders on a server. The only exports that carry no `"use client"`, so a Server Component can call them without pulling the hooks into the server bundle.
+From the `@platform-storage/react/server` subpath. What a key reads as with nothing stored, which is what a server render answers with, and the same for several keys as one object, which is what `useStorageValues` renders on a server. Like everything on that subpath, they carry no `"use client"`, so a Server Component can call them without pulling the hooks into the server bundle.
 
 ```tsx
 const { theme, user } = readDeclaredValues(storage, ["theme", "user"]);
@@ -245,6 +269,21 @@ function Failures() {
       ))}
     </ul>
   );
+}
+```
+
+A part of an application can keep a log of its own, apart from the shared one. Build it once, beside its storage, never inside a component, since the hook subscribes through it:
+
+```tsx
+import { createStorageErrorLog, useStorageErrors } from "@platform-storage/react";
+
+const settingsLog = createStorageErrorLog();
+const settings = createLocalStorage({ schema, onError: settingsLog.record });
+
+function SettingsFailures() {
+  const errors = useStorageErrors(settingsLog); // only what `settings` reported
+
+  return <p>{errors.length} settings could not be read</p>;
 }
 ```
 
@@ -296,6 +335,24 @@ export default function Page() {
 > A synchronous read does not abolish the flash under server rendering, and nothing can: no server knows what a particular browser stored. What it removes is the promise, the effect and the loading state, not the repaint.
 
 `useHydrated()` is the escape hatch for anything that must not render until the browser has taken over.
+
+### Keeping one request's failures apart
+
+On a server, the shared log is one list for every request the process handles. A request that builds a storage of its own builds a log beside it, and reads that request's failures alone:
+
+```tsx
+import { createStorageErrorLog } from "@platform-storage/react/server";
+
+export default function Page() {
+  const log = createStorageErrorLog();
+  const storage = createLocalStorage({ schema, fallback: "memory", onError: log.record });
+
+  const theme = storage.getSync("theme");
+  reportFailures(log.entries()); // this request's, and nobody else's
+
+  return <Shell initialTheme={theme} />;
+}
+```
 
 ## Where it runs
 

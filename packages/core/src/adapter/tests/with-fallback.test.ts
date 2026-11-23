@@ -224,6 +224,53 @@ describe("listing keys through withFallback", () => {
   });
 });
 
+describe("clearing through withFallback", () => {
+  it("clears the primary alone when the primary is in use", async () => {
+    const primary = memoryAdapter({ initial: { first: "1" } });
+    const fallback = memoryAdapter({ initial: { second: "2" } });
+    const adapter = withFallback(primary, fallback);
+
+    await adapter.clear?.();
+
+    expect(primary.entries.size).toBe(0);
+    expect(fallback.entries.size).toBe(1);
+  });
+
+  it("clears the fallback alone when the fallback is in use, on both halves", async () => {
+    const primary = { ...memoryAdapter({ initial: { first: "1" } }), isAvailable: () => false };
+    const fallback = memoryAdapter({ initial: { second: "2" } });
+    const adapter = withFallback(primary, fallback);
+
+    adapter.clearSync?.();
+
+    expect(fallback.entries.size).toBe(0);
+
+    fallback.setSync("third", "3");
+    await adapter.clear?.();
+
+    expect(fallback.entries.size).toBe(0);
+    expect(primary.entries.size).toBe(1);
+  });
+
+  it("offers no clearing unless both halves can", () => {
+    const withoutClearing = adapterWithoutPresenceCheck("bare");
+
+    expect(withFallback(memoryAdapter(), withoutClearing).clear).toBeUndefined();
+    expect(withFallback(withoutClearing, memoryAdapter()).clear).toBeUndefined();
+    expect(withFallback(memoryAdapter(), withoutClearing).clearSync).toBeUndefined();
+    expect(withFallback(withoutClearing, memoryAdapter()).clearSync).toBeUndefined();
+  });
+
+  it("clears memory built from the shorthand", async () => {
+    const adapter = withFallback(unavailableAdapter(), "memory");
+
+    adapter.setSync("theme", '"dark"');
+    await adapter.clear?.();
+
+    expect(adapter.getSync("theme")).toBeUndefined();
+  });
+});
+
 describe("following changes through withFallback", () => {
   it("follows whichever half is in use", () => {
     const stop = vi.fn();

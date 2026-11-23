@@ -16,10 +16,6 @@ A key that declares versions is the one exception, because it has to record its 
 
 `createStorage` and every platform factory take one `fallback`, which covers a browser storage that has to work on a server. A list, trying each adapter in turn, would cover a third choice such as `localStorage`, then `sessionStorage`, then memory. It needs each adapter's wire type checked against the others through tuple types, an answer to which adapter was chosen that `chosen()` cannot give for more than two halves, and a rule that the storage answers immediately only when every adapter does.
 
-### An adapter's own `clear`
-
-`clear("everything")` lists the backend and then removes what it found, so a name written between the two survives, and a backend without a batch call removes each name in turn. An optional `clear` on the adapter would let it be one native call with nothing missed: `localStorage.clear()`, an area's `clear()`, AsyncStorage's `clear()`. It widens the adapter contract, `withFallback` would have to forward it, and the storage would still have to work out which declared keys to announce.
-
 ### Migrating everything up front
 
 Versioned keys migrate when they are read, so a key nothing reads stays as it was. A pass over the whole storage at startup, and a way to inspect a stored version, would serve tooling and tests. It has to define what happens when one key fails partway through.
@@ -74,9 +70,9 @@ Adding an options parameter naively would be a trap: an object written at a call
 
 Until there is one, policy belongs where it already works — on the key, or on the storage, declared outside React.
 
-### A per-request error log
+### An error log through context
 
-The error observer collects into one log for the process, which is right in a browser and wrong on a server, where every in-flight request would share it. Harmless only because nothing reads that log during a server render, and a leak between requests the moment something does.
+`createStorageErrorLog()` builds a log of its own, and `useStorageErrors(log)` is handed it. A provider would let the hook find the nearest log instead. It would be a second way to name the same log, and a storage's `onError` is chosen when the storage is built, outside React, so the provider could never point a storage at its log: both would still have to be wired by hand.
 
 ## Tooling
 

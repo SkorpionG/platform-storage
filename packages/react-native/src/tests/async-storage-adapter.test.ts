@@ -177,6 +177,73 @@ describe("listing what the storage holds", () => {
   });
 });
 
+describe("clearing the whole storage", () => {
+  it("clears through the storage's own clear, keeping its receiver", async () => {
+    const asyncStorage = {
+      ...fakeAsyncStorage({ theme: '"dark"', "someone-elses-key": "1" }),
+      cleared: 0,
+      clear(this: { cleared: number; entries: Map<string, string> }) {
+        this.cleared += 1;
+        this.entries.clear();
+
+        return Promise.resolve();
+      },
+    };
+
+    await asyncStorageAdapter(asyncStorage).clear?.();
+
+    expect(asyncStorage.cleared).toBe(1);
+    expect(asyncStorage.entries.size).toBe(0);
+  });
+
+  it("offers no clear where the storage has none, or there is no storage", () => {
+    expect(asyncStorageAdapter(fakeAsyncStorage()).clear).toBeUndefined();
+    expect(asyncStorageAdapter(null).clear).toBeUndefined();
+  });
+
+  it("is what clear of everything calls, once, with no listing", async () => {
+    const calls: Array<string> = [];
+    const base = fakeAsyncStorage({ theme: '"dark"', "someone-elses-key": "1" });
+    const storage = createStorage({
+      schema,
+      adapter: asyncStorageAdapter({
+        ...base,
+        getAllKeys: () => {
+          calls.push("getAllKeys");
+          return Promise.resolve([...base.entries.keys()]);
+        },
+        clear: async () => {
+          calls.push("clear");
+          await Promise.all([...base.entries.keys()].map((key) => base.removeItem(key)));
+        },
+      }),
+    });
+
+    await storage.clear("everything");
+
+    expect(calls).toEqual(["clear"]);
+    expect(base.entries.size).toBe(0);
+  });
+
+  it("lets a refusal through for a storage to report as the clear operation", async () => {
+    const onError = (error: unknown): void => {
+      reported.push(error);
+    };
+    const reported: Array<unknown> = [];
+    const storage = createStorage({
+      schema,
+      adapter: asyncStorageAdapter({
+        ...fakeAsyncStorage(),
+        clear: () => Promise.reject(new Error("disk full")),
+      }),
+      onError,
+    });
+
+    await expect(storage.clear("everything")).rejects.toBeInstanceOf(StorageAdapterError);
+    expect(reported).toEqual([expect.objectContaining({ operation: "clear" })]);
+  });
+});
+
 describe("following changes", () => {
   it("offers no feed, because AsyncStorage reports nothing", () => {
     expect(asyncStorageAdapter(fakeAsyncStorage()).subscribe).toBeUndefined();

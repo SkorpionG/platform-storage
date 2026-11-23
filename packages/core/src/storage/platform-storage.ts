@@ -152,9 +152,9 @@ export interface PlatformStorage<Definition extends StorageSchemaDefinition> {
    *
    * A target or a list of them reaches further, and anything wider than `declared` has to be asked for by name: `readFrom`, `unprefixed`, `undeclared`, or `everything` on its own. See {@link CLEAR_TARGET}.
    *
-   * `undeclared` and `everything` list what the backend holds through the adapter's `keys`, and throw `StorageUnsupportedError` before removing anything where it has none. A name written between the listing and the removal survives. `unprefixed` on a storage with no prefix removes nothing and tells `onError`.
+   * `everything` goes through the adapter's own `clear` where it has one, in one call that nothing written in between survives. Otherwise it lists what the backend holds through the adapter's `keys`, as `undeclared` always does, and both throw `StorageUnsupportedError` before removing anything where the adapter cannot. A name written between a listing and the removal survives. `unprefixed` on a storage with no prefix removes nothing and tells `onError`.
    *
-   * A failure reports what the backend refused: `removeMany`, naming no single key, where it removed them together, `remove` and the name where it went one at a time, or `keys` where listing failed.
+   * A failure reports what the backend refused: `removeMany`, naming no single key, where it removed them together, `remove` and the name where it went one at a time, `keys` where listing failed, or `clear` where the adapter's own `clear` did.
    */
   clear(target?: ClearTargets): Promise<void>;
 

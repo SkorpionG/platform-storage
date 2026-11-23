@@ -327,7 +327,7 @@ export class StorageUnavailableError extends StorageAdapterError {
 
 /** What {@link StorageUnsupportedError} is constructed with. */
 export interface StorageUnsupportedErrorOptions extends StorageAdapterErrorOptions {
-  /** The adapter operation the request needed and the adapter does not offer. A synchronous call needs its synchronous form, so `keys` there means `keysSync`. */
+  /** The adapter operation the request needed and the adapter does not offer. A synchronous call needs its synchronous form, so `keys` there means `keysSync`. `clear("everything")` reports `keys` too, though the adapter's own `clear` would have served as well. */
   readonly missing: StorageOperation;
 }
 

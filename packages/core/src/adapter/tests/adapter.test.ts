@@ -147,6 +147,42 @@ describe("defineSyncAdapter listing", () => {
   });
 });
 
+describe("defineSyncAdapter clearing", () => {
+  it("derives the asynchronous half from clearSync, calling it on the definition", async () => {
+    const definition = {
+      ...memoryDefinition(),
+      cleared: 0,
+      clearSync(this: { cleared: number }) {
+        this.cleared += 1;
+      },
+    };
+    const adapter = defineSyncAdapter(definition);
+
+    adapter.clearSync?.();
+    await adapter.clear?.();
+
+    expect(definition.cleared).toBe(2);
+  });
+
+  it("turns a clearSync that throws into a rejection on the asynchronous half", async () => {
+    const adapter = defineSyncAdapter({
+      ...memoryDefinition(),
+      clearSync: () => {
+        throw new Error("denied");
+      },
+    });
+
+    await expect(adapter.clear?.()).rejects.toThrow("denied");
+  });
+
+  it("offers no clearing without clearSync", () => {
+    const adapter = defineSyncAdapter(memoryDefinition());
+
+    expect(adapter.clear).toBeUndefined();
+    expect(adapter.clearSync).toBeUndefined();
+  });
+});
+
 describe("defineSyncAdapter following changes", () => {
   it("carries subscribe through", () => {
     const stop = vi.fn();

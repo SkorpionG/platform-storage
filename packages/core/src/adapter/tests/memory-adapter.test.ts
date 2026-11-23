@@ -79,6 +79,19 @@ describe("memoryAdapter listing and wire types", () => {
     await expect(adapter.keys?.()).resolves.toEqual(["a", "b"]);
   });
 
+  it("clears everything it holds, on both halves", async () => {
+    const adapter = memoryAdapter({ initial: { a: '"1"', b: '"2"' } });
+
+    adapter.clearSync?.();
+
+    expect(adapter.entries.size).toBe(0);
+
+    adapter.setSync("c", '"3"');
+    await adapter.clear?.();
+
+    expect(adapter.entries.size).toBe(0);
+  });
+
   it("holds values in the form its serializer produces", () => {
     const adapter = memoryAdapter({ serializer: passthroughSerializer, initial: { a: { b: 1 } } });
 

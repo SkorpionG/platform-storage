@@ -46,7 +46,7 @@ await storage.get("theme"); // "light" | "dark"
 
 Every method returns a promise, because AsyncStorage only ever answers later: there is no synchronous half here.
 
-Values are stored as JSON text under the physical key, with nothing wrapped around them unless the key declares versions. `clear()` removes only the keys the schema declares, never the rest of the storage. `clear("undeclared")` and `clear("everything")` list what AsyncStorage holds through `getAllKeys`, and throw `StorageUnsupportedError` for an instance without it.
+Values are stored as JSON text under the physical key, with nothing wrapped around them unless the key declares versions. `clear()` removes only the keys the schema declares, never the rest of the storage. `clear("undeclared")` lists what AsyncStorage holds through `getAllKeys`, and throws `StorageUnsupportedError` for an instance without it. `clear("everything")` is one call to the instance's own `clear()`, which AsyncStorage 2 and 3 both have, and lists through `getAllKeys` only for an instance without one.
 
 ## API Usage
 
@@ -101,7 +101,7 @@ The adapter the factory above is built from, for `createStorage` or anything els
 - `options?`:
   - `name?: string` — what errors report. Defaults to `"AsyncStorage"`.
 
-**Returns:** `StorageAdapter<string>`, which can also list every name the storage holds through `keys()` when the instance has `getAllKeys`, and work on several names in one call when it has AsyncStorage 3's or 2's batch methods. `isAvailable()` answers whether the instance has `getItem`, `setItem` and `removeItem`. Where it is not there, or lacks one of them, every operation reports `StorageUnavailableError`, which is what lets a fallback take over, and `keys()` is still offered so a storage falling back to memory can clear what its schema does not declare. AsyncStorage reports no changes, so `watch` and `onChange` hear writes made through the same storage only.
+**Returns:** `StorageAdapter<string>`, which can also list every name the storage holds through `keys()` when the instance has `getAllKeys`, clear all of it through `clear()` when it has `clear`, and work on several names in one call when it has AsyncStorage 3's or 2's batch methods. `isAvailable()` answers whether the instance has `getItem`, `setItem` and `removeItem`. Where it is not there, or lacks one of them, every operation reports `StorageUnavailableError`, which is what lets a fallback take over, and `keys()` is still offered so a storage falling back to memory can clear what its schema does not declare. AsyncStorage reports no changes, so `watch` and `onChange` hear writes made through the same storage only.
 
 AsyncStorage reports a missing key as `null`; the adapter maps that to `undefined`, because a schema may legitimately store `null` and the two cannot share a meaning.
 

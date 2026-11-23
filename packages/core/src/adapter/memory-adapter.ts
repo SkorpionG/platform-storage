@@ -57,6 +57,9 @@ export function memoryAdapter<Wire>(
       },
       hasSync: (key) => entries.has(key),
       keysSync: () => Array.from(entries.keys()),
+      clearSync: () => {
+        entries.clear();
+      },
     }),
     entries,
   };

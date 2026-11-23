@@ -94,9 +94,17 @@ describe("readClearTargets", () => {
 
 describe("needsListing", () => {
   it("is true only for the targets that reach past the schema", () => {
-    expect(needsListing(new Set<ClearTarget>(["declared", "readFrom", "unprefixed"]))).toBe(false);
-    expect(needsListing(new Set<ClearTarget>(["undeclared"]))).toBe(true);
-    expect(needsListing(new Set<ClearTarget>(["everything"]))).toBe(true);
+    expect(needsListing(new Set<ClearTarget>(["declared", "readFrom", "unprefixed"]), false)).toBe(
+      false,
+    );
+    expect(needsListing(new Set<ClearTarget>(["undeclared"]), false)).toBe(true);
+    expect(needsListing(new Set<ClearTarget>(["everything"]), false)).toBe(true);
+  });
+
+  it("leaves everything to a backend that can clear itself, but never undeclared names", () => {
+    expect(needsListing(new Set<ClearTarget>(["everything"]), true)).toBe(false);
+    expect(needsListing(new Set<ClearTarget>(["undeclared"]), true)).toBe(true);
+    expect(needsListing(new Set<ClearTarget>(["declared"]), true)).toBe(false);
   });
 });
 

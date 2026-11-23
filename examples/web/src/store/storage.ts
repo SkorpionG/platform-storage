@@ -37,7 +37,7 @@ export const localRecovering: SyncPlatformStorage<AppDefinition> = createLocalSt
 /**
  * `localStorage` with no fallback, for the panel that shows what a storage without one does where there is no `window`.
  *
- * No `onError`, because on a server that observer is one module-level log shared by every request that happens to be rendering.
+ * No `onError`, because on a server the shared log is one list for every request that happens to be rendering. The request-log panel shows a log built for one request instead.
  */
 export const unguardedLocal: SyncPlatformStorage<AppDefinition> = createLocalStorage({
   schema: appSchema,

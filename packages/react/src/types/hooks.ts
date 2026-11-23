@@ -91,3 +91,15 @@ export interface StorageErrorEntry {
   /** When the most recent one arrived, in epoch milliseconds. Formatting it is the application's business. */
   readonly at: number;
 }
+
+/** A collection of the failures some storages report, newest first, which `createStorageErrorLog` builds. */
+export interface StorageErrorLog {
+  /** The observer to hand to a storage's `onError`. */
+  readonly record: (error: PlatformStorageError) => void;
+  /** Empties the log, for a control that dismisses what has been read. */
+  readonly clear: () => void;
+  /** Every failure collected so far, newest first, as the same array until something changes. Identical repeats arrive as one entry with a count. */
+  readonly entries: () => ReadonlyArray<StorageErrorEntry>;
+  /** Calls the listener whenever the log changes, until the function it returns is called. */
+  readonly subscribe: (listener: () => void) => () => void;
+}

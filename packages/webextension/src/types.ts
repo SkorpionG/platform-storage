@@ -23,6 +23,8 @@ export interface WebExtensionStorageArea {
   remove(keys: string | Array<string>): Promise<void>;
   /** Optional because only newer browsers have it. It lists the names without reading every value. */
   getKeys?(): Promise<Array<string>>;
+  /** Removes everything the area holds. Optional so that a stand-in need not provide it, since every browser does; without it the adapter lists the area and removes what it found, so a name written in between survives. */
+  clear?(): Promise<void>;
 }
 
 /** One key's change as `storage.onChanged` reports it. Values are `unknown` for the reason {@link WebExtensionStorageArea} gives. */

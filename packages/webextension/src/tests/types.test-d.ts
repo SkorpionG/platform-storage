@@ -32,6 +32,15 @@ describe("WebExtensionStorageArea", () => {
     expectTypeOf<Conforms<PolyfillStorage.StorageArea>>().toEqualTypeOf<true>();
   });
 
+  it("declares clear optional for a stand-in's sake, and every real area has it", () => {
+    type Clears<Area> =
+      Area extends Required<Pick<WebExtensionStorageArea, "clear">> ? true : false;
+
+    expectTypeOf<Clears<typeof chrome.storage.local>>().toEqualTypeOf<true>();
+    expectTypeOf<Clears<typeof browser.storage.sync>>().toEqualTypeOf<true>();
+    expectTypeOf<Clears<PolyfillStorage.StorageArea>>().toEqualTypeOf<true>();
+  });
+
   it("has a change feed every API can stand in for", () => {
     type ConformsToFeed<Feed> = Feed extends WebExtensionStorageChangeEvent ? true : false;
 

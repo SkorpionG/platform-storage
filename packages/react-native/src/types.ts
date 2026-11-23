@@ -9,6 +9,8 @@ export interface AsyncStorageLike {
   removeItem(key: string): Promise<void>;
   /** Optional, so a storage without it still qualifies. The adapter can list keys only when this is present. */
   getAllKeys?(): Promise<ReadonlyArray<string>>;
+  /** Removes everything the storage holds. Optional, so a storage without it still qualifies; `clear("everything")` then lists and removes instead. */
+  clear?(): Promise<void>;
   /** AsyncStorage 3 reads several names in one call. A missing name answers `null`. */
   getMany?(keys: Array<string>): Promise<Record<string, string | null>>;
   /** AsyncStorage 3 writes several names in one call. */

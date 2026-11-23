@@ -53,6 +53,29 @@ function listingAdapter(
   };
 }
 
+/** A batching backend that can clear itself in one call, and list too only when asked to. */
+function selfClearing(
+  initial: Readonly<Record<string, string>> = HELD,
+  {
+    listing = false,
+    pauseAfter = () => undefined,
+  }: {
+    readonly listing?: boolean;
+    readonly pauseAfter?: (call: string) => Promise<void> | undefined;
+  } = {},
+): BatchingAdapter {
+  const base = listing ? listingAdapter(initial, pauseAfter) : batchingAdapter(initial, pauseAfter);
+
+  return {
+    ...base,
+    clear: async () => {
+      base.calls.push("clear");
+      base.entries.clear();
+      await pauseAfter("clear");
+    },
+  };
+}
+
 function collecting(): {
   readonly errors: Array<PlatformStorageError>;
   onError(error: PlatformStorageError): void;
@@ -224,12 +247,18 @@ describe("clear that cannot be carried out", () => {
       operation: "clear",
       missing: "keys",
     });
-    await expect(storage.clear("everything")).rejects.toThrow(
+    await expect(storage.clear("undeclared")).rejects.toThrow(
       "The recording adapter cannot list the names it holds, which `clear` needs to find what the schema does not declare. Nothing was removed.",
     );
+    await expect(storage.clear("everything")).rejects.toMatchObject({
+      missing: "keys",
+      message:
+        'The recording adapter can neither clear itself nor list the names it holds, and `clear("everything")` needs one of the two. Nothing was removed.',
+    });
 
     expect(adapter.calls).toEqual([]);
     expect(errors.map((error) => error.code)).toEqual([
+      STORAGE_ERROR_CODE.Unsupported,
       STORAGE_ERROR_CODE.Unsupported,
       STORAGE_ERROR_CODE.Unsupported,
       STORAGE_ERROR_CODE.Unsupported,
@@ -299,6 +328,85 @@ describe("clear that cannot be carried out", () => {
   });
 });
 
+describe("clear everything through the backend's own clear", () => {
+  it("makes one call and lists nothing", async () => {
+    const adapter = selfClearing(HELD, { listing: true });
+    const storage = createStorage({ schema, adapter, prefix: "app:" });
+
+    await storage.clear("everything");
+
+    expect(adapter.calls).toEqual(["clear"]);
+    expect(adapter.entries.size).toBe(0);
+  });
+
+  it("needs no listing where the backend can clear itself", async () => {
+    const adapter = selfClearing();
+    const storage = createStorage({ schema, adapter, prefix: "app:" });
+
+    await storage.clear("everything");
+
+    expect(adapter.calls).toEqual(["clear"]);
+    await expect(storage.clear("undeclared")).rejects.toBeInstanceOf(StorageUnsupportedError);
+  });
+
+  it("leaves every other target to the names, never calling it", async () => {
+    const adapter = selfClearing(HELD, { listing: true });
+    const storage = createStorage({ schema, adapter, prefix: "app:" });
+
+    await storage.clear();
+    await storage.clear(["readFrom", "unprefixed", "undeclared"]);
+
+    expect(adapter.calls).not.toContain("clear");
+    expect(adapter.entries.has("analytics:session")).toBe(true);
+  });
+
+  it("announces every declared key, as the listing does", async () => {
+    const storage = createStorage({ schema, adapter: selfClearing(), prefix: "app:" });
+    const changes: Array<unknown> = [];
+
+    storage.watch("theme", ({ newValue }) => changes.push(["theme", newValue]));
+    storage.watch("user", ({ newValue }) => changes.push(["user", newValue]));
+    await storage.clear("everything");
+
+    expect(changes).toEqual([
+      ["theme", "light"],
+      ["user", undefined],
+    ]);
+  });
+
+  it("reports a refusal as the clear operation, and reads every key again", async () => {
+    const adapter = { ...selfClearing(), clear: () => Promise.reject(new Error("denied")) };
+    const { errors, onError } = collecting();
+    const storage = createStorage({ schema, adapter, prefix: "app:", onError });
+    const told: Array<string | undefined> = [];
+
+    storage.onChange((key) => told.push(key));
+    await expect(storage.clear("everything")).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Adapter,
+      operation: "clear",
+    });
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(StorageAdapterError);
+    expect(new Set(told)).toEqual(new Set(["theme", "user"]));
+  });
+
+  it("goes through whichever half a fallback pairing chose, where both halves can", async () => {
+    const primary = memoryAdapter({ initial: { "app:theme": '"dark"', other: "1" } });
+    const cleared = vi.spyOn(primary, "clearSync");
+    const storage = createStorage({
+      schema,
+      adapter: withFallback(primary, memoryAdapter()),
+      prefix: "app:",
+    });
+
+    storage.clearSync("everything");
+
+    expect(cleared).toHaveBeenCalledOnce();
+    expect(primary.entries.size).toBe(0);
+  });
+});
+
 describe("clearSync with a target", () => {
   it("lists and removes without waiting", () => {
     const adapter = memoryAdapter({ initial: HELD });
@@ -312,6 +420,47 @@ describe("clearSync with a target", () => {
     storage.clearSync("everything");
 
     expect(adapter.entries.size).toBe(0);
+  });
+
+  it("clears everything through clearSync where the backend has it", () => {
+    const adapter = memoryAdapter({ initial: HELD });
+    const cleared = vi.spyOn(adapter, "clearSync");
+    const listed = vi.spyOn(adapter, "keysSync");
+    const storage = createStorage({ schema, adapter, prefix: "app:" });
+
+    storage.clearSync("everything");
+
+    expect(cleared).toHaveBeenCalledOnce();
+    expect(listed).not.toHaveBeenCalled();
+    expect(adapter.entries.size).toBe(0);
+  });
+
+  it("lists for everything where the backend can clear itself only asynchronously", () => {
+    const base = memoryAdapter({ initial: HELD });
+    const { clearSync, ...rest } = base;
+    const adapter: SyncStorageAdapter<string> = rest;
+    const storage = createStorage({ schema, adapter, prefix: "app:" });
+
+    expect(clearSync).toBeTypeOf("function");
+    expect(adapter.clear).toBeTypeOf("function");
+
+    storage.clearSync("everything");
+
+    expect(base.entries.size).toBe(0);
+  });
+
+  it("refuses everything without waiting where the backend can only clear and list asynchronously", () => {
+    const { adapter, entries } = listingOnlyAsynchronously(HELD);
+    const storage = createStorage({
+      schema,
+      adapter: { ...adapter, clear: () => Promise.resolve() },
+      prefix: "app:",
+    });
+
+    expect(() => {
+      storage.clearSync("everything");
+    }).toThrow(/can neither clear itself nor list the names it holds without waiting/);
+    expect(entries.size).toBe(Object.keys(HELD).length);
   });
 
   it("refuses to list on a backend that can only list asynchronously, which clear still can", async () => {

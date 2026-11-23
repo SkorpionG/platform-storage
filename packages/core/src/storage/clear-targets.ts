@@ -8,7 +8,7 @@ import type { StoredNames } from "../schema/stored-names";
  * - `"readFrom"` removes only the `readFrom` names, under the prefix where one applies.
  * - `"unprefixed"` removes only the names from before the prefix, whether or not `readUnprefixed` is on, and never one another key stores under or reads from.
  * - `"undeclared"` removes the stored names the schema does not list, only under the prefix where there is one. Needs the adapter's `keys`.
- * - `"everything"` removes the whole backend, data other code owns included. Needs the adapter's `keys`, and cannot be given with any other target.
+ * - `"everything"` removes the whole backend, data other code owns included. Needs the adapter's own `clear`, or else its `keys`, and cannot be given with any other target.
  */
 export const CLEAR_TARGET = {
   Declared: "declared",
@@ -82,9 +82,11 @@ export function readClearTargets(given: unknown): ReadonlySet<ClearTarget> {
   return targets;
 }
 
-/** Whether these targets reach names only the backend can list. */
-export function needsListing(targets: ReadonlySet<ClearTarget>): boolean {
-  return targets.has(CLEAR_TARGET.Undeclared) || targets.has(CLEAR_TARGET.Everything);
+/** Whether these targets reach names only the backend can list. `everything` does not where the backend can clear itself. */
+export function needsListing(targets: ReadonlySet<ClearTarget>, clearsItself: boolean): boolean {
+  return (
+    targets.has(CLEAR_TARGET.Undeclared) || (targets.has(CLEAR_TARGET.Everything) && !clearsItself)
+  );
 }
 
 /** What a `clear` call works out to before anything is removed. */
@@ -174,7 +176,7 @@ function namesFor(
  *
  * Current names go last, so a removal that stops partway leaves a value where a retry finds it rather than under an old name a later read would bring back. It is the order `removeMany` uses, worked out here because a listing adds names no key declares.
  *
- * `everything` adds the declared names to what the backend listed, so a key written between the listing and the removal is still removed.
+ * Where the backend cannot clear itself, `everything` adds the declared names to what it listed, so a key written between the listing and the removal is still removed.
  */
 export function planClear(input: ClearInput): ClearPlan {
   const owners = ownersOf(input.storedNames);

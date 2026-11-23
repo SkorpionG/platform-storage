@@ -93,7 +93,7 @@ import { createLocalStorage, isQuotaExceeded } from "@platform-storage/web";
 import { createWebExtensionStorage, WEB_EXTENSION_STORAGE_AREA } from "@platform-storage/webextension";
 import { createReactNativeStorage } from "@platform-storage/react-native";
 import { STORED_VALUE_STATUS, useStorageValue } from "@platform-storage/react";
-import { readDeclaredValue } from "@platform-storage/react/server";
+import { createStorageErrorLog, readDeclaredValue } from "@platform-storage/react/server";
 
 const schema = defineStorageSchema({
   theme: { schema: z.enum(["light", "dark"]), default: "light" },
@@ -108,8 +108,13 @@ assert.equal(await storage.get("theme"), "dark");
 assert.equal(storage.getSync("theme"), "dark");
 assert.equal(storage.physicalKey("user"), "app:user");
 
-const planted = createStorage({ schema, adapter: memoryAdapter({ initial: { theme: '"purple"' } }) });
+const log = createStorageErrorLog();
+const planted = createStorage({ schema, adapter: memoryAdapter({ initial: { theme: '"purple"' } }), onError: log.record });
 assert.equal(await planted.get("theme"), "light", "a value that no longer matches falls back");
+assert.equal(log.entries().length, 1, "a log nothing listens to publishes at once");
+
+await planted.clear("everything");
+assert.equal(planted.adapter.entries.size, 0);
 
 const web = createLocalStorage({ schema });
 await assert.rejects(() => web.get("theme"), (error) => error.code === STORAGE_ERROR_CODE.Unavailable);
@@ -152,6 +157,8 @@ void (async () => {
   assert.equal(typeof reactNative.createReactNativeStorage, "function");
   assert.equal(typeof react.useStorageValue, "function");
   assert.equal(typeof server.readDeclaredValue, "function");
+  assert.equal(typeof server.createStorageErrorLog, "function");
+  assert.equal(typeof react.createStorageErrorLog, "function");
   assert.equal(core.STORAGE_ERROR_CODE.Quota, "QUOTA");
 })();
 `;
@@ -163,14 +170,16 @@ import { createStorage, defineStorageSchema, memoryAdapter } from "@platform-sto
 import type { StorageQuotaExceededError, SyncPlatformStorage } from "@platform-storage/core";
 import { createWebExtensionStorage } from "@platform-storage/webextension";
 import { createLocalStorage } from "@platform-storage/web";
-import { readDeclaredValue } from "@platform-storage/react/server";
+import { createStorageErrorLog, readDeclaredValue } from "@platform-storage/react/server";
+import type { StorageErrorLog } from "@platform-storage/react/server";
 
 const schema = defineStorageSchema({
   theme: { schema: z.enum(["light", "dark"]), default: "light" },
   user: { schema: z.object({ id: z.string(), name: z.string() }), key: "app:user" },
 });
 
-const storage = createStorage({ schema, adapter: memoryAdapter() });
+const log: StorageErrorLog = createStorageErrorLog();
+const storage = createStorage({ schema, adapter: memoryAdapter(), onError: log.record });
 
 const theme: "light" | "dark" = storage.getSync("theme");
 const user: { id: string; name: string } | undefined = await storage.get("user");
@@ -189,6 +198,7 @@ void theme;
 void user;
 void web;
 void declared;
+void log;
 export type Quota = StorageQuotaExceededError;
 `;
 

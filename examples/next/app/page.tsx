@@ -2,6 +2,7 @@ import { Code } from "@examples/ui";
 import {
   HydrationPanel,
   Playground,
+  RequestLogPanel,
   ServerRenderPanel,
   ServerUnavailablePanel,
 } from "@examples/web";
@@ -27,6 +28,7 @@ export default async function Page() {
         <>
           <ServerRenderPanel />
           <ServerUnavailablePanel />
+          <RequestLogPanel />
           <HydrationPanel />
         </>
       }

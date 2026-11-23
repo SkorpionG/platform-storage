@@ -83,7 +83,7 @@ function isUsable(
  *
  * @param asyncStorage - The instance to store through. Anything with `getItem`, `setItem` and `removeItem` will do. `null` or `undefined` where there is none.
  * @param options - `name` to change what error messages call it. Defaults to `"AsyncStorage"`.
- * @returns An asynchronous adapter over that instance, able to list every name it holds when the instance has `getAllKeys`, to work on several names in one call when it has AsyncStorage 3's or 2's batch methods, and to say whether the instance is there through `isAvailable`.
+ * @returns An asynchronous adapter over that instance, able to list every name it holds when the instance has `getAllKeys`, to clear all of it when it has `clear`, to work on several names in one call when it has AsyncStorage 3's or 2's batch methods, and to say whether the instance is there through `isAvailable`.
  * @example
  * ```ts
  * import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -120,7 +120,7 @@ export function asyncStorageAdapter(
   };
 
   /*
-    With no usable instance there is nothing to list or batch, but listing is still offered, reporting itself unavailable. A fallback offers a method only when both halves have it, so leaving it out would cost a storage falling back to memory its `clear("undeclared")`.
+    With no usable instance there is nothing to list, clear or batch, but listing is still offered, reporting itself unavailable. A fallback offers a method only when both halves have it, so leaving it out would cost a storage falling back to memory its `clear("undeclared")`. Clearing needs no such stand-in, since `clear("everything")` lists instead where there is no `clear`.
   */
   if (!isUsable(asyncStorage)) {
     return {
@@ -132,12 +132,13 @@ export function asyncStorageAdapter(
     };
   }
 
-  const { getAllKeys } = asyncStorage;
+  const { getAllKeys, clear } = asyncStorage;
 
   return {
     ...required,
     // `call`, because destructuring an optional method loses its receiver.
     ...(getAllKeys === undefined ? {} : { keys: () => getAllKeys.call(asyncStorage) }),
+    ...(clear === undefined ? {} : { clear: () => clear.call(asyncStorage) }),
     ...batches(asyncStorage),
   };
 }

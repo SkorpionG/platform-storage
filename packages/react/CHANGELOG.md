@@ -1,5 +1,22 @@
 # @platform-storage/react
 
+## 0.9.0
+
+### Minor Changes
+
+- `clear("everything")` is one call to the backend's own `clear` where the adapter has one: `localStorage.clear()`, an extension area's `clear()`, or AsyncStorage's `clear()`. Nothing written between a listing and a removal survives, and no backend is asked to remove each name in turn. An adapter without one lists and removes as before, and one with `clear` but no `keys` can now clear everything. The default `clear()` and the other targets are unchanged.
+
+  The adapter contract gains an optional `clear()` and `clearSync()`, which `defineSyncAdapter` derives from `clearSync`. `memoryAdapter`, `webStorageAdapter` and `webExtensionStorageAdapter` offer it, `asyncStorageAdapter` wherever its instance has `clear`, and `withFallback` wherever both halves do. A refusal is reported as the `clear` operation. `WebExtensionStorageArea` and `AsyncStorageLike` gain an optional `clear`.
+
+  `createStorageErrorLog()` builds an error log of its own, apart from the shared one `recordStorageError` collects into, so a storage built for one server request can keep that request's failures alone. Hand its `record` to the storage's `onError`, and read it through `entries()` or `useStorageErrors(log)`. It is exported from `@platform-storage/react` and from `@platform-storage/react/server`. Adds the `StorageErrorLog` type.
+
+  A log, the shared one included, now publishes a failure at once while nothing is listening, so `entries()` answers the moment a read on a server has failed. While something listens, it still waits for the end of the turn.
+
+### Patch Changes
+
+- Updated dependencies
+  - @platform-storage/core@0.9.0
+
 ## 0.8.0
 
 ### Minor Changes

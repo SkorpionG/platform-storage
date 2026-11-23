@@ -25,6 +25,9 @@ export function ClearPanel() {
         <Button tone="danger" onClick={() => void local.clear("undeclared")}>
           clear("undeclared")
         </Button>
+        <Button tone="danger" onClick={() => void local.clear("everything")}>
+          clear("everything")
+        </Button>
       </div>
 
       <p className="mt-3 text-xs leading-relaxed text-soft">
@@ -39,6 +42,12 @@ export function ClearPanel() {
         <Code>clear("undeclared")</Code> does the opposite: it lists the area and removes every name
         the schema does not declare. This storage has no prefix to stay inside, so that takes the
         foreign key too — which is why anything wider than the default has to be asked for by name.
+      </p>
+
+      <p className="mt-2 text-xs leading-relaxed text-soft">
+        <Code>clear("everything")</Code> is the one target that does call{" "}
+        <Code>storage.local.clear()</Code>: a single call, so nothing written while it runs is left
+        behind. The browser reports each name it removed, so every page following the area hears it.
       </p>
     </Card>
   );

@@ -106,9 +106,10 @@ export function ClearPanel() {
           label="The whole origin"
           hint={
             <>
-              <Code>"everything"</Code> removes every name on the origin, other code's included, and
-              cannot be combined with another target. It is announced by the storage that ran it, so
-              every other storage on the page is told as well.
+              <Code>"everything"</Code> removes every name on the origin, other code's included, in
+              one <Code>localStorage.clear()</Code> call, and cannot be combined with another
+              target. Other tabs hear it from the browser. In this tab it is announced by the
+              storage that ran it, so every other storage on the page is told as well.
             </>
           }
         >

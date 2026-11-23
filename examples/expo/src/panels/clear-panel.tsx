@@ -1,4 +1,5 @@
 import { Button } from "@expo/ui";
+import { notifyStorageChanged } from "@platform-storage/react";
 import { useState } from "react";
 
 import { Badge } from "../components/badge";
@@ -7,7 +8,7 @@ import { Control } from "../components/control";
 import { Field } from "../components/field";
 import { Pending } from "../components/pending";
 import { plantText, readEverything } from "../store/raw";
-import { local } from "../store/storages";
+import { local, recovering } from "../store/storages";
 
 const FOREIGN_KEY = "analytics:session";
 
@@ -56,6 +57,24 @@ export function ClearPanel() {
             variant="outlined"
             label='clear("undeclared")'
             onPress={() => void local.clear("undeclared").then(check)}
+          />
+        </Control>
+      </Field>
+
+      <Field
+        label="Or empty the whole store"
+        hint={`clear("everything") is one call to AsyncStorage's own clear(), so the foreign key and every other storage's values go with it. AsyncStorage reports no changes, so the storage that ran it announces its own keys and this panel tells the other storage over the same store itself.`}
+      >
+        <Control>
+          <Button
+            variant="outlined"
+            label='clear("everything")'
+            onPress={() =>
+              void local.clear("everything").then(() => {
+                notifyStorageChanged(recovering);
+                return check();
+              })
+            }
           />
         </Control>
       </Field>

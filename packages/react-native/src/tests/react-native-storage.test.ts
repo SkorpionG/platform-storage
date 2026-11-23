@@ -93,6 +93,18 @@ describe("createReactNativeStorage with a fallback", () => {
     expect(await storage.get("theme")).toBe("light");
   });
 
+  it("clears everything through the instance's own clear where it is there", async () => {
+    const asyncStorage = {
+      ...fakeAsyncStorage({ "someone-elses-key": "1" }),
+      clear: vi.fn(() => Promise.resolve()),
+    };
+    const storage = createReactNativeStorage({ schema, asyncStorage, fallback: "memory" });
+
+    await storage.clear("everything");
+
+    expect(asyncStorage.clear).toHaveBeenCalledOnce();
+  });
+
   it("uses the instance where it is there, leaving the fallback empty", async () => {
     const asyncStorage = fakeAsyncStorage();
     const spare = memoryAdapter();

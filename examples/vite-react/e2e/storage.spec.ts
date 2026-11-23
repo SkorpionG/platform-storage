@@ -258,6 +258,37 @@ test("clearing everything empties the origin, and every hook follows", async ({ 
   expect(await page.evaluate(() => window.localStorage.length)).toBe(0);
 });
 
+test("another tab follows clearing everything, from the browser's own event", async ({
+  context,
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    window.localStorage.setItem("visitCount", "7");
+  });
+  await page.reload();
+
+  const other = await context.newPage();
+
+  await other.goto("/");
+  await expect(other.getByLabel("Visit count")).toContainText("7");
+  await other.evaluate(() => {
+    const heard: Array<string | null> = [];
+
+    Object.assign(window, { heard });
+    window.addEventListener("storage", (event) => {
+      heard.push(event.key);
+    });
+  });
+
+  await page.getByRole("button", { name: 'clearSync("everything")' }).click();
+
+  await expect(other.getByLabel("Visit count")).toContainText("0");
+  expect(await other.evaluate(() => window.localStorage.length)).toBe(0);
+  // One event naming no key is what `localStorage.clear()` sends; removing each name would send one per name.
+  expect(await other.evaluate(() => Reflect.get(window, "heard"))).toEqual([null]);
+});
+
 test("adopting a prefix moves a value left under the bare name", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => {

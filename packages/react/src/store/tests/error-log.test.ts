@@ -3,108 +3,202 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   clearStorageErrors,
+  createStorageErrorLog,
   getServerStorageErrors,
-  getStorageErrors,
   recordStorageError,
-  subscribeToStorageErrors,
+  sharedStorageErrorLog,
 } from "../error-log";
 
 function failure(message: string): PlatformStorageError {
   return new PlatformStorageError(STORAGE_ERROR_CODE.Validation, message);
 }
 
-/* The log is one collector for the page, as an `onError` observer has to be, so each test starts from empty. */
+/* The shared log is one collector for the page, as an `onError` observer has to be, so each test starts from empty. */
 beforeEach(() => {
   clearStorageErrors();
 });
 
-describe("recordStorageError", () => {
-  it("publishes nothing until the render that produced the failure is over", () => {
-    recordStorageError(failure("first"));
+describe("createStorageErrorLog", () => {
+  it("publishes at once while nothing is listening, so a server reads it right after the read", () => {
+    const log = createStorageErrorLog();
 
-    expect(getStorageErrors()).toHaveLength(0);
+    log.record(failure("first"));
+
+    expect(log.entries().map((entry) => entry.error.message)).toEqual(["first"]);
   });
 
-  it("publishes once the microtask runs", async () => {
-    recordStorageError(failure("first"));
+  it("holds a failure for the end of the turn while something is listening", async () => {
+    const log = createStorageErrorLog();
+    log.subscribe(() => undefined);
+
+    log.record(failure("first"));
+
+    expect(log.entries()).toHaveLength(0);
+
     await Promise.resolve();
 
-    expect(getStorageErrors()).toHaveLength(1);
+    expect(log.entries()).toHaveLength(1);
   });
 
   it("tells its listeners once for a batch rather than once per failure", async () => {
+    const log = createStorageErrorLog();
     const listener = vi.fn();
-    subscribeToStorageErrors(listener);
+    log.subscribe(listener);
 
-    recordStorageError(failure("first"));
-    recordStorageError(failure("second"));
+    log.record(failure("first"));
+    log.record(failure("second"));
     await Promise.resolve();
 
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(getStorageErrors()).toHaveLength(2);
+    expect(log.entries()).toHaveLength(2);
   });
 
-  it("collapses an identical repeat into a count", async () => {
-    recordStorageError(failure("same"));
-    recordStorageError(failure("same"));
+  it("stops telling a listener once it unsubscribes", async () => {
+    const log = createStorageErrorLog();
+    const listener = vi.fn();
+    const stop = log.subscribe(listener);
+
+    stop();
+    log.record(failure("first"));
     await Promise.resolve();
 
-    const [entry] = getStorageErrors();
+    expect(listener).not.toHaveBeenCalled();
+  });
 
-    expect(getStorageErrors()).toHaveLength(1);
+  it("keeps the order failures arrived in when the last listener leaves between them", async () => {
+    const log = createStorageErrorLog();
+    const stop = log.subscribe(() => undefined);
+
+    log.record(failure("first"));
+    stop();
+    log.record(failure("second"));
+
+    expect(log.entries().map((entry) => entry.error.message)).toEqual(["second", "first"]);
+
+    await Promise.resolve();
+
+    expect(log.entries()).toHaveLength(2);
+  });
+
+  it("answers with the same array until something changes", () => {
+    const log = createStorageErrorLog();
+
+    expect(log.entries()).toBe(log.entries());
+
+    log.record(failure("first"));
+    const after = log.entries();
+
+    expect(log.entries()).toBe(after);
+  });
+
+  it("keeps two logs apart", () => {
+    const first = createStorageErrorLog();
+    const second = createStorageErrorLog();
+
+    first.record(failure("first"));
+
+    expect(first.entries()).toHaveLength(1);
+    expect(second.entries()).toHaveLength(0);
+    expect(sharedStorageErrorLog.entries()).toHaveLength(0);
+  });
+
+  it("collapses an identical repeat into a count", () => {
+    const log = createStorageErrorLog();
+
+    log.record(failure("same"));
+    log.record(failure("same"));
+
+    const [entry] = log.entries();
+
+    expect(log.entries()).toHaveLength(1);
     expect(entry?.count).toBe(2);
   });
 
-  it("keeps failures that differ apart", async () => {
-    recordStorageError(failure("one"));
-    recordStorageError(failure("two"));
-    await Promise.resolve();
+  it("keeps failures that differ apart, newest first", () => {
+    const log = createStorageErrorLog();
 
-    expect(getStorageErrors().map((entry) => entry.error.message)).toStrictEqual(["two", "one"]);
+    log.record(failure("one"));
+    log.record(failure("two"));
+
+    expect(log.entries().map((entry) => entry.error.message)).toStrictEqual(["two", "one"]);
   });
 
-  it("carries the error itself, not a copy of its fields", async () => {
+  it("carries the error itself, not a copy of its fields", () => {
+    const log = createStorageErrorLog();
     const error = failure("the original");
-    recordStorageError(error);
-    await Promise.resolve();
 
-    expect(getStorageErrors()[0]?.error).toBe(error);
+    log.record(error);
+
+    expect(log.entries()[0]?.error).toBe(error);
   });
 
-  it("gives each entry an id of its own", async () => {
-    recordStorageError(failure("one"));
-    recordStorageError(failure("two"));
-    await Promise.resolve();
+  it("gives each entry an id of its own", () => {
+    const log = createStorageErrorLog();
 
-    const [newest, oldest] = getStorageErrors();
+    log.record(failure("one"));
+    log.record(failure("two"));
+
+    const [newest, oldest] = log.entries();
 
     expect(newest?.id).not.toBe(oldest?.id);
   });
 
-  it("keeps the newest and drops the rest rather than growing without end", async () => {
-    for (let index = 0; index < 60; index += 1) recordStorageError(failure(`failure ${index}`));
-    await Promise.resolve();
+  it("keeps the newest and drops the rest rather than growing without end", () => {
+    const log = createStorageErrorLog();
 
-    expect(getStorageErrors()).toHaveLength(50);
-    expect(getStorageErrors()[0]?.error.message).toBe("failure 59");
+    for (let index = 0; index < 60; index += 1) log.record(failure(`failure ${index}`));
+
+    expect(log.entries()).toHaveLength(50);
+    expect(log.entries()[0]?.error.message).toBe("failure 59");
+  });
+
+  it("empties on clear and says so", () => {
+    const log = createStorageErrorLog();
+    const listener = vi.fn();
+    log.record(failure("first"));
+
+    log.subscribe(listener);
+    log.clear();
+
+    expect(log.entries()).toHaveLength(0);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the shared log", () => {
+  it("collects what recordStorageError is handed", () => {
+    recordStorageError(failure("first"));
+
+    expect(sharedStorageErrorLog.entries().map((entry) => entry.error.message)).toEqual(["first"]);
+  });
+
+  it("still holds a failure for the end of the turn while something is listening", async () => {
+    const stop = sharedStorageErrorLog.subscribe(() => undefined);
+
+    recordStorageError(failure("first"));
+
+    expect(sharedStorageErrorLog.entries()).toHaveLength(0);
+
+    await Promise.resolve();
+    stop();
+
+    expect(sharedStorageErrorLog.entries()).toHaveLength(1);
+  });
+
+  it("empties through clearStorageErrors and says so", () => {
+    const listener = vi.fn();
+    recordStorageError(failure("first"));
+
+    const stop = sharedStorageErrorLog.subscribe(listener);
+    clearStorageErrors();
+    stop();
+
+    expect(sharedStorageErrorLog.entries()).toHaveLength(0);
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 
   it("answers with the same empty array on a server, so a snapshot holds still", () => {
     expect(getServerStorageErrors()).toBe(getServerStorageErrors());
     expect(getServerStorageErrors()).toHaveLength(0);
-  });
-});
-
-describe("clearStorageErrors", () => {
-  it("empties the log and says so", async () => {
-    const listener = vi.fn();
-    recordStorageError(failure("first"));
-    await Promise.resolve();
-
-    subscribeToStorageErrors(listener);
-    clearStorageErrors();
-
-    expect(getStorageErrors()).toHaveLength(0);
-    expect(listener).toHaveBeenCalledTimes(1);
   });
 });

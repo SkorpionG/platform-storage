@@ -30,7 +30,9 @@ import type {
   Serializer,
   StorageErrorCode,
   StorageOperation,
+  SyncAdapterDefinition,
   SyncPlatformStorage,
+  SyncStorageAdapter,
   VersionChain,
 } from "../index";
 import { themeSchema } from "../../tests/fixtures/schemas";
@@ -139,6 +141,14 @@ describe("the adapter additions", () => {
   it("makes listing optional on the adapter contract", () => {
     expectTypeOf<StorageAdapter["keys"]>().toEqualTypeOf<
       (() => Promise<ReadonlyArray<string>>) | undefined
+    >();
+  });
+
+  it("makes an adapter's own clear optional, on both halves", () => {
+    expectTypeOf<StorageAdapter["clear"]>().toEqualTypeOf<(() => Promise<void>) | undefined>();
+    expectTypeOf<SyncStorageAdapter["clearSync"]>().toEqualTypeOf<(() => void) | undefined>();
+    expectTypeOf<SyncAdapterDefinition<string>["clearSync"]>().toEqualTypeOf<
+      (() => void) | undefined
     >();
   });
 

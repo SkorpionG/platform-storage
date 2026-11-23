@@ -360,6 +360,109 @@ describe("listing what an area holds", () => {
   });
 });
 
+describe("clearing a whole area", () => {
+  it("uses the area's own clear where it has one, and nothing else", async () => {
+    const namespace = fakeStorageNamespace();
+    await namespace.local.set({ theme: "dark", "someone-elses-key": 1 });
+    const clear = vi.fn(() => namespace.local.remove(["theme", "someone-elses-key"]));
+    const remove = vi.fn(namespace.local.remove);
+    const adapter = webExtensionStorageAdapter({
+      storage: () => ({ ...namespace, local: { ...namespace.local, clear, remove } }),
+    });
+
+    await adapter.clear?.();
+
+    expect(clear).toHaveBeenCalledOnce();
+    expect(remove).not.toHaveBeenCalled();
+    expect(namespace.local.entries.size).toBe(0);
+  });
+
+  it("lists and removes in one call where the area has no clear of its own", async () => {
+    const namespace = fakeStorageNamespace();
+    await namespace.local.set({ theme: "dark", "someone-elses-key": 1 });
+    const remove = vi.fn(namespace.local.remove);
+    const adapter = webExtensionStorageAdapter({
+      storage: () => ({ ...namespace, local: { ...namespace.local, remove } }),
+    });
+
+    await adapter.clear?.();
+
+    expect(remove).toHaveBeenCalledExactlyOnceWith(["theme", "someone-elses-key"]);
+    expect(namespace.local.entries.size).toBe(0);
+  });
+
+  it("removes nothing from an empty area with no clear of its own", async () => {
+    const namespace = fakeStorageNamespace();
+    const remove = vi.fn(namespace.local.remove);
+    const adapter = webExtensionStorageAdapter({
+      storage: () => ({ ...namespace, local: { ...namespace.local, remove } }),
+    });
+
+    await adapter.clear?.();
+
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("leaves the other areas alone", async () => {
+    const namespace = fakeStorageNamespace();
+    await namespace.sync.set({ theme: "dark" });
+
+    await webExtensionStorageAdapter({ storage: () => namespace }).clear?.();
+
+    expect(namespace.sync.entries.get("theme")).toBe("dark");
+  });
+
+  it("reports an unreachable area as unavailable, naming the operation and no key", async () => {
+    const adapter = webExtensionStorageAdapter({ storage: () => undefined });
+
+    await expect(adapter.clear?.()).rejects.toThrow(
+      expect.objectContaining({
+        code: STORAGE_ERROR_CODE.Unavailable,
+        operation: "clear",
+        physicalKey: undefined,
+      }),
+    );
+  });
+
+  it("names a refusal that reports a quota the way every other call does", async () => {
+    const namespace = fakeStorageNamespace();
+    const adapter = webExtensionStorageAdapter({
+      storage: () => ({
+        ...namespace,
+        local: {
+          ...namespace.local,
+          clear: () => Promise.reject(new Error("QUOTA_BYTES quota exceeded")),
+        },
+      }),
+    });
+
+    await expect(adapter.clear?.()).rejects.toMatchObject({
+      code: STORAGE_ERROR_CODE.Quota,
+      operation: "clear",
+    });
+  });
+
+  it("reports a refusal through a storage as the clear operation", async () => {
+    const onError = vi.fn();
+    const storage = createStorage({
+      schema,
+      adapter: webExtensionStorageAdapter({
+        storage: () => ({
+          ...fakeStorageNamespace(),
+          local: {
+            ...rejectingStorageArea("denied"),
+            clear: () => Promise.reject(new Error("denied")),
+          },
+        }),
+      }),
+      onError,
+    });
+
+    await expect(storage.clear("everything")).rejects.toBeInstanceOf(StorageAdapterError);
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ operation: "clear" }));
+  });
+});
+
 describe("following changes", () => {
   type ChangeHandler = Parameters<WebExtensionStorageChangeEvent["addListener"]>[0];
 

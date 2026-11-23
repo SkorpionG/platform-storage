@@ -1,6 +1,8 @@
+import type { PlatformStorageError } from "@platform-storage/core";
 import { describe, expectTypeOf, it } from "vitest";
 
 import {
+  createStorageErrorLog,
   createStorageHooks,
   STORED_VALUE_STATUS,
   useAsyncStorageValue,
@@ -18,11 +20,17 @@ import type {
   AsyncStoredValue,
   AsyncStoredValues,
   StorageErrorEntry,
+  StorageErrorLog,
   StoredValueStatus,
   SyncStorageValuesWriter,
 } from "../index";
 import type * as serverEntry from "../server";
-import { readDeclaredValue, readDeclaredValues } from "../server";
+import {
+  createStorageErrorLog as createServerStorageErrorLog,
+  readDeclaredValue,
+  readDeclaredValues,
+} from "../server";
+import type { StorageErrorLog as ServerStorageErrorLog } from "../server";
 
 describe("@platform-storage/react entry point", () => {
   it("exports the hooks an application reaches for", () => {
@@ -42,10 +50,23 @@ describe("@platform-storage/react entry point", () => {
     expectTypeOf(readDeclaredValues).toBeFunction();
   });
 
+  it("builds an error log of its own from either entry, and reads it through the hook", () => {
+    expectTypeOf(createStorageErrorLog).returns.toEqualTypeOf<StorageErrorLog>();
+    expectTypeOf(createServerStorageErrorLog).returns.toEqualTypeOf<ServerStorageErrorLog>();
+    expectTypeOf(useStorageErrors).parameter(0).toEqualTypeOf<StorageErrorLog | undefined>();
+    expectTypeOf<StorageErrorLog["record"]>().toEqualTypeOf<
+      (error: PlatformStorageError) => void
+    >();
+    expectTypeOf<ReturnType<StorageErrorLog["entries"]>>().toEqualTypeOf<
+      ReadonlyArray<StorageErrorEntry>
+    >();
+  });
+
   it("keeps every hook off the server entry", () => {
     expectTypeOf<typeof serverEntry>().not.toHaveProperty("useStorageValue");
     expectTypeOf<typeof serverEntry>().not.toHaveProperty("useStorageValues");
     expectTypeOf<typeof serverEntry>().not.toHaveProperty("useAsyncStorageValues");
+    expectTypeOf<typeof serverEntry>().not.toHaveProperty("useStorageErrors");
   });
 
   it("publishes the writer types for several keys", () => {
@@ -54,6 +75,8 @@ describe("@platform-storage/react entry point", () => {
   });
 
   it("keeps the store internals unpublished", () => {
+    expectTypeOf<typeof entry>().not.toHaveProperty("sharedStorageErrorLog");
+    expectTypeOf<typeof entry>().not.toHaveProperty("getServerStorageErrors");
     expectTypeOf<typeof entry>().not.toHaveProperty("subscribeToKeys");
     expectTypeOf<typeof entry>().not.toHaveProperty("announceWrites");
     expectTypeOf<typeof entry>().not.toHaveProperty("readStorageValues");

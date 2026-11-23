@@ -57,6 +57,20 @@ function readMany(
     );
 }
 
+/* Every name the area holds, through `getKeys` where the browser has it, which reads no values. */
+function listNames(target: WebExtensionStorageArea): Promise<Array<string>> {
+  return target.getKeys === undefined
+    ? target.get(null).then((everything) => Object.keys(everything))
+    : target.getKeys();
+}
+
+/* The area's own `clear` where it has one, and otherwise each name it lists, removed in one call. */
+function clearArea(target: WebExtensionStorageArea): Promise<void> {
+  if (target.clear !== undefined) return target.clear();
+
+  return listNames(target).then((names) => (names.length === 0 ? undefined : target.remove(names)));
+}
+
 /**
  * The limits an area names when a write does not fit.
  *
@@ -92,7 +106,7 @@ function isQuotaRejection(cause: unknown): boolean {
  * A rejected call is left in the browser's own vocabulary for the engine to wrap, which `keys` is not, since it is called on the adapter directly. The exception is a full area, which this adapter names itself: an area reports one in its message rather than with an error type, so reading that is the adapter's job rather than the caller's.
  *
  * @param options - `area` to store in, `name` for error messages, and `namespace` to supply the extension API yourself, which is what a polyfill or a test fake does.
- * @returns An asynchronous adapter over that area, able to list every name it holds, to read, write and remove several in one call, and to follow changes from every context.
+ * @returns An asynchronous adapter over that area, able to list every name it holds, to clear all of it, to read, write and remove several in one call, and to follow changes from every context.
  * @example
  * ```ts
  * const adapter = webExtensionStorageAdapter({ area: "sync" });
@@ -144,12 +158,8 @@ export function webExtensionStorageAdapter(
       ),
     removeMany: (keys) =>
       run(STORAGE_OPERATION.RemoveMany, undefined, (target) => target.remove([...keys])),
-    keys: () =>
-      run(STORAGE_OPERATION.Keys, undefined, (target) =>
-        target.getKeys === undefined
-          ? target.get(null).then((everything) => Object.keys(everything))
-          : target.getKeys(),
-      ),
+    keys: () => run(STORAGE_OPERATION.Keys, undefined, listNames),
+    clear: () => run(STORAGE_OPERATION.Clear, undefined, clearArea),
     subscribe: (listener) => {
       let changed: WebExtensionStorageNamespace["onChanged"];
 

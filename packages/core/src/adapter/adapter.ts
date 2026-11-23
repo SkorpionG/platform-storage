@@ -61,6 +61,13 @@ export interface StorageAdapter<Wire = unknown> {
   keys?(): Promise<ReadonlyArray<string>>;
 
   /**
+   * Optional: removes everything the backend holds in one call, data other code owns included.
+   *
+   * What `clear("everything")` uses where it is offered, so nothing written between a listing and a removal survives. Without it that target lists through `keys` and removes what it found.
+   */
+  clear?(): Promise<void>;
+
+  /**
    * Optional: follows changes the backend can report, including those to names no schema declares.
    *
    * Connects synchronously, because a Manifest V3 service worker only wakes for listeners registered in its first turn. A backend that cannot be reached answers with a subscription that reports nothing rather than throwing.
@@ -82,6 +89,7 @@ export interface SyncStorageAdapter<Wire = unknown> extends StorageAdapter<Wire>
   removeManySync?(keys: ReadonlyArray<string>): void;
   hasSync?(key: string): boolean;
   keysSync?(): ReadonlyArray<string>;
+  clearSync?(): void;
 }
 
 /** The wire type an adapter transports. */
@@ -127,6 +135,7 @@ export interface SyncAdapterDefinition<Wire> {
   hasSync?(key: string): boolean;
   isAvailable?(): boolean;
   keysSync?(): ReadonlyArray<string>;
+  clearSync?(): void;
   subscribe?(listener: (change: AdapterChange<Wire>) => void): AdapterSubscription;
 }
 
@@ -137,7 +146,7 @@ export interface SyncAdapterDefinition<Wire> {
  *
  * Every method is called on the definition, so one written with method syntax can reach the others through `this`.
  *
- * @param definition - The synchronous operations, the adapter's name, and the serializer it transports through. `getManySync`, `setManySync`, `removeManySync`, `hasSync`, `isAvailable`, `keysSync` and `subscribe` are optional.
+ * @param definition - The synchronous operations, the adapter's name, and the serializer it transports through. `getManySync`, `setManySync`, `removeManySync`, `hasSync`, `isAvailable`, `keysSync`, `clearSync` and `subscribe` are optional.
  * @returns An adapter carrying both halves, ready for `createStorage`.
  * @example
  * ```ts
@@ -153,8 +162,16 @@ export interface SyncAdapterDefinition<Wire> {
 export function defineSyncAdapter<Wire>(
   definition: SyncAdapterDefinition<Wire>,
 ): SyncStorageAdapter<Wire> {
-  const { getManySync, setManySync, removeManySync, hasSync, isAvailable, keysSync, subscribe } =
-    definition;
+  const {
+    getManySync,
+    setManySync,
+    removeManySync,
+    hasSync,
+    isAvailable,
+    keysSync,
+    clearSync,
+    subscribe,
+  } = definition;
 
   return {
     name: definition.name,
@@ -219,6 +236,17 @@ export function defineSyncAdapter<Wire>(
       : {
           keysSync: () => keysSync.call(definition),
           keys: () => Promise.resolve().then(() => keysSync.call(definition)),
+        }),
+    ...(clearSync === undefined
+      ? {}
+      : {
+          clearSync: () => {
+            clearSync.call(definition);
+          },
+          clear: () =>
+            Promise.resolve().then(() => {
+              clearSync.call(definition);
+            }),
         }),
     ...(subscribe === undefined
       ? {}
