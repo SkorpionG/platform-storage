@@ -1,23 +1,52 @@
 import { appSchema, KEY_NOTES } from "@examples/schema";
 // The definition module itself, read as text. WXT builds with Vite, so this is the same one-line import the Vite example uses.
 import schemaSource from "@examples/schema/schema-source?raw";
-import { Badge, Card, Code, CodeBlock } from "@examples/ui";
+import { Badge, Card, Code, CodeBlock, Disclosure } from "@examples/ui";
 
+import { local } from "../store/storages";
+
+const REFUSED = `// @platform-storage/web hands you both halves:
+const theme = webStorage.getSync("theme");        // "light" | "dark" | "system"
+
+// @platform-storage/webextension has no synchronous half, so neither line compiles.
+webExtensionStorage.getSync("theme");
+//                  ~~~~~~~ Property 'getSync' does not exist on type
+//                          'PlatformStorage<AppDefinition>'.
+
+useStorageValue(webExtensionStorage, "theme");
+//              ~~~~~~~~~~~~~~~~~~~ Argument of type 'PlatformStorage<AppDefinition>'
+//                                  is not assignable to parameter of type
+//                                  'SyncPlatformStorage<AppDefinition>'.
+
+// This is the one that does:
+const [theme] = useAsyncStorageValue(webExtensionStorage, "theme");`;
+
+/** The schema, and the one thing it does not decide: whether a read answers now or later, which is the adapter's to say. */
 export function SchemaPanel() {
+  const half = Reflect.get(local, "getSync") === undefined ? "absent" : "present";
+
   return (
     <Card
-      title="One schema, every platform"
-      description={
+      title="The schema"
+      lead="Every key, the name it is stored under, and what a read returns."
+      aside={<Badge tone={half === "absent" ? "success" : "danger"}>getSync {half}</Badge>}
+      how={
         <>
-          The definition below lives in its own package with no DOM types, and the two browser
-          examples in this repository import the very same file. Nothing in it knows that these
-          values are about to live in an extension area rather than in <Code>localStorage</Code>.
+          <p>
+            The definition lives in a package of its own with no DOM types, and the two browser
+            examples import the very same file. Nothing in it knows these values live in an
+            extension area rather than in <Code>localStorage</Code>.
+          </p>
+          <p>
+            What the schema does not decide is whether a read answers now or later. The adapter
+            does, and an area only ever answers later, so this storage has no <Code>getSync</Code>:
+            the badge checks it at runtime, and the types refuse it before that.
+          </p>
+          <CodeBlock code={REFUSED} />
         </>
       }
     >
-      <CodeBlock code={schemaSource.trim()} />
-
-      <table className="mt-4 w-full border-separate border-spacing-0 text-left">
+      <table className="w-full border-separate border-spacing-0 text-left">
         <thead>
           <tr className="text-[11px] uppercase tracking-wide text-soft">
             <th className="pb-2 font-medium">Key</th>
@@ -50,11 +79,10 @@ export function SchemaPanel() {
         </tbody>
       </table>
 
-      <p className="mt-3 text-xs leading-relaxed text-soft">
-        Every read on this page returns a promise, so each one reports a status beside its value.
-        That is the one thing the schema does not decide: the adapter does, and an extension area
-        only ever answers later.
-      </p>
+      {/* Closed by default: the table answers what a reader usually wants, and the source is there for the rest. */}
+      <Disclosure summary="Show the source" className="mt-4">
+        <CodeBlock code={schemaSource.trim()} />
+      </Disclosure>
     </Card>
   );
 }

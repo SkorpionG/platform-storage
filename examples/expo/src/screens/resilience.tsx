@@ -2,18 +2,15 @@ import { Screen } from "../components/screen";
 import { ClearPanel } from "../panels/clear-panel";
 import { CorruptPanel } from "../panels/corrupt-panel";
 import { FailurePanel } from "../panels/failure-panel";
-import { NoSyncHalfPanel } from "../panels/no-sync-half-panel";
+import { MigrationPanel } from "../panels/migration-panel";
 
 export function Resilience() {
   return (
-    <Screen
-      title="Resilience"
-      intro="What happens to a read when the stored data no longer matches the schema, and to a write when the device refuses it."
-    >
+    <Screen title="Resilience" intro="Bad data, old data, a clear, and a device that refuses.">
       <CorruptPanel />
+      <MigrationPanel />
       <ClearPanel />
       <FailurePanel />
-      <NoSyncHalfPanel />
     </Screen>
   );
 }

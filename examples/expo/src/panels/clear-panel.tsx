@@ -1,90 +1,152 @@
+import { storedNamesOf } from "@examples/schema";
 import { Button } from "@expo/ui";
 import { notifyStorageChanged } from "@platform-storage/react";
 import { useState } from "react";
+import { Text, View } from "react-native";
 
 import { Badge } from "../components/badge";
 import { Card } from "../components/card";
 import { Control } from "../components/control";
 import { Field } from "../components/field";
+import { Outcome } from "../components/outcome";
 import { Pending } from "../components/pending";
+import { Explain } from "../components/prose";
+import { usePalette } from "../hooks/use-palette";
+import { useStoredKeys } from "../hooks/use-stored-keys";
 import { plantText, readEverything } from "../store/raw";
-import { local, recovering } from "../store/storages";
+import { local, recovering, tour } from "../store/storages";
+import { MONO, RADIUS } from "../theme";
 
 const FOREIGN_KEY = "analytics:session";
+const DECLARED = storedNamesOf([local]);
+
+interface LastRun {
+  readonly call: string;
+  readonly removed: ReadonlyArray<string>;
+}
+
+async function namesOnDevice(): Promise<ReadonlySet<string>> {
+  return new Set((await readEverything()).map((entry) => entry.key));
+}
+
+/** Runs a clear and reports which names it took, by listing the device either side of it. */
+async function measure(call: string, run: () => Promise<void>): Promise<LastRun> {
+  const before = await namesOnDevice();
+  await run();
+  const after = await namesOnDevice();
+
+  return { call, removed: [...before].filter((name) => !after.has(name)) };
+}
 
 export function ClearPanel() {
-  const [survived, setSurvived] = useState<boolean>();
+  const palette = usePalette();
+  const entries = useStoredKeys();
+  const [last, setLast] = useState<LastRun>();
 
-  const check = async (): Promise<void> => {
-    const entries = await readEverything();
-    setSurvived(entries.some((entry) => entry.key === FOREIGN_KEY));
+  const declared = entries.filter((entry) => DECLARED.has(entry.key)).length;
+  const foreign = entries.some((entry) => entry.key === FOREIGN_KEY);
+
+  const clear = (call: string, run: () => Promise<void>): void => {
+    void measure(call, run).then(setLast);
   };
 
   return (
     <Card
-      title="clear() removes only what the schema declares"
-      description="A device's storage is shared. Another library, an older version of this app, or a second storage over a different schema may be keeping things beside yours, and wiping it would take all of them."
+      title="Clear"
+      lead="Plant a key that belongs to someone else, then try each clear and see what it took."
+      how={
+        <>
+          <Explain text="A device's storage is shared. Another library, an older version of this app, or a second storage over a different schema may keep things beside yours, so anything wider than the schema has to be asked for by name." />
+          <Explain text='`clear()` removes only the names the schema declares, in one call where AsyncStorage has one. `clear("undeclared")` lists the store and removes every name the schema does not list; this storage has no prefix to stay inside, so the foreign key goes too.' />
+          <Explain
+            text={`\`clear("everything")\` is one call to AsyncStorage's own \`clear()\`. AsyncStorage reports no changes, so the storage that ran it announces its own keys, and this card tells the other storages over the same store itself.`}
+          />
+        </>
+      }
     >
-      <Field label="Plant a foreign key" hint={FOREIGN_KEY}>
+      <View
+        style={{
+          backgroundColor: palette.inset,
+          borderRadius: RADIUS.inset,
+          gap: 6,
+          marginBottom: 4,
+          padding: 10,
+        }}
+      >
+        <Outcome label="Schema keys on the device">
+          <Badge>{declared}</Badge>
+        </Outcome>
+        <Outcome label={FOREIGN_KEY}>
+          <Badge tone={foreign ? "info" : "neutral"}>{foreign ? "present" : "absent"}</Badge>
+        </Outcome>
+        {last === undefined ? null : (
+          <Outcome label={last.call}>
+            {last.removed.length === 0 ? (
+              <Pending>removed nothing</Pending>
+            ) : (
+              <Text style={{ color: palette.body, fontFamily: MONO, fontSize: 11, flexShrink: 1 }}>
+                removed {last.removed.length}: {last.removed.join(", ")}
+              </Text>
+            )}
+          </Outcome>
+        )}
+      </View>
+
+      <Field stacked label="Plant a foreign key">
         <Control>
           <Button
             variant="outlined"
             label="Plant"
-            onPress={() => void plantText(FOREIGN_KEY, '"belongs to someone else"').then(check)}
-          />
-        </Control>
-      </Field>
-
-      <Field
-        label="Then clear the schema's keys"
-        hint="Every declared key goes; the foreign one is untouched, because the library removes only the names it declared, in one call where AsyncStorage has one, rather than emptying the store."
-      >
-        <Control>
-          <Button
-            variant="outlined"
-            label="clear()"
-            onPress={() => void local.clear().then(check)}
-          />
-        </Control>
-      </Field>
-
-      <Field
-        label="Or clear what the schema does not declare"
-        hint='clear("undeclared") lists the store and removes every name the schema does not list. This storage has no prefix to stay inside, so the foreign key goes too, which is why it has to be asked for by name.'
-      >
-        <Control>
-          <Button
-            variant="outlined"
-            label='clear("undeclared")'
-            onPress={() => void local.clear("undeclared").then(check)}
-          />
-        </Control>
-      </Field>
-
-      <Field
-        label="Or empty the whole store"
-        hint={`clear("everything") is one call to AsyncStorage's own clear(), so the foreign key and every other storage's values go with it. AsyncStorage reports no changes, so the storage that ran it announces its own keys and this panel tells the other storage over the same store itself.`}
-      >
-        <Control>
-          <Button
-            variant="outlined"
-            label='clear("everything")'
             onPress={() =>
-              void local.clear("everything").then(() => {
-                notifyStorageChanged(recovering);
-                return check();
+              void plantText(FOREIGN_KEY, '"belongs to someone else"').then(() => {
+                /* Planting goes past the library, so nothing announces it. */
+                notifyStorageChanged(local);
               })
             }
           />
         </Control>
       </Field>
 
-      <Field label="Foreign key still there?">
-        {survived === undefined ? (
-          <Pending>not checked</Pending>
-        ) : (
-          <Badge tone={survived ? "success" : "danger"}>{survived ? "yes" : "gone"}</Badge>
-        )}
+      <Field stacked label="Only the schema's keys">
+        <Control>
+          <Button
+            variant="outlined"
+            label="clear()"
+            onPress={() => clear("clear()", () => local.clear())}
+          />
+        </Control>
+      </Field>
+
+      <Field stacked label="Everything the schema does not declare">
+        <Control>
+          <Button
+            variant="outlined"
+            label='clear("undeclared")'
+            onPress={() =>
+              clear('clear("undeclared")', async () => {
+                await local.clear("undeclared");
+                /* No declared key changed, so nothing announced it. */
+                notifyStorageChanged(local);
+              })
+            }
+          />
+        </Control>
+      </Field>
+
+      <Field stacked label="The whole store">
+        <Control>
+          <Button
+            variant="outlined"
+            label='clear("everything")'
+            onPress={() =>
+              clear('clear("everything")', async () => {
+                await local.clear("everything");
+                notifyStorageChanged(recovering);
+                notifyStorageChanged(tour);
+              })
+            }
+          />
+        </Control>
       </Field>
     </Card>
   );

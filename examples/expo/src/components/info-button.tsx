@@ -8,7 +8,7 @@ export interface InfoButtonProps {
   readonly onPress: () => void;
 }
 
-/** Opens a tab's reference material. Drawn rather than an SF Symbol, because the glyph has to be the same on both platforms. */
+/** Opens reference material for a card or a tab. Drawn rather than an SF Symbol, because the glyph has to be the same on both platforms. */
 export function InfoButton({ label, onPress }: InfoButtonProps) {
   const palette = usePalette();
 

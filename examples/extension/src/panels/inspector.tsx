@@ -1,4 +1,4 @@
-import { Badge, Card, formatValue, Select } from "@examples/ui";
+import { Alert, Badge, Card, formatValue, Select } from "@examples/ui";
 import { WEB_EXTENSION_STORAGE_AREA } from "@platform-storage/webextension";
 import type { WebExtensionStorageAreaName } from "@platform-storage/webextension";
 import { useState } from "react";
@@ -20,19 +20,22 @@ export function Inspector() {
   return (
     <Card
       title="What the area actually holds"
-      description="The raw area, unmediated. These are values rather than text: an extension area transports JSON natively, so the library hands them over untouched."
-      aside={<Badge>{entries.length} keys</Badge>}
+      lead="The raw area: values rather than text, under the names they are stored as."
+      how={
+        <p>
+          An area transports JSON natively, so the library hands values over untouched. This lists
+          the area through the adapter, below the schema, the way devtools would, and re-reads it on
+          every change the browser reports.
+        </p>
+      }
+      aside={<Badge>{`${String(entries.length)} ${entries.length === 1 ? "key" : "keys"}`}</Badge>}
     >
       {/* Beside the list rather than in the card header, because the side column is too narrow to hold a control and a title on one line. */}
       <div className="mb-3">
         <Select label="Area" value={area} options={AREAS} onChange={setArea} />
       </div>
 
-      {failure === undefined ? null : (
-        <p className="mb-2 rounded-md border border-rose-500/30 bg-rose-500/10 p-2 text-[11px] text-rose-700 dark:text-rose-300">
-          {failure}
-        </p>
-      )}
+      {failure === undefined ? null : <Alert className="mb-2">{failure}</Alert>}
 
       {entries.length === 0 ? (
         <p className="text-xs text-faint">Nothing stored yet.</p>
@@ -56,12 +59,6 @@ export function Inspector() {
           ))}
         </ul>
       )}
-
-      <p className="mt-3 text-xs leading-relaxed text-soft">
-        This lists the area through the adapter, below the schema, the same way devtools would. It
-        is also the one thing on the page that cannot use a value hook: it follows the whole area
-        rather than one declared key, and an area answers with a promise.
-      </p>
     </Card>
   );
 }

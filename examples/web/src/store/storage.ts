@@ -1,8 +1,25 @@
-import { appSchema, DECLARED_DEFAULTS, scratchSchema } from "@examples/schema";
+import { appSchema, DECLARED_DEFAULTS, scratchSchema, TOUR_PREFIX } from "@examples/schema";
 import type { AppDefinition, ScratchDefinition } from "@examples/schema";
 import { recordStorageError } from "@platform-storage/react";
 import { createLocalStorage, createSessionStorage, memoryAdapter } from "@platform-storage/web";
-import type { SyncPlatformStorage } from "@platform-storage/web";
+import type { PlatformStorageError, SyncPlatformStorage } from "@platform-storage/web";
+
+let failures = 0;
+
+/**
+ * Every storage's `onError`: records into the shared log, and counts.
+ *
+ * The count is what lets a card say whether the read it just made was reported, without waiting for the log to render.
+ */
+function report(error: PlatformStorageError): void {
+  failures += 1;
+  recordStorageError(error);
+}
+
+/** How many failures every storage on this page has reported so far. */
+export function failuresSoFar(): number {
+  return failures;
+}
 
 /**
  * The same schema over `localStorage`, falling back to memory for a render that has no `window`.
@@ -12,14 +29,14 @@ import type { SyncPlatformStorage } from "@platform-storage/web";
 export const local: SyncPlatformStorage<AppDefinition> = createLocalStorage({
   schema: appSchema,
   fallback: memoryAdapter({ name: "server-memory" }),
-  onError: recordStorageError,
+  onError: report,
 });
 
 /** The same arrangement over `sessionStorage`. Neither storage knows about the other. */
 export const session: SyncPlatformStorage<AppDefinition> = createSessionStorage({
   schema: appSchema,
   fallback: memoryAdapter({ name: "server-memory" }),
-  onError: recordStorageError,
+  onError: report,
 });
 
 /**
@@ -30,7 +47,7 @@ export const session: SyncPlatformStorage<AppDefinition> = createSessionStorage(
 export const localRecovering: SyncPlatformStorage<AppDefinition> = createLocalStorage({
   schema: appSchema,
   fallback: memoryAdapter({ name: "server-memory" }),
-  onError: recordStorageError,
+  onError: report,
   onInvalid: (context) => DECLARED_DEFAULTS[context.key],
 });
 
@@ -50,7 +67,7 @@ function scratchStorage(
   return createLocalStorage({
     schema: scratchSchema,
     fallback: memoryAdapter({ name: "server-memory" }),
-    onError: recordStorageError,
+    onError: report,
     prefix,
     readUnprefixed,
   });
@@ -65,3 +82,11 @@ export const teamB: SyncPlatformStorage<ScratchDefinition> = scratchStorage("tea
 
 /** A storage adopting a prefix: it moves a value stored under the bare name in under `app:` the first time it reads it. */
 export const adopting: SyncPlatformStorage<ScratchDefinition> = scratchStorage("app:", true);
+
+/** The quick tour's own storage, inside a prefix of its own so that planting and clearing never touch a value another card shows. */
+export const tour: SyncPlatformStorage<AppDefinition> = createLocalStorage({
+  schema: appSchema,
+  fallback: memoryAdapter({ name: "server-memory" }),
+  onError: report,
+  prefix: TOUR_PREFIX,
+});

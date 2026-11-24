@@ -1,5 +1,5 @@
 import { appSchema, KEY_NOTES } from "@examples/schema";
-import { Badge, Card, Code, CodeBlock } from "@examples/ui";
+import { Badge, Card, Code, CodeBlock, Disclosure } from "@examples/ui";
 
 export interface SchemaPanelProps {
   /** The definition module's own text, so what is shown can never drift from what runs. Vite has `?raw` for this and Next does not, so each app supplies it the way its own build can. */
@@ -9,18 +9,17 @@ export interface SchemaPanelProps {
 export function SchemaPanel({ source }: SchemaPanelProps) {
   return (
     <Card
-      title="One schema, every platform"
-      description={
-        <>
-          The definition below lives in its own package with no DOM types, and this app, an
-          extension and a React Native app would all import it unchanged. Keys and value types are
-          inferred from it, so nothing is restated at a call site.
-        </>
+      title="The schema"
+      lead="Every key, the name it is stored under, and what a read returns."
+      how={
+        <p>
+          The definition lives in a package of its own with no DOM types, and the extension and the
+          React Native app import the very same file. Keys and value types are inferred from it, so
+          nothing is restated at a call site.
+        </p>
       }
     >
-      <CodeBlock code={source.trim()} />
-
-      <table className="mt-4 w-full border-separate border-spacing-0 text-left">
+      <table className="w-full border-separate border-spacing-0 text-left">
         <thead>
           <tr className="text-[11px] uppercase tracking-wide text-soft">
             <th className="pb-2 font-medium">Key</th>
@@ -52,6 +51,11 @@ export function SchemaPanel({ source }: SchemaPanelProps) {
           })}
         </tbody>
       </table>
+
+      {/* Closed by default: the table answers what a reader usually wants, and the source is there for the rest. */}
+      <Disclosure summary="Show the source" className="mt-4">
+        <CodeBlock code={source.trim()} />
+      </Disclosure>
     </Card>
   );
 }

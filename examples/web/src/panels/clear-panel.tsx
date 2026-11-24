@@ -1,13 +1,30 @@
 "use client";
 
-import { Button, Card, Code, Field } from "@examples/ui";
+import { storedNamesOf } from "@examples/schema";
+import { Badge, Button, Card, Code, Field, Outcome } from "@examples/ui";
 import { notifyStorageChanged } from "@platform-storage/react";
 import { isSyncStorageAdapter } from "@platform-storage/web";
+import { useState, useSyncExternalStore } from "react";
 
-import { adopting, local, localRecovering, TEAM_A_PREFIX, teamA, teamB } from "../store/storage";
+import {
+  getOriginServerSnapshot,
+  getOriginSnapshot,
+  readOriginNames,
+  subscribeToOrigin,
+} from "../store/origin";
+import {
+  adopting,
+  local,
+  localRecovering,
+  TEAM_A_PREFIX,
+  teamA,
+  teamB,
+  tour,
+} from "../store/storage";
 
 const FOREIGN_KEY = "analytics:session";
 const LEFTOVER = `${TEAM_A_PREFIX}draft`;
+const DECLARED = storedNamesOf([local]);
 
 /* Every storage over this origin, since a clear of the whole origin is announced only by the storage that made it. */
 function notifyEveryStorage(): void {
@@ -16,6 +33,7 @@ function notifyEveryStorage(): void {
   notifyStorageChanged(teamA);
   notifyStorageChanged(teamB);
   notifyStorageChanged(adopting);
+  notifyStorageChanged(tour);
 }
 
 /* Through the adapter rather than `window`, so a backend that is not there plants nothing rather than throwing. */
@@ -33,24 +51,88 @@ function plant(name: string, value: string): void {
   notifyStorageChanged(local);
 }
 
+interface LastRun {
+  readonly call: string;
+  readonly removed: ReadonlyArray<string>;
+}
+
+/** Runs a clear and reports which names it took, by listing the origin either side of it. */
+function measure(call: string, run: () => void): LastRun {
+  const before = readOriginNames();
+  run();
+  const after = readOriginNames();
+
+  return { call, removed: [...before].filter((name) => !after.has(name)) };
+}
+
 export function ClearPanel() {
+  const entries = useSyncExternalStore(
+    subscribeToOrigin,
+    getOriginSnapshot,
+    getOriginServerSnapshot,
+  );
+  const [last, setLast] = useState<LastRun | undefined>();
+
+  const declared = entries.filter((entry) => DECLARED.has(entry.key)).length;
+  const has = (name: string): boolean => entries.some((entry) => entry.key === name);
+
   return (
     <Card
-      title="clear() removes only what you name"
-      description="An origin is shared. Another script, another library, or another storage over a different schema may be keeping things beside yours, so wiping the origin has to be asked for by name."
+      title="Clear"
+      lead="Plant a key that belongs to someone else, then try each clear and see what it took."
+      how={
+        <>
+          <p>
+            An origin is shared. Another script, another library or another storage may keep things
+            beside yours, so wiping the whole origin has to be asked for by name.
+          </p>
+          <p>
+            <Code>clearSync()</Code> removes the declared names one at a time, since{" "}
+            <Code>localStorage</Code> has no batch call. <Code>&quot;undeclared&quot;</Code> lists
+            the origin and removes the names under Team A&rsquo;s prefix that its schema no longer
+            lists; nothing declared changes, so nothing is announced and the card tells the page
+            itself. <Code>&quot;everything&quot;</Code> is one <Code>localStorage.clear()</Code>,
+            which other tabs hear from the browser.
+          </p>
+        </>
+      }
     >
+      <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 rounded-lg border border-line bg-inset px-3 py-2">
+        <Outcome label="Schema keys stored">
+          <Badge>{declared}</Badge>
+        </Outcome>
+        <Outcome label={FOREIGN_KEY}>
+          <Badge tone={has(FOREIGN_KEY) ? "info" : "neutral"}>
+            {has(FOREIGN_KEY) ? "present" : "absent"}
+          </Badge>
+        </Outcome>
+        <Outcome label={LEFTOVER}>
+          <Badge tone={has(LEFTOVER) ? "info" : "neutral"}>
+            {has(LEFTOVER) ? "present" : "absent"}
+          </Badge>
+        </Outcome>
+        {last === undefined ? null : (
+          <div className="w-full border-t border-line pt-1.5">
+            <Outcome label={<Code>{last.call}</Code>}>
+              <output aria-label="Clear removed" className="flex flex-wrap items-center gap-1.5">
+                {last.removed.length === 0 ? (
+                  <span className="text-faint">removed nothing</span>
+                ) : (
+                  <>
+                    <span className="text-soft">removed {last.removed.length}:</span>
+                    {last.removed.map((name) => (
+                      <Badge key={name}>{name}</Badge>
+                    ))}
+                  </>
+                )}
+              </output>
+            </Outcome>
+          </div>
+        )}
+      </div>
+
       <div className="divide-y divide-line">
-        <Field
-          label="Only what the schema declares"
-          hint={
-            <>
-              Plant <Code>{FOREIGN_KEY}</Code>, fill some values above, then clear. Every schema key
-              disappears from the inspector and the foreign key stays exactly where it was.{" "}
-              <Code>localStorage</Code> has no batch call, so the library removes each declared name
-              in turn rather than calling <Code>localStorage.clear()</Code>.
-            </>
-          }
-        >
+        <Field label="Only what the schema declares" hint={<>{FOREIGN_KEY} survives this one.</>}>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={() => {
@@ -62,7 +144,7 @@ export function ClearPanel() {
             <Button
               tone="danger"
               onClick={() => {
-                local.clearSync();
+                setLast(measure("clearSync()", () => local.clearSync()));
               }}
             >
               clearSync()
@@ -72,15 +154,7 @@ export function ClearPanel() {
 
         <Field
           label="What a schema no longer declares"
-          hint={
-            <>
-              <Code>{LEFTOVER}</Code> is what a key deleted from Team A's schema leaves behind.{" "}
-              <Code>"undeclared"</Code> lists the origin and removes only names under Team A's
-              prefix that its schema does not list, so Team B's note and the foreign key stay. No
-              declared key changes, so nothing is announced and the panel tells the inspector
-              itself.
-            </>
-          }
+          hint={<>{LEFTOVER} is what a key deleted from Team A&rsquo;s schema leaves behind.</>}
         >
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -93,35 +167,32 @@ export function ClearPanel() {
             <Button
               tone="danger"
               onClick={() => {
-                teamA.clearSync("undeclared");
-                notifyStorageChanged(teamA);
+                setLast(
+                  measure('clearSync("undeclared")', () => {
+                    teamA.clearSync("undeclared");
+                    notifyStorageChanged(teamA);
+                  }),
+                );
               }}
             >
-              clearSync("undeclared")
+              clearSync(&quot;undeclared&quot;)
             </Button>
           </div>
         </Field>
 
-        <Field
-          label="The whole origin"
-          hint={
-            <>
-              <Code>"everything"</Code> removes every name on the origin, other code's included, in
-              one <Code>localStorage.clear()</Code> call, and cannot be combined with another
-              target. Other tabs hear it from the browser. In this tab it is announced by the
-              storage that ran it, so every other storage on the page is told as well.
-            </>
-          }
-        >
+        <Field label="The whole origin" hint="Every name, other code's included.">
           <Button
             tone="danger"
             onClick={() => {
-              local.clearSync("everything");
-
-              notifyEveryStorage();
+              setLast(
+                measure('clearSync("everything")', () => {
+                  local.clearSync("everything");
+                  notifyEveryStorage();
+                }),
+              );
             }}
           >
-            clearSync("everything")
+            clearSync(&quot;everything&quot;)
           </Button>
         </Field>
       </div>

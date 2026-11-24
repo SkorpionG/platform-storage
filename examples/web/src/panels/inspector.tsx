@@ -15,8 +15,8 @@ export function Inspector() {
   return (
     <Card
       title="What is actually on the origin"
-      description="Raw localStorage, unmediated. This is the text the library serialized, under the physical key it chose."
-      aside={<Badge>{entries.length} keys</Badge>}
+      lead="Raw localStorage: the text stored, under the name it is stored as."
+      aside={<Badge>{`${String(entries.length)} ${entries.length === 1 ? "key" : "keys"}`}</Badge>}
     >
       {entries.length === 0 ? (
         <p className="text-xs text-faint">Nothing stored yet.</p>

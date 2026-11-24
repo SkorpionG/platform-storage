@@ -75,15 +75,28 @@ export function BatchPanel() {
   return (
     <Card
       title="Several keys in one call"
-      description="The sync area limits how often it may be written, and every call crosses into the browser. getMany, setMany and removeMany reach it once for any number of keys."
+      lead="Read every key one at a time, then all at once, and compare how many calls each took."
+      how={
+        <>
+          <p>
+            The sync area limits how often it may be written, and every call crosses into the
+            browser. <Code>getMany</Code>, <Code>setMany</Code> and <Code>removeMany</Code> reach it
+            once for any number of keys, and each key still reads exactly as <Code>get</Code> would.
+          </p>
+          <p>
+            <Code>setMany</Code> validates every value before writing any of them.{" "}
+            <Code>useAsyncStorageValues</Code> reads its keys in one call too, and again in one call
+            whenever either changes, here or in another context.
+          </p>
+        </>
+      }
     >
       <div className="divide-y divide-line">
         <Field
           label="Follow two keys through one hook"
           hint={
             <>
-              <Code>useAsyncStorageValues</Code> reads both in one area call, and again in one call
-              whenever either changes, here or in another context.
+              <Code>useAsyncStorageValues(sync, [&quot;theme&quot;, &quot;fontScale&quot;])</Code>
             </>
           }
         >
@@ -94,7 +107,7 @@ export function BatchPanel() {
           label="Read every key, one at a time"
           hint={
             <>
-              <Code>get</Code> for each declared key, old names included.
+              <Code>get(key)</Code> for each of the {appSchema.keys.length} keys
             </>
           }
         >
@@ -102,26 +115,14 @@ export function BatchPanel() {
           {show("one at a time")}
         </Field>
 
-        <Field
-          label="Read every key at once"
-          hint={
-            <>
-              <Code>getMany</Code> over the same keys. Each one reads exactly as <Code>get</Code>{" "}
-              would.
-            </>
-          }
-        >
+        <Field label="Read every key at once" hint={<Code>getMany(keys)</Code>}>
           <Button onClick={() => run("all at once")}>Read</Button>
           {show("all at once")}
         </Field>
 
         <Field
           label="Write two keys at once"
-          hint={
-            <>
-              <Code>setMany</Code> validates both before writing either, then writes them together.
-            </>
-          }
+          hint={<Code>setMany(&#123; theme: &quot;dark&quot;, fontScale: 1.25 &#125;)</Code>}
         >
           <Button onClick={() => run("write two at once")}>Write</Button>
           {show("write two at once")}
@@ -129,11 +130,7 @@ export function BatchPanel() {
 
         <Field
           label="Remove the same two at once"
-          hint={
-            <>
-              <Code>removeMany</Code> removes both, and any old names they declare, together.
-            </>
-          }
+          hint={<Code>removeMany([&quot;theme&quot;, &quot;fontScale&quot;])</Code>}
         >
           <Button onClick={() => run("remove two at once")}>Remove</Button>
           {show("remove two at once")}

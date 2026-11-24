@@ -37,8 +37,22 @@ const reported = probe();
 export function ServerUnavailablePanel() {
   return (
     <Card
-      title="A missing backend is reported, not a crash"
-      description="This storage is localStorage with nothing behind it. On a server that is a backend which does not exist, and the render still has to finish."
+      title="A missing backend, on the server"
+      lead="localStorage with no fallback, read during a server render. The page still rendered; press Read to try it here."
+      how={
+        <>
+          <p>
+            A typed error is something an application can answer for; a <Code>ReferenceError</Code>{" "}
+            thrown out of a render is not. The adapter reaching for its backend inside a guard on
+            every operation is what turns the one into the other.
+          </p>
+          <p>
+            The error is flattened to a plain object before it leaves the server, because React
+            substitutes its own error on the way across and the subclass, the <Code>code</Code> and
+            the brand would be gone.
+          </p>
+        </>
+      }
     >
       <div className="space-y-3">
         <div className="rounded-lg border border-line bg-inset p-3">
@@ -68,19 +82,6 @@ export function ServerUnavailablePanel() {
 
         <BrowserUnavailableProbe />
       </div>
-
-      <p className="mt-3 text-xs leading-relaxed text-soft">
-        The page you are reading rendered anyway. A typed error is something an application can
-        answer for; a <Code>ReferenceError</Code> thrown out of a render is not, and the adapter
-        reaching for its backend inside a guard on every operation is what turns the one into the
-        other.
-      </p>
-
-      <p className="mt-2 text-xs leading-relaxed text-soft">
-        The error is flattened to a plain object before it leaves the server. React substitutes its
-        own error for yours on the way across, so the subclass, the <Code>code</Code> and the brand
-        are gone by the time a client component could read them.
-      </p>
     </Card>
   );
 }

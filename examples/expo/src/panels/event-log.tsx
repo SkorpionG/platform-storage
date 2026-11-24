@@ -15,6 +15,7 @@ function toneFor(code: string): BadgeTone {
     return "warning";
   }
   if (
+    code === STORAGE_ERROR_CODE.Quota ||
     code === STORAGE_ERROR_CODE.Unavailable ||
     code === STORAGE_ERROR_CODE.Unsupported ||
     code === STORAGE_ERROR_CODE.Adapter
@@ -30,8 +31,8 @@ export function EventLog() {
 
   return (
     <Card
-      title="Every failure, including the handled ones"
-      description="The onError observer sees each failure whichever policy runs, which is what keeps a falling-back read from being a silent one."
+      title="Error log"
+      lead="Every failure onError saw, including the ones a fallback handled."
       aside={
         entries.length === 0 ? (
           <Badge tone="success">0</Badge>
@@ -42,7 +43,7 @@ export function EventLog() {
         )
       }
     >
-      <EntryList empty="Nothing has failed yet. Plant a corruption on the Resilience tab and read it back.">
+      <EntryList empty="Nothing has failed yet. Run the tour, or plant bad data on the Resilience tab.">
         {entries.map((entry) => (
           <Entry key={entry.id}>
             <View style={{ alignItems: "center", flexDirection: "row", gap: 6 }}>

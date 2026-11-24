@@ -32,19 +32,20 @@ pnpm --filter @examples/extension build:firefox
 
 ## What to look at
 
-Most panels are the browser playground's, reworked for a backend that only ever answers later. These five have no counterpart there:
+The options page is split into tabs, with the inspector and the error log beside every one:
 
-- **A change made somewhere else.** Write a value in the options page and watch the open popup follow it. The hooks follow `storage.onChanged` by themselves, and the panel shows `storage.watch` reporting the value before and after, along with the adapter's raw feed underneath.
-- **The service worker.** Two counters, one in the worker's memory and one in the area. Terminate the worker from `chrome://extensions` and only the first goes back to zero — which is what resolving the backend on every operation buys you.
-- **Which API was found.** `browser` is preferred over `chrome`. Load the Firefox build to see that it was, since Firefox defines both.
-- **Several keys in one call.** Read every key one at a time, then all at once with `getMany`, and compare how many calls each made to the `sync` area. `setMany` and `removeMany` write and remove several in one call too.
-- **When the browser says no.** Push a value past the `sync` area's eight kilobytes an item and watch it come back as `StorageAdapterError` with the browser's own message as its cause, while the same write to `local` succeeds.
+- **Tour.** One button runs the seven checks every example shares, and each row links to the tab that shows it in full.
+- **Values.** Every kind of value the schema declares, and several keys read or written in one call to the `sync` area, with the calls counted.
+- **Bad data.** Corrupt values under each invalid-data policy, versioned and repaired keys, and the `sync` area refusing a write that `local` accepts.
+- **Areas.** One schema over `local`, `sync` and `session`, and what each `clear` target takes.
+- **Contexts.** The background worker writing while this page follows it, and which extension API the library found.
+- **Schema.** The keys, their stored names and read types, and the source.
 
 Two differences from the browser examples are worth noticing, because neither is a limitation of this demo:
 
 - Every read reports a status, because an extension area has no synchronous half. `getSync` is not on the storage and the synchronous hooks refuse it at compile time.
 - The inspector shows values rather than text. An area transports JSON natively, so the library hands values over untouched instead of encoding them.
 
-On Firefox the extension is Manifest V2, where `storage.session` does not exist. The areas panel reports that rather than hiding it, which is the missing-area path working as designed.
+On Firefox the extension is Manifest V2, where `storage.session` does not exist. The Areas tab reports that rather than hiding it, which is the missing-area path working as designed.
 
 Conventions and traps for the examples are in [`examples/AGENTS.md`](../AGENTS.md).

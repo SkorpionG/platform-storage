@@ -25,8 +25,9 @@ export default defineBackground(() => {
     await session.set("lastDismissed", new Date().toISOString());
   }
 
-  function report(): WorkerReport {
-    return { ticksThisWorker, visitCount: 0, startedAt };
+  /* What only the worker knows. The persisted count is read fresh for each reply instead, below. */
+  function report(): Omit<WorkerReport, "visitCount"> {
+    return { ticksThisWorker, startedAt };
   }
 
   browser.runtime.onInstalled.addListener(async () => {

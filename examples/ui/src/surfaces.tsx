@@ -4,13 +4,16 @@ import { cn } from "./cn";
 
 export interface CardProps {
   readonly title: string;
-  readonly description?: ReactNode;
+  /** One line saying what to do with the card, in the imperative. */
+  readonly lead?: ReactNode;
+  /** How the card's behavior comes about, closed by default so the card shows its controls first. */
+  readonly how?: ReactNode;
   readonly aside?: ReactNode;
   readonly children: ReactNode;
   readonly className?: string | undefined;
 }
 
-export function Card({ title, description, aside, children, className }: CardProps) {
+export function Card({ title, lead, how, aside, children, className }: CardProps) {
   return (
     <section
       className={cn(
@@ -21,14 +24,80 @@ export function Card({ title, description, aside, children, className }: CardPro
       <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-tight text-fg">{title}</h2>
-          {description === undefined ? null : (
-            <p className="mt-1 text-sm leading-relaxed text-muted">{description}</p>
+          {lead === undefined ? null : (
+            <p className="mt-1 text-sm leading-relaxed text-muted">{lead}</p>
           )}
         </div>
         {aside}
       </header>
       <div className="px-5 py-4">{children}</div>
+      {how === undefined ? null : (
+        <Disclosure summary="How it works" className="border-t border-line px-5 py-3">
+          <div className="space-y-2 text-xs leading-relaxed text-soft">{how}</div>
+        </Disclosure>
+      )}
     </section>
+  );
+}
+
+export interface DisclosureProps {
+  /** The one line shown while it is closed. */
+  readonly summary: ReactNode;
+  readonly children: ReactNode;
+  readonly className?: string | undefined;
+}
+
+/**
+ * Content closed behind a one-line summary.
+ *
+ * A native `<details>` rather than a component with state, so it renders on a server and opens with JavaScript off.
+ */
+export function Disclosure({ summary, children, className }: DisclosureProps) {
+  return (
+    <details className={cn("group", className)}>
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-muted hover:text-fg [&::-webkit-details-marker]:hidden">
+        <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-90">
+          ▸
+        </span>
+        {summary}
+      </summary>
+      <div className="mt-2">{children}</div>
+    </details>
+  );
+}
+
+export interface AlertProps {
+  readonly children: ReactNode;
+  readonly className?: string | undefined;
+}
+
+/** Something that went wrong, said in a sentence rather than as a code in a badge. Announced as it appears. */
+export function Alert({ children, className }: AlertProps) {
+  return (
+    <p
+      role="alert"
+      className={cn(
+        "rounded-md border border-rose-500/30 bg-rose-500/10 p-2 text-xs text-rose-700 dark:text-rose-300",
+        className,
+      )}
+    >
+      {children}
+    </p>
+  );
+}
+
+export interface OutcomeProps {
+  readonly label: ReactNode;
+  readonly children: ReactNode;
+}
+
+/** One result inside a card: what was checked, then what came back. */
+export function Outcome({ label, children }: OutcomeProps) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="text-soft">{label}</span>
+      {children}
+    </div>
   );
 }
 
@@ -79,10 +148,6 @@ export function Field({ label, hint, children }: FieldProps) {
       {hint === undefined ? null : <div className="mt-1.5 text-xs text-soft">{hint}</div>}
     </div>
   );
-}
-
-export function Divider() {
-  return <hr className="border-line" />;
 }
 
 export interface MastheadProps {

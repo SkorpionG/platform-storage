@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { readEverything } from "../store/raw";
 import type { StoredEntry } from "../store/raw";
-import { local } from "../store/storages";
+import { local, tour } from "../store/storages";
 
 const EMPTY: ReadonlyArray<StoredEntry> = Object.freeze([]);
 
@@ -30,7 +30,13 @@ export function useStoredKeys(): ReadonlyArray<StoredEntry> {
 
   useFocusEffect(refresh);
 
-  useEffect(() => subscribeToStorage(local, refresh), [refresh]);
+  useEffect(() => {
+    const stops = [subscribeToStorage(local, refresh), subscribeToStorage(tour, refresh)];
+
+    return () => {
+      for (const stop of stops) stop();
+    };
+  }, [refresh]);
 
   return entries;
 }

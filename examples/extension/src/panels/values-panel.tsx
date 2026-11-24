@@ -1,10 +1,11 @@
-import { KEY_NOTES } from "@examples/schema";
+import { appSchema, KEY_NOTES } from "@examples/schema";
 import type { AppKey } from "@examples/schema";
 import {
+  Badge,
   Button,
   Card,
-  Divider,
   Field,
+  Prose,
   SegmentedControl,
   Slider,
   Stepper,
@@ -15,19 +16,37 @@ import {
 import { useAsyncStorageValue } from "@platform-storage/react";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { browser } from "wxt/browser";
 
 import { AsyncValue, NotReady } from "../async-value";
+import { useAreaContents } from "../hooks/use-area-contents";
 import { local } from "../store/storages";
+
+/** The rows this card has, in the order shown. `layout` and `accent` are on the Bad data tab, where planting old data is what shows them working. */
+const ROWS: ReadonlyArray<AppKey> = [
+  "theme",
+  "displayName",
+  "reducedMotion",
+  "fontScale",
+  "visitCount",
+  "recentSearches",
+  "user",
+  "lastDismissed",
+  "nickname",
+];
+
+/** The name `user` was stored under before it moved to `app:user`. */
+const LEGACY_USER = appSchema.definition.user.readFrom[0];
 
 interface RowProps {
   readonly storageKey: AppKey;
   readonly stored: React.ComponentProps<typeof AsyncValue>["stored"];
   readonly children: ReactNode;
-  /** How to work the control, where that is not obvious from looking at it. */
-  readonly usage?: string | undefined;
+  /** What the row's last action did, where that is more than the value itself shows. */
+  readonly outcome?: ReactNode;
 }
 
-function Row({ storageKey, stored, children, usage }: RowProps) {
+function Row({ storageKey, stored, children, outcome }: RowProps) {
   const note = KEY_NOTES[storageKey];
 
   return (
@@ -35,17 +54,24 @@ function Row({ storageKey, stored, children, usage }: RowProps) {
       label={note.label}
       hint={
         <>
-          <span className="font-mono text-soft">{note.readType}</span>
+          <Prose text={note.hint} />
           <span className="mx-1.5 text-faint">·</span>
+          <span className="font-mono text-faint">{note.readType}</span>
+          <span className="mx-1.5 text-faint">→</span>
           <AsyncValue stored={stored} />
-          <p className="mt-1 text-soft">{note.note}</p>
-          {usage === undefined ? null : <p className="mt-1 text-faint">{usage}</p>}
+          {outcome === undefined ? null : <span className="ml-2">{outcome}</span>}
         </>
       }
     >
       {children}
     </Field>
   );
+}
+
+/* Writes past the library, the way a release from before the rename left it. The browser reports the change, and the hook's next read moves it. */
+async function plantLegacyUser(): Promise<void> {
+  await browser.storage.local.remove(local.physicalKey("user"));
+  await browser.storage.local.set({ [LEGACY_USER]: { id: "u_legacy", name: "Grace" } });
 }
 
 export function ValuesPanel() {
@@ -60,11 +86,39 @@ export function ValuesPanel() {
   const [nickname, nicknameWriter] = useAsyncStorageValue(local, "nickname");
 
   const [draftName, setDraftName] = useState("");
+  const [plantedLegacy, setPlantedLegacy] = useState(false);
+  const area = useAreaContents("local");
+  const legacyHeld = area.entries.some((entry) => entry.key === LEGACY_USER);
 
   return (
     <Card
-      title="Every value kind the library supports"
-      description="Each control writes through the typed API and reads straight back, over storage.local. The caption under each one is the type that read returns, and why. Theme is wired to the page, so writing it repaints everything — including the popup, once the change reaches it."
+      title="Every kind of value"
+      lead="Change any control. The line under it is what a read of storage.local returns now."
+      how={
+        <>
+          <dl className="space-y-1.5">
+            {ROWS.map((key) => (
+              <div key={key}>
+                <dt className="inline font-medium text-muted">{KEY_NOTES[key].label}. </dt>
+                <dd className="inline">
+                  <Prose text={KEY_NOTES[key].note} />
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p>
+            Store <Prose text="`null`" /> under Last dismissed, then remove it: a stored{" "}
+            <Prose text="`null`" /> reads back as <Prose text="`null`" />, and only an absent key
+            reads as <Prose text="`undefined`" />. An area keeps that distinction natively, because
+            it stores the value rather than text.
+          </p>
+          <p>
+            Theme is wired to the page, so writing it repaints everything, including the popup once
+            the change reaches it. Every value here reports a status, because an area only ever
+            answers later.
+          </p>
+        </>
+      }
     >
       <div className="divide-y divide-line">
         <Row storageKey="theme" stored={theme}>
@@ -135,11 +189,7 @@ export function ValuesPanel() {
           )}
         </Row>
 
-        <Row
-          storageKey="recentSearches"
-          stored={recentSearches}
-          usage="Type a term, then press Add or Enter. Click an entry to remove it."
-        >
+        <Row storageKey="recentSearches" stored={recentSearches}>
           {recentSearches.status === "ready" ? (
             <TagInput
               label="Recent searches"
@@ -151,7 +201,21 @@ export function ValuesPanel() {
           )}
         </Row>
 
-        <Row storageKey="user" stored={user}>
+        <Row
+          storageKey="user"
+          stored={user}
+          outcome={
+            plantedLegacy ? (
+              <output aria-label="Legacy user">
+                {legacyHeld ? (
+                  <Badge tone="warning">{LEGACY_USER} still there</Badge>
+                ) : (
+                  <Badge tone="success">moved from {LEGACY_USER} ✓</Badge>
+                )}
+              </output>
+            ) : undefined
+          }
+        >
           <TextField
             label="User name"
             value={draftName}
@@ -166,6 +230,15 @@ export function ValuesPanel() {
             Save
           </Button>
           <Button onClick={() => void userWriter.remove()}>Remove</Button>
+          <Button
+            onClick={() => {
+              setPlantedLegacy(true);
+              void plantLegacyUser();
+            }}
+            title={`Store a user under ${LEGACY_USER}, the name it had before`}
+          >
+            Plant {LEGACY_USER}
+          </Button>
         </Row>
 
         <Row storageKey="lastDismissed" stored={lastDismissed}>
@@ -187,16 +260,6 @@ export function ValuesPanel() {
           )}
         </Row>
       </div>
-
-      <Divider />
-      <p className="pt-3 text-xs leading-relaxed text-soft">
-        Storing <span className="font-mono text-muted">null</span> under Last dismissed and then
-        removing it shows the difference the library insists on: a stored{" "}
-        <span className="font-mono text-muted">null</span> reads back as{" "}
-        <span className="font-mono text-muted">null</span>, and only an absent key reads as{" "}
-        <span className="font-mono text-muted">undefined</span>. An extension area keeps that
-        distinction natively, because it stores the value rather than text.
-      </p>
     </Card>
   );
 }

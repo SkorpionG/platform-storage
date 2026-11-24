@@ -8,6 +8,7 @@ function toneFor(code: string): BadgeTone {
     return "warning";
   }
   if (
+    code === STORAGE_ERROR_CODE.Quota ||
     code === STORAGE_ERROR_CODE.Unavailable ||
     code === STORAGE_ERROR_CODE.Unsupported ||
     code === STORAGE_ERROR_CODE.Adapter
@@ -22,8 +23,14 @@ export function EventLog() {
 
   return (
     <Card
-      title="Every failure, including the handled ones"
-      description="The onError observer sees each failure whichever policy runs, which is what keeps a falling-back read from being a silent one. A browser refusing a write, such as a sync value over quota, arrives here too."
+      title="Error log"
+      lead="Every failure onError saw on this page, including the ones a fallback handled."
+      how={
+        <p>
+          A browser refusing a write arrives here too. The log belongs to the page reading it: the
+          popup and the background worker keep their own, so a failure there is not shown here.
+        </p>
+      }
       aside={
         entries.length === 0 ? null : (
           <Button onClick={clearStorageErrors} title="Clear the log">
@@ -34,8 +41,7 @@ export function EventLog() {
     >
       {entries.length === 0 ? (
         <p className="text-xs text-faint">
-          Nothing has failed yet. Plant a corrupt value and read it back, or push a value past the
-          sync quota.
+          Nothing has failed yet. Run the tour, or plant bad data on the Bad data tab.
         </p>
       ) : (
         <ul className="space-y-1.5">
@@ -53,11 +59,6 @@ export function EventLog() {
           ))}
         </ul>
       )}
-
-      <p className="mt-3 text-xs leading-relaxed text-soft">
-        This log belongs to the page reading it. The background service worker keeps its own, so a
-        failure there is not shown here.
-      </p>
     </Card>
   );
 }

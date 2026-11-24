@@ -18,8 +18,8 @@
       "entry": ["base.d.ts"],
     },
     "examples/extension": {
-      // WXT's `srcDir` moves the entrypoints under `src/`, where the plugin's default pattern does not look.
-      "entry": ["src/entrypoints/**/*.{ts,tsx}!"],
+      // WXT's `srcDir` moves the entrypoints under `src/`, where the plugin's default pattern does not look. `pre-paint.js` is served as it is from `public/` and loaded by the entrypoints' HTML, which knip does not read.
+      "entry": ["src/entrypoints/**/*.{ts,tsx}!", "public/pre-paint.js"],
     },
     "examples/expo": {
       // The Expo config implies both for a standalone build: `expo-system-ui` for `userInterfaceStyle`, `expo-updates` unless updates are switched off. This app runs in Expo Go, which ships both native modules itself.

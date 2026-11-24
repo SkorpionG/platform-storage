@@ -1,12 +1,13 @@
 "use client";
 
-import { KEY_NOTES } from "@examples/schema";
+import { appSchema, KEY_NOTES } from "@examples/schema";
 import type { AppKey } from "@examples/schema";
 import {
+  Badge,
   Button,
   Card,
-  Divider,
   Field,
+  Prose,
   SegmentedControl,
   Slider,
   Stepper,
@@ -15,21 +16,37 @@ import {
   TextField,
   Value,
 } from "@examples/ui";
+import { notifyStorageChanged, useHydrated, useStorageValue } from "@platform-storage/react";
+import { isSyncStorageAdapter } from "@platform-storage/web";
 import { useState } from "react";
 
-import { useStorageValue } from "@platform-storage/react";
-
 import { local } from "../store/storage";
+
+/** The rows this card has, in the order shown. `layout` and `accent` are on the Bad data tab, where planting old data is what shows them working. */
+const ROWS: ReadonlyArray<AppKey> = [
+  "theme",
+  "displayName",
+  "reducedMotion",
+  "fontScale",
+  "visitCount",
+  "recentSearches",
+  "user",
+  "lastDismissed",
+  "nickname",
+];
+
+/** The name `user` was stored under before it moved to `app:user`. */
+const LEGACY_USER = appSchema.definition.user.readFrom[0];
 
 interface RowProps {
   readonly storageKey: AppKey;
   readonly value: unknown;
   readonly children: React.ReactNode;
-  /** How to work the control, where that is not obvious from looking at it. */
-  readonly usage?: string | undefined;
+  /** What the row's last action did, where that is more than the value itself shows. */
+  readonly outcome?: React.ReactNode;
 }
 
-function Row({ storageKey, value, children, usage }: RowProps) {
+function Row({ storageKey, value, children, outcome }: RowProps) {
   const note = KEY_NOTES[storageKey];
 
   return (
@@ -37,17 +54,47 @@ function Row({ storageKey, value, children, usage }: RowProps) {
       label={note.label}
       hint={
         <>
-          <span className="font-mono text-soft">{note.readType}</span>
+          <Prose text={note.hint} />
           <span className="mx-1.5 text-faint">·</span>
+          <span className="font-mono text-faint">{note.readType}</span>
+          <span className="mx-1.5 text-faint">→</span>
           <Value value={value} />
-          <p className="mt-1 text-soft">{note.note}</p>
-          {usage === undefined ? null : <p className="mt-1 text-faint">{usage}</p>}
+          {outcome === undefined ? null : <span className="ml-2">{outcome}</span>}
         </>
       }
     >
       {children}
     </Field>
   );
+}
+
+/* Writes past the library, the way a release from before the rename left it, then tells the page, whose next read moves it. */
+function plantLegacyUser(): void {
+  const { adapter } = local;
+
+  if (!isSyncStorageAdapter(adapter)) return;
+
+  try {
+    adapter.removeSync(local.physicalKey("user"));
+    adapter.setSync(LEGACY_USER, JSON.stringify({ id: "u_legacy", name: "Grace" }));
+  } catch {
+    return;
+  }
+
+  notifyStorageChanged(local, "user");
+}
+
+/* Read after the hooks, whose read is what moves the value, and only once hydrated: a server has nothing stored to look at. */
+function holdsLegacyUser(): boolean {
+  const { adapter } = local;
+
+  if (!isSyncStorageAdapter(adapter)) return false;
+
+  try {
+    return adapter.getSync(LEGACY_USER) !== undefined;
+  } catch {
+    return false;
+  }
 }
 
 export function ValuesPanel() {
@@ -62,11 +109,33 @@ export function ValuesPanel() {
   const [nickname, nicknameWriter] = useStorageValue(local, "nickname");
 
   const [draftName, setDraftName] = useState(user?.name ?? "");
+  const [plantedLegacy, setPlantedLegacy] = useState(false);
+  const hydrated = useHydrated();
 
   return (
     <Card
-      title="Every value kind the library supports"
-      description="Each control writes through the typed API and reads straight back. The caption under each one is the type that read returns, and why. Theme is wired to the page, so writing it repaints everything."
+      title="Every kind of value"
+      lead="Change any control. The line under it is what a read returns now."
+      how={
+        <>
+          <dl className="space-y-1.5">
+            {ROWS.map((key) => (
+              <div key={key}>
+                <dt className="inline font-medium text-muted">{KEY_NOTES[key].label}. </dt>
+                <dd className="inline">
+                  <Prose text={KEY_NOTES[key].note} />
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p>
+            Store <Prose text="`null`" /> under Last dismissed, then remove it: a stored{" "}
+            <Prose text="`null`" /> reads back as <Prose text="`null`" />, and only an absent key
+            reads as <Prose text="`undefined`" />. Theme is wired to the page, so writing it
+            repaints everything.
+          </p>
+        </>
+      }
     >
       <div className="divide-y divide-line">
         <Row storageKey="theme" value={theme}>
@@ -120,11 +189,7 @@ export function ValuesPanel() {
           </Button>
         </Row>
 
-        <Row
-          storageKey="recentSearches"
-          value={recentSearches}
-          usage="Type a term, then press Add or Enter. Click an entry to remove it."
-        >
+        <Row storageKey="recentSearches" value={recentSearches}>
           <TagInput
             label="Recent searches"
             values={recentSearches}
@@ -132,7 +197,21 @@ export function ValuesPanel() {
           />
         </Row>
 
-        <Row storageKey="user" value={user}>
+        <Row
+          storageKey="user"
+          value={user}
+          outcome={
+            plantedLegacy && hydrated ? (
+              <output aria-label="Legacy user">
+                {holdsLegacyUser() ? (
+                  <Badge tone="warning">{LEGACY_USER} still there</Badge>
+                ) : (
+                  <Badge tone="success">moved from {LEGACY_USER} ✓</Badge>
+                )}
+              </output>
+            ) : undefined
+          }
+        >
           <TextField
             label="User name"
             value={draftName}
@@ -147,6 +226,15 @@ export function ValuesPanel() {
             Save
           </Button>
           <Button onClick={() => userWriter.remove()}>Remove</Button>
+          <Button
+            onClick={() => {
+              plantLegacyUser();
+              setPlantedLegacy(true);
+            }}
+            title={`Store a user under ${LEGACY_USER}, the name it had before`}
+          >
+            Plant {LEGACY_USER}
+          </Button>
         </Row>
 
         <Row storageKey="lastDismissed" value={lastDismissed}>
@@ -164,15 +252,6 @@ export function ValuesPanel() {
           />
         </Row>
       </div>
-
-      <Divider />
-      <p className="pt-3 text-xs leading-relaxed text-soft">
-        Storing <span className="font-mono text-muted">null</span> under Last dismissed and then
-        removing it shows the difference the library insists on: a stored{" "}
-        <span className="font-mono text-muted">null</span> reads back as{" "}
-        <span className="font-mono text-muted">null</span>, and only an absent key reads as{" "}
-        <span className="font-mono text-muted">undefined</span>.
-      </p>
     </Card>
   );
 }

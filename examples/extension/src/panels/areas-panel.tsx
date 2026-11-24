@@ -29,7 +29,7 @@ function AreaRow({ storage, label, note }: AreaRowProps) {
               · chose <output aria-label={`${label} chose`}>{chosen}</output>
             </span>
           )}
-          <p className="mt-1 text-soft">{note}</p>
+          <span className="ml-1.5 text-soft">· {note}</span>
         </>
       }
     >
@@ -57,39 +57,46 @@ function AreaRow({ storage, label, note }: AreaRowProps) {
 export function AreasPanel() {
   return (
     <Card
-      title="One schema, three areas that cannot see each other"
-      description="The same definition, handed to three storages. Writing a display name into one leaves the other two exactly as they were, because a storage addresses one area and nothing else."
+      title="Three areas"
+      lead="Type a display name into one area. The others keep their own."
+      how={
+        <>
+          <p>
+            The same definition, handed to one storage per area. A storage addresses one area and
+            nothing else, so a write to one leaves the others exactly as they were.
+          </p>
+          <p>
+            The Firefox build is Manifest V2, where <Code>storage.session</Code> does not exist.
+            Addressing it is reported as <Code>StorageUnavailableError</Code>, the same way a
+            missing extension API is, and the row renders the failure. The last row is the same area
+            built with <Code>fallback: &quot;memory&quot;</Code>, which chooses memory there and
+            answers instead.
+          </p>
+        </>
+      }
     >
       <div className="divide-y divide-line">
         <AreaRow
           storage={local}
           label="storage.local"
-          note="Roughly ten megabytes, kept on this machine, and the default when no area is named."
+          note="About ten megabytes, on this machine. The default."
         />
         <AreaRow
           storage={sync}
           label="storage.sync"
-          note="Replicated to the user's other signed-in browsers, and far smaller: eight kilobytes per item."
+          note="Copied to the user's other browsers. Eight kilobytes an item."
         />
         <AreaRow
           storage={session}
           label="storage.session"
-          note="Held in memory and emptied when the browser closes. Absent on Manifest V2 and before Chrome 102 or Firefox 115."
+          note="Emptied when the browser closes. Absent on Manifest V2."
         />
         <AreaRow
           storage={sessionOrMemory}
           label="storage.session, or memory"
-          note='The same area built with fallback: "memory". Where the area is there it chooses it; where it is not, it answers from memory instead of reporting itself unavailable.'
+          note="The same area, answering from memory where it is absent."
         />
       </div>
-
-      <p className="mt-3 text-xs leading-relaxed text-soft">
-        The Firefox build of this extension is Manifest V2, where <Code>storage.session</Code> does
-        not exist. The row above does not crash there: addressing a missing area is reported as{" "}
-        <Code>StorageUnavailableError</Code>, the same way a missing extension API is, and the read
-        comes back as a failure the row can render. The row below it is the same area with a
-        fallback, which on Firefox chooses memory and answers instead.
-      </p>
     </Card>
   );
 }

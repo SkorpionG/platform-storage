@@ -1,6 +1,6 @@
 export { cn } from "./cn";
-export { Code, formatValue, Value } from "./code";
-export type { CodeProps, ValueProps } from "./code";
+export { Code, formatValue, Prose, Value } from "./code";
+export type { CodeProps, ProseProps, ValueProps } from "./code";
 export { CodeBlock } from "./code-block";
 export type { CodeBlockProps } from "./code-block";
 export {
@@ -24,5 +24,18 @@ export type {
   TagInputProps,
   TextFieldProps,
 } from "./controls";
-export { Badge, Card, Divider, Field, Masthead } from "./surfaces";
-export type { BadgeProps, BadgeTone, CardProps, FieldProps, MastheadProps } from "./surfaces";
+export { Alert, Badge, Card, Disclosure, Field, Masthead, Outcome } from "./surfaces";
+export type {
+  AlertProps,
+  BadgeProps,
+  BadgeTone,
+  CardProps,
+  DisclosureProps,
+  FieldProps,
+  MastheadProps,
+  OutcomeProps,
+} from "./surfaces";
+export { Tabs } from "./tabs";
+export { TourChecklist } from "./tour-checklist";
+export type { TourChecklistProps, TourChecklistRow } from "./tour-checklist";
+export type { TabDefinition, TabsProps } from "./tabs";

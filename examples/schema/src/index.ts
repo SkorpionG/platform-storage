@@ -6,13 +6,17 @@ import type { AppKey } from "./schema";
 
 export { appSchema, scratchSchema } from "./schema";
 export type { AppDefinition, AppKey, ScratchDefinition } from "./schema";
+export { runTour, TOUR_CHECK, TOUR_CHECKS, TOUR_PREFIX } from "./tour";
+export type { TourBackend, TourCheck, TourCheckId, TourResult, TourRun } from "./tour";
 
 export interface KeyNote {
   /** What to call the key on screen. */
   readonly label: string;
   /** The type a read of this key returns, written out so the UI can show it beside the value. */
   readonly readType: string;
-  /** The one thing this key is here to demonstrate. */
+  /** The behavior in a few words, short enough to sit beside a control. */
+  readonly hint: string;
+  /** The one thing this key is here to demonstrate, and why, for where there is room to explain it. */
   readonly note: string;
 }
 
@@ -21,56 +25,67 @@ export const KEY_NOTES: { readonly [Key in AppKey]: KeyNote } = {
   theme: {
     label: "Theme",
     readType: '"light" | "dark" | "system"',
+    hint: "Has a default, so never undefined",
     note: "A closed set of strings with a declared default, so a read can never come back empty and `undefined` is absent from the type.",
   },
   displayName: {
     label: "Display name",
     readType: "string | undefined",
+    hint: "No default, so may be undefined",
     note: "A plain string with no default. Nothing answers for it when the backend holds nothing, so `undefined` stays in the type.",
   },
   reducedMotion: {
     label: "Reduced motion",
     readType: "boolean",
+    hint: "`false` is a value, not absence",
     note: "A boolean stored as a boolean. `false` is a real value here, distinct from the key holding nothing at all.",
   },
   fontScale: {
     label: "Font scale",
     readType: "number",
+    hint: "Range-checked on every write and read",
     note: "A number with a range. A value outside 0.75 to 2 fails validation on the way in and on the way out.",
   },
   visitCount: {
     label: "Visit count",
     readType: "number",
+    hint: 'Coerced: a stored `"42"` reads as 42',
     note: 'Coerced, so a hand-edited `"42"` in devtools still reads back as the number 42. Coercion accepts its own output, which is what lets it round-trip.',
   },
   recentSearches: {
     label: "Recent searches",
     readType: "Array<string>",
+    hint: "Defaults to a fresh array each read",
     note: "An array defaulted from the schema with a factory. A declared `default: []` would hand every read the same array to share.",
   },
   user: {
     label: "User",
     readType: "{ id: string; name: string } | undefined",
+    hint: "Stored as `app:user`, moved from `legacy:user`",
     note: "An object stored under the physical key `app:user`, and moved there from `legacy:user` the first time it is read, so the name the code uses and the name the backend holds can differ.",
   },
   lastDismissed: {
     label: "Last dismissed",
     readType: "string | null",
+    hint: "A stored `null` reads back as `null`",
     note: "Nullable, and defaulted to `null`. A stored `null` reads back as `null`; only an absent key reads as `undefined`.",
   },
   nickname: {
     label: "Nickname",
     readType: "string | undefined",
+    hint: "Optional: writing `undefined` removes it",
     note: "Optional in the schema rather than through a default. Unlike display name, a write of `undefined` is accepted and removes the entry.",
   },
   layout: {
     label: "Layout",
     readType: '{ density: "compact" | "comfortable" }',
+    hint: "Versioned: an old shape migrates on read",
     note: "Declared with `defineVersions`, so it is stored as `{ v, d }` and a value left by an older release is brought forward when it is read.",
   },
   accent: {
     label: "Accent",
     readType: '"blue" | "green"',
+    hint: "A rejected value is repaired by `recover`",
     note: "Declares `recover`, so a value the schema rejects can be repaired and saved while the key stays bare for anything else reading it.",
   },
 };

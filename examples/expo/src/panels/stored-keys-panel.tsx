@@ -3,9 +3,9 @@ import { Text, View } from "react-native";
 import { Badge } from "../components/badge";
 import { Card } from "../components/card";
 import { Entry, EntryList } from "../components/entry";
-import { Note } from "../components/note";
 import { usePalette } from "../hooks/use-palette";
 import { useStoredKeys } from "../hooks/use-stored-keys";
+import { Explain } from "../components/prose";
 import { MONO } from "../theme";
 
 export function StoredKeysPanel() {
@@ -15,10 +15,17 @@ export function StoredKeysPanel() {
   return (
     <Card
       title="What the device is actually holding"
-      description="Listed through the adapter, below the schema, the way devtools reads an origin. These are strings rather than values: this backend transports text, so what the device holds is the JSON the serializer produced."
-      aside={<Badge>{entries.length} keys</Badge>}
+      lead="Everything AsyncStorage holds, as the text it stores, under the names it is stored as."
+      how={
+        <>
+          <Explain text="Listed through the adapter, below the schema, the way devtools reads an origin. These are strings rather than values: this backend transports text, so what the device holds is the JSON the serializer produced." />
+          <Explain text="The user object appears under `app:user`, because a physical key is what the device knows. Anything marked as not in the schema is what `clear()` is obliged to leave alone." />
+          <Explain text="The list reads again whenever a write goes through the library and whenever this tab comes back into focus." />
+        </>
+      }
+      aside={<Badge>{`${String(entries.length)} ${entries.length === 1 ? "key" : "keys"}`}</Badge>}
     >
-      <EntryList empty="Nothing stored yet. Every value on the Values tab is still its declared default, which is an answer the schema gives rather than anything the device holds.">
+      <EntryList empty="Nothing stored yet. Every value on the Values tab is its declared default.">
         {entries.map((entry) => (
           <Entry key={entry.key}>
             <View style={{ alignItems: "center", flexDirection: "row", gap: 6 }}>
@@ -36,15 +43,6 @@ export function StoredKeysPanel() {
           </Entry>
         ))}
       </EntryList>
-
-      <Note>
-        The user object appears under app:user, because a physical key is what the device knows and
-        the name the code uses never reaches it. Anything marked as not in the schema is what
-        clear() is obliged to leave alone. This list re-reads whenever a write goes through the
-        library and whenever this tab comes back into focus, which is how a value planted on the
-        Resilience tab shows up: planting writes straight to the device, so the library never saw it
-        and had nothing to announce.
-      </Note>
     </Card>
   );
 }

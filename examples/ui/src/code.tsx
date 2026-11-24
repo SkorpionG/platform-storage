@@ -46,3 +46,20 @@ export function Value({ value }: ValueProps) {
     </span>
   );
 }
+
+export interface ProseProps {
+  /** A sentence in which backticks mark code, the way the shared notes are written. */
+  readonly text: string;
+}
+
+/** Renders a shared note, setting each backticked run as code rather than showing the backticks. */
+export function Prose({ text }: ProseProps) {
+  return (
+    <>
+      {text.split("`").map((part, index) =>
+        // oxlint-disable-next-line react/no-array-index-key -- A run's position in the sentence is its identity; the same word can appear twice.
+        index % 2 === 1 ? <Code key={index}>{part}</Code> : part,
+      )}
+    </>
+  );
+}

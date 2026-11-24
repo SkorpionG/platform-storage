@@ -22,10 +22,7 @@ export function BrowserUnavailableProbe() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="text-xs font-medium text-body">In this browser</div>
-          <p className="mt-0.5 text-xs text-soft">
-            The same storage, the same call, one environment along. Nothing about the storage
-            changed; only what was there to reach.
-          </p>
+          <p className="mt-0.5 text-xs text-soft">The same storage and the same call.</p>
         </div>
         <Button
           onClick={() => {

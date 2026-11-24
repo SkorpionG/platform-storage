@@ -16,8 +16,22 @@ export function SyncPanel() {
 
   return (
     <Card
-      title="A synchronous half, where the platform allows one"
-      description="Every storage exposes the asynchronous API. A storage over a backend that answers immediately exposes getSync and its siblings as well, and the type reflects it — an extension or AsyncStorage storage simply has no such methods to call."
+      title="Read now, or await it"
+      lead="The left value was read during render. Press Await it for the same read through a promise."
+      how={
+        <>
+          <p>
+            Every storage has the asynchronous API. One over a backend that answers immediately also
+            has <Code>getSync</Code> and its siblings, and the type says so: an extension or
+            AsyncStorage storage simply has no such methods to call.
+          </p>
+          <p>
+            The synchronous half is what makes a first paint possible without a loading state. Give{" "}
+            <Code>createLocalStorage</Code> a <Code>fallback</Code> and the same code runs on a
+            server, where no <Code>window</Code> exists.
+          </p>
+        </>
+      }
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-line bg-inset p-3">
@@ -25,9 +39,6 @@ export function SyncPanel() {
             <Badge tone="success">getSync</Badge>
             <span className="text-xs text-muted">read during render</span>
           </div>
-          <p className="mt-2 text-xs text-soft">
-            No promise, no effect, no first paint showing a placeholder.
-          </p>
           <div className="mt-2">
             <Value value={immediate} />
           </div>
@@ -38,9 +49,6 @@ export function SyncPanel() {
             <Badge tone="info">get</Badge>
             <span className="text-xs text-muted">awaited</span>
           </div>
-          <p className="mt-2 text-xs text-soft">
-            The same value, one microtask later. Identical code works on every platform.
-          </p>
           <div className="mt-2 flex items-center gap-2">
             <Button
               onClick={() => {
@@ -57,12 +65,6 @@ export function SyncPanel() {
           </div>
         </div>
       </div>
-
-      <p className="mt-3 text-xs leading-relaxed text-soft">
-        The synchronous half is what makes a server-rendered first paint possible without a loading
-        state. Give <Code>createLocalStorage</Code> a <Code>fallback</Code> and the same code runs
-        on a server, where no <Code>window</Code> exists.
-      </p>
     </Card>
   );
 }

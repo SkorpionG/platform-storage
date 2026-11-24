@@ -10,6 +10,7 @@ function toneFor(code: string): BadgeTone {
     return "warning";
   }
   if (
+    code === STORAGE_ERROR_CODE.Quota ||
     code === STORAGE_ERROR_CODE.Unavailable ||
     code === STORAGE_ERROR_CODE.Unsupported ||
     code === STORAGE_ERROR_CODE.Adapter
@@ -24,8 +25,8 @@ export function EventLog() {
 
   return (
     <Card
-      title="Every failure, including the handled ones"
-      description="The onError observer sees each failure whichever policy runs, which is what keeps a falling-back read from being a silent one."
+      title="Error log"
+      lead="Every failure onError saw, including the ones a fallback handled."
       aside={
         entries.length === 0 ? null : (
           <Button onClick={clearStorageErrors} title="Clear the log">
@@ -36,7 +37,7 @@ export function EventLog() {
     >
       {entries.length === 0 ? (
         <p className="text-xs text-faint">
-          Nothing has failed yet. Plant a corrupt value and read it back.
+          Nothing has failed yet. Run the tour, or plant bad data on the Bad data tab.
         </p>
       ) : (
         <ul className="space-y-1.5">

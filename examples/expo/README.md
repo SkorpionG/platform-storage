@@ -20,19 +20,22 @@ iOS needs Xcode and a simulator; Android needs Android Studio and an emulator, w
 
 Every other example can read synchronously. This one cannot, and that shapes all of it:
 
-- **There is no synchronous half.** AsyncStorage only ever answers later, so the adapter exposes no `getSync` and neither does anything built on it. `useStorageValue` will not compile against this storage, and a panel says so with the errors it produces.
+- **There is no synchronous half.** AsyncStorage only ever answers later, so the adapter exposes no `getSync` and neither does anything built on it. `useStorageValue` will not compile against this storage, and the adapter card on the Inspector tab shows the errors it produces.
 - **Every read has a status.** A read that has not landed is not the same answer as a key holding nothing, so each control renders a placeholder that reports which.
-- **The backend is an argument, not a lookup.** The library imports no native module; the application hands it the instance. That is why there is no resolver panel here, and why the same library can be pointed at a stub that refuses everything.
+- **The backend is an argument, not a lookup.** The library imports no native module; the application hands it the instance. That is why there is no resolver card here, and why the same library can be pointed at a stub that refuses everything.
 - **The device holds text.** An extension area transports JSON values, so it has no encoding step to fail in. This backend transports strings, which makes it the only example that can show **deserialization** failing before validation is ever reached.
 
 ## What to look at
 
-- **Values** — every kind of value the schema declares, each with the type its read returns. The `i` button opens the schema itself as a sheet.
-- **Resilience** — bad data written behind the library's back, read under each invalid-data policy. The amber key is the one that is not JSON at all.
-- **Inspector** — what the adapter calls itself, what survived the last launch, what the device is physically holding, and every failure the `onError` observer saw.
+- **Tour** — one button runs the seven checks every example shares, and each row opens the tab that shows it in full.
+- **Values** — every kind of value the schema declares, and four keys read through one hook. **Schema** beside the title opens the schema itself as a sheet.
+- **Resilience** — bad data written behind the library's back and read under each invalid-data policy, old and newer data read through versioned and repaired keys, what each `clear` takes, and a device that refuses every call.
+- **Inspector** — what survived the last launch, what the device is physically holding, every failure the `onError` observer saw, and the adapter underneath.
+
+Each card says in one line what to try. The `i` beside a card's title opens how it works.
 
 Changing **Theme** on the Values tab repaints the app, resolving `"system"` against the device. It takes a frame longer than it does in the browser demos, because a device storage cannot answer during a render.
 
-In Expo Go, the floating dev-tools button sits over the `i` button. Turn it off with **Tools button** in the dev menu, or ignore it: no such button exists in a real build.
+In Expo Go, the floating dev-tools button can sit over the top of a screen. Turn it off with **Tools button** in the dev menu, or ignore it: no such button exists in a real build.
 
-The restart panel is the one worth doing by hand, because it is the only claim here that needs two processes: set some values, quit the app from the app switcher, and open it again. The count it read at launch was written by the process you just killed.
+The restart card is the one worth doing by hand, because it is the only claim here that needs two processes: set some values, quit the app from the app switcher, and open it again. The count it read at launch was written by the process you just killed.

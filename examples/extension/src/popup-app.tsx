@@ -65,10 +65,7 @@ export function PopupApp() {
           )}
         </Field>
 
-        <Field
-          label="Visit count"
-          hint="The background worker writes this one too, on an alarm every minute."
-        >
+        <Field label="Visit count" hint="The worker adds one every minute.">
           {visitCount.status === "ready" ? (
             <Stepper
               label="Visit count"
@@ -80,10 +77,7 @@ export function PopupApp() {
           )}
         </Field>
 
-        <Field
-          label="Last change seen"
-          hint="Relayed from the browser's own feed, wherever it was made."
-        >
+        <Field label="Last change seen" hint="From any context.">
           {change === undefined ? (
             <span className="text-xs text-faint">nothing yet</span>
           ) : (
@@ -94,7 +88,7 @@ export function PopupApp() {
           )}
         </Field>
 
-        <Field label="Failures" hint="This popup's own log. The options page keeps a separate one.">
+        <Field label="Failures" hint="This popup's own log.">
           <Badge tone={errors.length === 0 ? "success" : "warning"}>{errors.length}</Badge>
         </Field>
       </div>

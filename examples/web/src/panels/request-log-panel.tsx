@@ -38,8 +38,21 @@ export function RequestLogPanel() {
 
   return (
     <Card
-      title="One request's failures, and nobody else's"
-      description="The shared error log is one list for the whole process, which on a server means every request at once. A storage built for one request can take a log built beside it."
+      title="A log per request"
+      lead="This render read a planted bad theme through a storage with its own error log."
+      how={
+        <>
+          <p>
+            The shared error log is one list for the whole process, which on a server means every
+            request at once. A storage built for one request can take a log built beside it.
+          </p>
+          <p>
+            Both are built inside the render, with <Code>onError: log.record</Code>, and{" "}
+            <Code>log.entries()</Code> is read straight after the failing read. This failure never
+            reaches the shared Error log beside the page.
+          </p>
+        </>
+      }
       aside={<Badge tone="info">createStorageErrorLog</Badge>}
     >
       <div className="rounded-lg border border-line bg-inset p-3">
@@ -61,13 +74,6 @@ export function RequestLogPanel() {
           ))}
         </p>
       </div>
-
-      <p className="mt-3 text-xs leading-relaxed text-soft">
-        The storage and its log are built inside the render, with <Code>onError: log.record</Code>,
-        and <Code>log.entries()</Code> is read straight after the read that failed: a log nothing is
-        listening to publishes at once, which on a server is always. The event log further down is
-        the shared one, and this failure never reaches it.
-      </p>
     </Card>
   );
 }

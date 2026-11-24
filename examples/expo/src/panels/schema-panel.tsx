@@ -4,6 +4,7 @@ import { Text, View } from "react-native";
 import { Badge } from "../components/badge";
 import { Card } from "../components/card";
 import { Field } from "../components/field";
+import { Prose } from "../components/prose";
 import { usePalette } from "../hooks/use-palette";
 import { MONO } from "../theme";
 
@@ -12,25 +13,27 @@ export function SchemaPanel() {
 
   return (
     <Card
-      title="One schema, every platform"
-      description="This definition lives in its own package with no DOM types and no React. The two browser demos and the extension import the very same file; nothing in it knows these values are about to live on a phone."
+      title="The schema"
+      lead="Every key, the name it is stored under when that differs, and what a read returns. The browser examples and the extension import this very file."
     >
-      {appSchema.keys.map((key) => {
+      {appSchema.keys.map((key, index) => {
         const note = KEY_NOTES[key];
         const physical = appSchema.physicalKeys[key];
 
         return (
           <Field
             key={key}
+            first={index === 0}
             label={note.label}
             hint={
               <View style={{ gap: 3 }}>
                 <Text style={{ fontFamily: MONO, fontSize: 11, color: palette.soft }}>
                   {note.readType}
                 </Text>
-                <Text style={{ fontSize: 12, lineHeight: 17, color: palette.soft }}>
-                  {note.note}
-                </Text>
+                <Prose
+                  text={note.note}
+                  style={{ fontSize: 12, lineHeight: 17, color: palette.soft }}
+                />
               </View>
             }
           >

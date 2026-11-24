@@ -40,15 +40,17 @@ export function Sheet({ title, visible, onClose, children }: SheetProps) {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: SPACE * 1.5, paddingBottom: SPACE * 4 },
+  content: { padding: SPACE * 2, paddingBottom: SPACE * 4 },
   done: { fontSize: 16 },
   header: {
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: SPACE * 2,
-    paddingVertical: SPACE * 1.5,
+    paddingBottom: SPACE * 1.5,
+    paddingHorizontal: SPACE * 2.5,
+    /* A page sheet's top edge is rounded and sits right under the status bar, so the title needs more room above it than below. */
+    paddingTop: SPACE * 3,
   },
   title: { fontSize: 18, fontWeight: "700" },
 });

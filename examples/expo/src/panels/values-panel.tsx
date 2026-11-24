@@ -1,80 +1,83 @@
-import { KEY_NOTES } from "@examples/schema";
+import { appSchema, KEY_NOTES } from "@examples/schema";
 import type { AppKey } from "@examples/schema";
 import { Button, Picker, Row, Slider, Switch } from "@expo/ui";
-import { useAsyncStorageValue, useAsyncStorageValues } from "@platform-storage/react";
+import { notifyStorageChanged, useAsyncStorageValue } from "@platform-storage/react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AsyncValue, NotReady } from "../components/async-value";
 import type { AsyncValueProps } from "../components/async-value";
+import { Badge } from "../components/badge";
 import { Card } from "../components/card";
 import { Control } from "../components/control";
 import { Field } from "../components/field";
+import { Explain, Prose } from "../components/prose";
 import { TextRow } from "../components/text-row";
-import { Note } from "../components/note";
 import { usePalette } from "../hooks/use-palette";
+import { plantValue, readText, removeRaw } from "../store/raw";
 import { local } from "../store/storages";
 import { MONO, RADIUS } from "../theme";
+
+/** The rows this card has, in the order shown. `layout` and `accent` are on the Resilience tab, where planting old data is what shows them working. */
+const ROWS: ReadonlyArray<AppKey> = [
+  "theme",
+  "displayName",
+  "reducedMotion",
+  "fontScale",
+  "visitCount",
+  "recentSearches",
+  "user",
+  "lastDismissed",
+  "nickname",
+];
+
+/** The name `user` was stored under before it moved to `app:user`. */
+const LEGACY_USER = appSchema.definition.user.readFrom[0];
+
+/*
+  Writes past the library, the way a release from before the rename left it, then reads the key. AsyncStorage reports no changes, so the page is told by hand, and the read is what moves the value to its new name.
+*/
+async function plantLegacyUser(): Promise<boolean> {
+  await removeRaw(local.physicalKey("user"));
+  await plantValue(LEGACY_USER, { id: "u_legacy", name: "Grace" });
+  notifyStorageChanged(local, "user");
+  await local.get("user");
+
+  return (await readText(LEGACY_USER)) === undefined;
+}
 
 interface RowProps {
   readonly storageKey: AppKey;
   readonly stored: AsyncValueProps["stored"];
   readonly children: ReactNode;
-  /** How to work the control, where that is not obvious from looking at it. */
-  readonly usage?: string;
+  readonly first?: boolean;
+  /** For a row whose controls are too wide to sit beside the label. */
+  readonly stacked?: boolean;
 }
 
-function ValueRow({ storageKey, stored, children, usage }: RowProps) {
+function ValueRow({ storageKey, stored, children, first = false, stacked = false }: RowProps) {
   const note = KEY_NOTES[storageKey];
   const palette = usePalette();
 
   return (
     <Field
+      first={first}
+      stacked={stacked}
       label={note.label}
       hint={
         <View style={{ gap: 3 }}>
-          <View style={{ alignItems: "center", flexDirection: "row", gap: 6 }}>
-            <Text style={{ fontFamily: MONO, fontSize: 11, color: palette.soft }}>
-              {note.readType}
+          <Prose text={note.hint} style={{ color: palette.soft, fontSize: 12, lineHeight: 17 }} />
+          <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            <Text style={{ fontFamily: MONO, fontSize: 11, color: palette.faint }}>
+              {note.readType} →
             </Text>
             <AsyncValue stored={stored} />
           </View>
-          <Text style={{ fontSize: 12, lineHeight: 17, color: palette.soft }}>{note.note}</Text>
-          {usage === undefined ? null : (
-            <Text style={{ fontSize: 12, lineHeight: 17, color: palette.faint }}>{usage}</Text>
-          )}
         </View>
       }
     >
       {children}
-    </Field>
-  );
-}
-
-/* Four of the keys above through one hook: AsyncStorage answers all of them in one call across the native bridge, and again in one call whenever any of them changes. */
-function Summary() {
-  const palette = usePalette();
-  const [result] = useAsyncStorageValues(local, [
-    "displayName",
-    "theme",
-    "fontScale",
-    "visitCount",
-  ]);
-
-  return (
-    <Field
-      label="Four keys through one hook"
-      hint="useAsyncStorageValues reads these four in one call, with one status for all of them, and re-reads them together when any one changes."
-    >
-      {result.status === "ready" ? (
-        <Text style={{ fontSize: 14, lineHeight: 20, color: palette.body }}>
-          {result.values.displayName ?? "Someone"} reads in {result.values.theme} at{" "}
-          {Math.round(result.values.fontScale * 100)}%, and has visited {result.values.visitCount}{" "}
-          {result.values.visitCount === 1 ? "time" : "times"}.
-        </Text>
-      ) : (
-        <NotReady stored={result} />
-      )}
     </Field>
   );
 }
@@ -91,13 +94,23 @@ export function ValuesPanel() {
   const [user, userWriter] = useAsyncStorageValue(local, "user");
   const [lastDismissed, lastDismissedWriter] = useAsyncStorageValue(local, "lastDismissed");
   const [nickname, nicknameWriter] = useAsyncStorageValue(local, "nickname");
+  const [legacyMoved, setLegacyMoved] = useState<boolean>();
 
   return (
     <Card
-      title="Every value kind the library supports"
-      description="Each control writes through the typed API and reads straight back. The caption under each one is the type that read returns, and why."
+      title="Every kind of value"
+      lead="Change any control. The line under it is what a read returns now."
+      how={
+        <>
+          {ROWS.map((key) => (
+            <Explain key={key} text={`${KEY_NOTES[key].label}. ${KEY_NOTES[key].note}`} />
+          ))}
+          <Explain text="Store `null` under Last dismissed, then remove it: a stored `null` reads back as `null`, and only an absent key reads as `undefined`." />
+          <Explain text="Every value here reports a status, because AsyncStorage only ever answers later. Theme repaints the app once its read lands." />
+        </>
+      }
     >
-      <ValueRow storageKey="theme" stored={theme}>
+      <ValueRow first storageKey="theme" stored={theme}>
         {theme.status === "ready" ? (
           <Control>
             <Picker
@@ -141,11 +154,7 @@ export function ValuesPanel() {
         )}
       </ValueRow>
 
-      <ValueRow
-        storageKey="fontScale"
-        stored={fontScale}
-        usage="Drag to change; it writes as you go."
-      >
+      <ValueRow storageKey="fontScale" stored={fontScale}>
         {fontScale.status === "ready" ? (
           <Control width={170}>
             <Slider
@@ -188,11 +197,7 @@ export function ValuesPanel() {
         )}
       </ValueRow>
 
-      <ValueRow
-        storageKey="recentSearches"
-        stored={recentSearches}
-        usage="Type a term and press return to add it. Tap one to remove it."
-      >
+      <ValueRow storageKey="recentSearches" stored={recentSearches}>
         {recentSearches.status === "ready" ? (
           <TextRow
             value=""
@@ -230,7 +235,7 @@ export function ValuesPanel() {
         </View>
       ) : null}
 
-      <ValueRow storageKey="user" stored={user} usage="Stored under app:user, not under user.">
+      <ValueRow storageKey="user" stored={user}>
         {user.status === "ready" ? (
           <TextRow
             value={user.value?.name ?? ""}
@@ -245,7 +250,31 @@ export function ValuesPanel() {
         )}
       </ValueRow>
 
-      <ValueRow storageKey="lastDismissed" stored={lastDismissed}>
+      {/* A row of its own, because the user row's field already takes the width a button would need. */}
+      <Field
+        label={`Plant ${LEGACY_USER}`}
+        hint={
+          legacyMoved === undefined ? (
+            "Stores a user under its old name; the read moves it."
+          ) : (
+            <Badge tone={legacyMoved ? "success" : "warning"}>
+              {legacyMoved
+                ? `moved from ${LEGACY_USER} to ${local.physicalKey("user")} ✓`
+                : `${LEGACY_USER} still there`}
+            </Badge>
+          )
+        }
+      >
+        <Control>
+          <Button
+            variant="outlined"
+            label="Plant"
+            onPress={() => void plantLegacyUser().then(setLegacyMoved)}
+          />
+        </Control>
+      </Field>
+
+      <ValueRow stacked storageKey="lastDismissed" stored={lastDismissed}>
         <Control>
           <Row spacing={8}>
             <Button
@@ -277,13 +306,6 @@ export function ValuesPanel() {
           <NotReady stored={nickname} />
         )}
       </ValueRow>
-
-      <Summary />
-
-      <Note>
-        Storing null under Last dismissed and then removing it shows the difference the library
-        insists on: a stored null reads back as null, and only an absent key reads as undefined.
-      </Note>
     </Card>
   );
 }

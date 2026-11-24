@@ -4,14 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>platform-storage · popup</title>
-    <script>
-      /*
-        Paints the operating system's preference before the first frame. A web page can do better and read the stored theme synchronously; an extension area only answers later, so the stored choice is applied once the first read lands and this is what keeps the frame before it from being the wrong one.
-      */
-      if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        document.documentElement.classList.add("dark");
-      }
-    </script>
+    <!-- Served as it is from `public/`, since the page refuses inline scripts. -->
+    <script src="/pre-paint.js"></script>
   </head>
   <body class="w-[380px]">
     <div id="root"></div>

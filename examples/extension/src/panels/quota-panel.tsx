@@ -68,21 +68,33 @@ export function QuotaPanel() {
 
   return (
     <Card
-      title="What happens when the browser says no"
-      description="The library does not police quotas and does not pretend to know them. A call the area rejects is let through in the browser's own vocabulary, and the engine wraps it as StorageAdapterError keeping that rejection as its cause."
+      title="Writes the browser refuses"
+      lead="Write the same long list to sync and to local. Only sync refuses it."
+      how={
+        <>
+          <p>
+            The library does not police quotas or pretend to know them. A call the area rejects is
+            let through in the browser&rsquo;s own words, wrapped as{" "}
+            <Code>StorageAdapterError</Code> with the rejection kept as its cause, and reported to
+            the Error log. A refused write leaves the area exactly as it was.
+          </p>
+          <p>
+            Values are stored bare rather than as text. Encoding them for an area that transports
+            JSON natively would spend this quota twice and stop anything else reading what was
+            written, which is why <Code>passthroughSerializer</Code> is what this adapter carries.
+          </p>
+        </>
+      }
     >
       <div className="divide-y divide-line">
-        <Field
-          label="A modest list, to sync"
-          hint="Three terms. Well inside every limit the area has."
-        >
+        <Field label="A modest list, to sync" hint="Three terms, well inside every limit.">
           <Button onClick={() => record("modest", () => write(sync, MODEST))}>Write</Button>
           {show("modest")}
         </Field>
 
         <Field
           label="An oversized list, to sync"
-          hint="Four hundred terms, past the eight kilobytes an item may occupy in the sync area."
+          hint="Four hundred terms, past sync's eight kilobytes an item."
         >
           <Button tone="danger" onClick={() => record("over-sync", () => write(sync, OVERSIZED))}>
             Write
@@ -92,7 +104,7 @@ export function QuotaPanel() {
 
         <Field
           label="The same oversized list, to local"
-          hint="Identical value, different area. The local quota is roughly ten megabytes, so this one is accepted."
+          hint="The same value. local allows about ten megabytes."
         >
           <Button onClick={() => record("over-local", () => write(local, OVERSIZED))}>Write</Button>
           {show("over-local")}
@@ -100,7 +112,12 @@ export function QuotaPanel() {
 
         <Field
           label="Past the write rate, on sync"
-          hint="A hundred and forty writes in a row, against a limit of a hundred and twenty a minute. This one leaves sync refusing writes until the minute is up, so run it last."
+          hint={
+            <>
+              <Badge tone="warning">run it last</Badge> 140 writes against a limit of 120 a minute;
+              sync then refuses every write until the minute is up.
+            </>
+          }
         >
           <Button tone="danger" onClick={() => record("hammer", hammer)}>
             Hammer it
@@ -108,19 +125,6 @@ export function QuotaPanel() {
           {show("hammer")}
         </Field>
       </div>
-
-      <p className="mt-3 text-xs leading-relaxed text-soft">
-        Every refusal here is also in the event log, with the browser&rsquo;s own message on it. The
-        value that failed is the one thing the library will not guess about: a rejected write leaves
-        the area exactly as it was, and what to do next is the application&rsquo;s to decide.
-      </p>
-
-      <p className="mt-2 text-xs leading-relaxed text-soft">
-        Values are stored bare, as the values themselves rather than as text. Encoding them for an
-        area that transports JSON natively would spend this quota twice over, and would stop
-        anything else reading what was written — which is exactly why{" "}
-        <Code>passthroughSerializer</Code> is what this adapter carries.
-      </p>
     </Card>
   );
 }

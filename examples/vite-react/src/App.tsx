@@ -11,9 +11,8 @@ export function App() {
       schemaSource={schemaSource}
       intro={
         <>
-          Everything below runs against the actual <Code>localStorage</Code> of this page. Open
-          devtools and watch the two panels on the right: the inspector shows the raw text on the
-          origin, and the log shows every failure the library handled on your behalf.
+          Every tab runs against this page&rsquo;s real <Code>localStorage</Code>. Start with the
+          tour; the inspector and the error log beside each tab show what happened.
         </>
       }
     />

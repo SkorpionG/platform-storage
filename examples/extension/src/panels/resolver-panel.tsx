@@ -20,14 +20,31 @@ export function ResolverPanel() {
 
   return (
     <Card
-      title="Which API the library found, and what it calls things"
-      description="An extension API is looked for on browser first and chrome second, because browser is promise-based everywhere it exists while chrome is a compatibility namespace on Firefox. Nothing is cached: the lookup runs on every operation, so a worker that has not finished starting is not a permanent failure."
+      title="Which API the library found"
+      lead="The global the library chose, the names it uses, and a read through a storage with no API at all."
+      how={
+        <>
+          <p>
+            An extension API is looked for on <Code>browser</Code> first and <Code>chrome</Code>{" "}
+            second, because <Code>browser</Code> is promise-based everywhere it exists while{" "}
+            <Code>chrome</Code> is a compatibility namespace on Firefox. Load the Firefox build to
+            check: it defines both, and only the first is used.
+          </p>
+          <p>
+            Nothing is cached, so a worker that has not finished starting is not a permanent
+            failure. <Value value={undefined} /> from <Code>resolveWebExtensionStorage()</Code> is
+            an answer rather than a throw: what to do about a missing API is the caller&rsquo;s to
+            decide. The storage with no API reads the way a context without the <Code>storage</Code>{" "}
+            permission would, and its failure lands in the Error log.
+          </p>
+        </>
+      }
       aside={<Badge tone={chosen === undefined ? "danger" : "success"}>{chosen ?? "none"}</Badge>}
     >
       <div className="divide-y divide-line">
         <Field
           label="Globals carrying a storage namespace"
-          hint="Tried in this order. The first one holding a storage namespace wins."
+          hint="Tried in this order; the first wins."
         >
           {HOSTS.map((host) => (
             <Badge key={host} tone={hasStorage(host) ? "success" : "neutral"}>
@@ -37,32 +54,26 @@ export function ResolverPanel() {
           ))}
         </Field>
 
-        <Field
-          label="resolveWebExtensionStorage()"
-          hint="The library's own lookup, exported so an application can ask the same question."
-        >
+        <Field label="resolveWebExtensionStorage()" hint="The library's own lookup, exported.">
           <Badge tone={resolveWebExtensionStorage() === undefined ? "danger" : "success"}>
             {resolveWebExtensionStorage() === undefined ? "undefined" : "a storage namespace"}
           </Badge>
         </Field>
 
-        <Field
-          label="adapter.name"
-          hint="What the adapter calls itself, which is the name every error reports."
-        >
+        <Field label="adapter.name" hint="The name every error reports.">
           <Badge tone="info">{local.adapter.name}</Badge>
         </Field>
 
         <Field
           label={`physicalKey("user")`}
-          hint="The key the area actually holds, for tooling that has to address it directly. Look for this one in the inspector."
+          hint="The name the area holds. Look for it in the inspector."
         >
           <Badge tone="info">{local.physicalKey("user")}</Badge>
         </Field>
 
         <Field
           label="A storage whose backend is never there"
-          hint="Built with a source that answers with nothing, which is what a context without the storage permission gets. The read is reported, not fatal."
+          hint="Its backend answers with nothing. Reported, not fatal."
         >
           <Button
             onClick={() =>
@@ -85,13 +96,6 @@ export function ResolverPanel() {
           )}
         </Field>
       </div>
-
-      <p className="mt-3 text-xs leading-relaxed text-soft">
-        Load the Firefox build and this panel is how you check that <Code>browser</Code> was
-        preferred: Firefox defines both globals, and only the first is used. Note also that{" "}
-        <Value value={undefined} /> from <Code>resolveWebExtensionStorage()</Code> is an answer
-        rather than a throw — deciding what to do about a missing API belongs to the caller.
-      </p>
     </Card>
   );
 }

@@ -18,7 +18,24 @@ export function ServerRenderPanel() {
   return (
     <Card
       title="The same storage, on both sides of the wire"
-      description="One storage, one schema, two environments. The column on the left was rendered where no window exists; the one on the right is running in your browser, reading the same keys through the same API."
+      lead="Left: rendered on a server with no window. Right: the same reads in this browser. Store something on the Values tab and reload."
+      how={
+        <>
+          <p>
+            The storage was built with <Code>fallback</Code>, and{" "}
+            <Code>hasFallback(local.adapter)</Code> reaches <Code>chosen()</Code>, which answers{" "}
+            <Code>&quot;fallback&quot;</Code> here and <Code>&quot;primary&quot;</Code> in your
+            browser. <Code>physicalKey(&quot;user&quot;)</Code> answers{" "}
+            <Code>{local.physicalKey("user")}</Code> on either side, because it reads the schema and
+            never a backend.
+          </p>
+          <p>
+            Nothing here writes while rendering, which keeps one process-wide memory backend from
+            leaking one request&rsquo;s values into another&rsquo;s. An application that writes
+            during a render needs a storage built per request.
+          </p>
+        </>
+      }
       aside={<Badge tone="info">{local.adapter.name}</Badge>}
     >
       <div className="grid gap-3 sm:grid-cols-2">
@@ -54,21 +71,6 @@ export function ServerRenderPanel() {
 
         <BrowserColumn />
       </div>
-
-      <p className="mt-3 text-xs leading-relaxed text-soft">
-        Store something above, reload, and the two columns disagree. The storage was built with{" "}
-        <Code>fallback</Code>, and <Code>hasFallback(local.adapter)</Code> reaches{" "}
-        <Code>chosen()</Code>, which answers <Code>&quot;fallback&quot;</Code> here and{" "}
-        <Code>&quot;primary&quot;</Code> in your browser. <Code>physicalKey(&quot;user&quot;)</Code>{" "}
-        answers <Code>{local.physicalKey("user")}</Code> on the server as readily as in the browser,
-        because it only reads the schema and never reaches for a backend at all.
-      </p>
-
-      <p className="mt-2 text-xs leading-relaxed text-soft">
-        Nothing here writes while rendering, which is what keeps one process-wide memory backend
-        from leaking one request&rsquo;s values into another&rsquo;s. An application that does write
-        during a render needs a storage built per request, not one built while a module loads.
-      </p>
     </Card>
   );
 }

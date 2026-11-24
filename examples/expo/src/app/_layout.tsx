@@ -23,6 +23,10 @@ export default function RootLayout() {
     <ThemeProvider value={scheme === "dark" ? DarkTheme : DefaultTheme}>
       <NativeTabs {...androidBar}>
         <NativeTabs.Trigger name="index">
+          <NativeTabs.Trigger.Icon sf="checklist" md="checklist" />
+          <NativeTabs.Trigger.Label>Tour</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="values">
           <NativeTabs.Trigger.Icon sf="slider.horizontal.3" md="tune" />
           <NativeTabs.Trigger.Label>Values</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

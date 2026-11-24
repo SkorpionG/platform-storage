@@ -1,7 +1,7 @@
 import { storedNamesOf } from "@examples/schema";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { local } from "./storages";
+import { local, tour } from "./storages";
 
 /*
   AsyncStorage reached directly, the way devtools reaches an origin. Two panels need it: one plants values the library would refuse to write, and one reads what the device is actually holding, once the adapter has named the keys.
@@ -24,8 +24,18 @@ export async function plantValue(physicalKey: string, value: unknown): Promise<v
   await AsyncStorage.setItem(physicalKey, JSON.stringify(value));
 }
 
+/** The text the device holds under a physical key, or `undefined` for nothing. */
+export async function readText(physicalKey: string): Promise<string | undefined> {
+  return (await AsyncStorage.getItem(physicalKey)) ?? undefined;
+}
+
+/** Removes a physical key past the library, the way a release from before a rename never wrote it. */
+export async function removeRaw(physicalKey: string): Promise<void> {
+  await AsyncStorage.removeItem(physicalKey);
+}
+
 /* Asked of the storage rather than read off the schema, because a storage's prefix is part of every name it stores under. */
-const OURS = storedNamesOf([local]);
+const OURS = storedNamesOf([local, tour]);
 
 /** Everything on the device, each entry flagged against the names this storage stores under. */
 export async function readEverything(): Promise<ReadonlyArray<StoredEntry>> {

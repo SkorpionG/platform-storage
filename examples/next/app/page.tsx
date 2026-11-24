@@ -2,6 +2,7 @@ import { Code } from "@examples/ui";
 import {
   HydrationPanel,
   Playground,
+  SECTION,
   RequestLogPanel,
   ServerRenderPanel,
   ServerUnavailablePanel,
@@ -19,19 +20,23 @@ export default async function Page() {
       schemaSource={schemaSource}
       intro={
         <>
-          Every panel below is rendered once on a server that has no <Code>localStorage</Code> at
-          all, and again in this browser. Disable JavaScript and reload to see what the server alone
-          can answer with: the schema&rsquo;s declared defaults, and nothing you have stored.
+          Every panel is rendered once on a server with no <Code>localStorage</Code>, and again in
+          this browser. The Server tab shows the difference; disable JavaScript and reload to see
+          the server&rsquo;s half alone.
         </>
       }
-      leading={
-        <>
-          <ServerRenderPanel />
-          <ServerUnavailablePanel />
-          <RequestLogPanel />
-          <HydrationPanel />
-        </>
-      }
+      defaultTab={SECTION.Server}
+      platformTab={{
+        id: SECTION.Server,
+        content: (
+          <>
+            <ServerRenderPanel />
+            <HydrationPanel />
+            <RequestLogPanel />
+            <ServerUnavailablePanel />
+          </>
+        ),
+      }}
     />
   );
 }

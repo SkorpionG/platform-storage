@@ -1,12 +1,34 @@
-import { appSchema, DECLARED_DEFAULTS } from "@examples/schema";
+import { appSchema, DECLARED_DEFAULTS, TOUR_PREFIX } from "@examples/schema";
 import type { AppDefinition } from "@examples/schema";
 import {
   createStorage,
   createWebExtensionStorage,
   webExtensionStorageAdapter,
 } from "@platform-storage/webextension";
-import type { JsonValue, PlatformStorage, StorageAdapter } from "@platform-storage/webextension";
+import type {
+  JsonValue,
+  PlatformStorage,
+  PlatformStorageError,
+  StorageAdapter,
+} from "@platform-storage/webextension";
 import { recordStorageError } from "@platform-storage/react";
+
+let failures = 0;
+
+/**
+ * Every storage's `onError`: records into this page's log, and counts.
+ *
+ * The count is what lets a card say whether the read it just made was reported, without waiting for the log to render.
+ */
+function report(error: PlatformStorageError): void {
+  failures += 1;
+  recordStorageError(error);
+}
+
+/** How many failures every storage in this context has reported so far. */
+export function failuresSoFar(): number {
+  return failures;
+}
 
 /*
   Every storage here is a `PlatformStorage` rather than a `SyncPlatformStorage`. An extension area only ever answers later, so the adapter exposes no synchronous half and neither does anything built on it. That is the single largest difference from the web examples, and it reaches every panel.
@@ -16,21 +38,21 @@ import { recordStorageError } from "@platform-storage/react";
 export const local: PlatformStorage<AppDefinition> = createWebExtensionStorage({
   schema: appSchema,
   area: "local",
-  onError: recordStorageError,
+  onError: report,
 });
 
 /** The same schema over the area the browser replicates between the user's signed-in profiles. Its quota is far smaller, which the quota panel is about. */
 export const sync: PlatformStorage<AppDefinition> = createWebExtensionStorage({
   schema: appSchema,
   area: "sync",
-  onError: recordStorageError,
+  onError: report,
 });
 
 /** The same schema again, over an area emptied when the browser closes. Absent on Manifest V2 and before Chrome 102 or Firefox 115, where addressing it reports itself rather than crashing. */
 export const session: PlatformStorage<AppDefinition> = createWebExtensionStorage({
   schema: appSchema,
   area: "session",
-  onError: recordStorageError,
+  onError: report,
 });
 
 /** The same `session` area, falling back to memory where it is absent, so a Manifest V2 build answers where `session` alone reports itself unavailable. Memory holds JSON values, as an area does. */
@@ -38,7 +60,7 @@ export const sessionOrMemory: PlatformStorage<AppDefinition> = createWebExtensio
   schema: appSchema,
   area: "session",
   fallback: "memory",
-  onError: recordStorageError,
+  onError: report,
 });
 
 /**
@@ -49,7 +71,7 @@ export const sessionOrMemory: PlatformStorage<AppDefinition> = createWebExtensio
 export const localRecovering: PlatformStorage<AppDefinition> = createWebExtensionStorage({
   schema: appSchema,
   area: "local",
-  onError: recordStorageError,
+  onError: report,
   onInvalid: (context) => DECLARED_DEFAULTS[context.key],
 });
 
@@ -62,6 +84,15 @@ export const detached: PlatformStorage<AppDefinition> = createWebExtensionStorag
   schema: appSchema,
   storage: () => undefined,
   name: "storage.local (no extension API)",
+  onError: report,
+});
+
+/** The quick tour's own storage over `local`, inside a prefix of its own so that planting and clearing never touch a value another card shows. */
+export const tour: PlatformStorage<AppDefinition> = createWebExtensionStorage({
+  schema: appSchema,
+  area: "local",
+  prefix: TOUR_PREFIX,
+  onError: report,
 });
 
 /** How many calls the counted `sync` storage below has made to its area, for the batch panel to show. */
@@ -99,5 +130,5 @@ function counted(adapter: StorageAdapter<JsonValue>): StorageAdapter<JsonValue> 
 export const countedSync: PlatformStorage<AppDefinition> = createStorage({
   schema: appSchema,
   adapter: counted(webExtensionStorageAdapter({ area: "sync" })),
-  onError: recordStorageError,
+  onError: report,
 });

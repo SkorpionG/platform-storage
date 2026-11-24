@@ -1,5 +1,6 @@
-import { Values } from "../screens/values";
+import { Tour } from "../screens/tour";
 
-export default function ValuesRoute() {
-  return <Values />;
+/* The first tab, so the app opens on the checks that show the library working. */
+export default function TourRoute() {
+  return <Tour />;
 }

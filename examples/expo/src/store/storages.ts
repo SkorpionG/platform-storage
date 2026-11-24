@@ -1,9 +1,30 @@
-import { appSchema, DECLARED_DEFAULTS } from "@examples/schema";
+import { appSchema, DECLARED_DEFAULTS, TOUR_PREFIX } from "@examples/schema";
 import type { AppDefinition } from "@examples/schema";
 import { recordStorageError } from "@platform-storage/react";
 import { createReactNativeStorage } from "@platform-storage/react-native";
-import type { AsyncStorageLike, PlatformStorage } from "@platform-storage/react-native";
+import type {
+  AsyncStorageLike,
+  PlatformStorage,
+  PlatformStorageError,
+} from "@platform-storage/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+let failures = 0;
+
+/**
+ * Every storage's `onError`: records into the shared log, and counts.
+ *
+ * The count is what lets a card say whether the read it just made was reported, without waiting for the log to render.
+ */
+function report(error: PlatformStorageError): void {
+  failures += 1;
+  recordStorageError(error);
+}
+
+/** How many failures every storage in this app has reported so far. */
+export function failuresSoFar(): number {
+  return failures;
+}
 
 /*
   Every storage here is a `PlatformStorage` rather than a `SyncPlatformStorage`. AsyncStorage only ever answers later, so the adapter exposes no synchronous half and neither does anything built on it. That is the single largest difference from the web examples, and it reaches every panel.
@@ -15,7 +36,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export const local: PlatformStorage<AppDefinition> = createReactNativeStorage({
   schema: appSchema,
   asyncStorage: AsyncStorage,
-  onError: recordStorageError,
+  onError: report,
 });
 
 /**
@@ -26,7 +47,7 @@ export const local: PlatformStorage<AppDefinition> = createReactNativeStorage({
 export const recovering: PlatformStorage<AppDefinition> = createReactNativeStorage({
   schema: appSchema,
   asyncStorage: AsyncStorage,
-  onError: recordStorageError,
+  onError: report,
   onInvalid: (context) => DECLARED_DEFAULTS[context.key],
 });
 
@@ -46,7 +67,7 @@ export const failing: PlatformStorage<AppDefinition> = createReactNativeStorage(
   schema: appSchema,
   asyncStorage: refusing,
   name: "AsyncStorage (refusing)",
-  onError: recordStorageError,
+  onError: report,
 });
 
 /**
@@ -58,5 +79,13 @@ export const withoutDevice: PlatformStorage<AppDefinition> = createReactNativeSt
   schema: appSchema,
   asyncStorage: null,
   fallback: "memory",
-  onError: recordStorageError,
+  onError: report,
+});
+
+/** The quick tour's own storage over the same device, inside a prefix of its own so that planting and clearing never touch a value another card shows. */
+export const tour: PlatformStorage<AppDefinition> = createReactNativeStorage({
+  schema: appSchema,
+  asyncStorage: AsyncStorage,
+  prefix: TOUR_PREFIX,
+  onError: report,
 });

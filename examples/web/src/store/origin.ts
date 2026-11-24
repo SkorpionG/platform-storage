@@ -2,10 +2,10 @@ import { storedNamesOf } from "@examples/schema";
 import { subscribeToStorage } from "@platform-storage/react";
 import { isSyncStorageAdapter } from "@platform-storage/web";
 
-import { adopting, local, teamA, teamB } from "./storage";
+import { adopting, local, teamA, teamB, tour } from "./storage";
 
 /* Every storage on this page that stores in `localStorage`, so the inspector can tell their names from anything else on the origin. */
-const OURS = storedNamesOf([local, teamA, teamB, adopting]);
+const OURS = storedNamesOf([local, teamA, teamB, adopting, tour]);
 
 export interface OriginEntry {
   readonly key: string;
@@ -15,6 +15,11 @@ export interface OriginEntry {
 
 /* A server reaches no origin at all, and the browser's first pass has to print what the server did. One frozen array rather than a fresh one, so the snapshot holds still. */
 const NOTHING: ReadonlyArray<OriginEntry> = Object.freeze([]);
+
+/** Every name on the origin right now, read fresh rather than from the cached snapshot, for comparing before and after a call. */
+export function readOriginNames(): ReadonlySet<string> {
+  return new Set(readOrigin().map((entry) => entry.key));
+}
 
 function readOrigin(): ReadonlyArray<OriginEntry> {
   const { adapter } = local;
@@ -49,6 +54,7 @@ export function subscribeToOrigin(listener: () => void): () => void {
     subscribeToStorage(teamA, changed),
     subscribeToStorage(teamB, changed),
     subscribeToStorage(adopting, changed),
+    subscribeToStorage(tour, changed),
   ];
 
   return () => {

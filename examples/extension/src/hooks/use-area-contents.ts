@@ -2,7 +2,7 @@ import { storedNamesOf } from "@examples/schema";
 import type { WebExtensionStorageAreaName } from "@platform-storage/webextension";
 import { useEffect, useState } from "react";
 
-import { local, session, sync } from "../store/storages";
+import { local, session, sync, tour } from "../store/storages";
 
 interface AreaEntry {
   readonly key: string;
@@ -19,13 +19,16 @@ export interface AreaContents {
 
 const STORAGES = { local, sync, session } as const;
 
+/* Every storage over each area, so the tour's prefixed names count as this page's own rather than as someone else's. */
+const OWNERS = { local: [local, tour], sync: [sync], session: [session] } as const;
+
 const EMPTY: AreaContents = Object.freeze({ entries: [], failure: undefined });
 
 async function read(area: WebExtensionStorageAreaName): Promise<AreaContents> {
   try {
     const storage = STORAGES[area];
     const { adapter } = storage;
-    const ours = storedNamesOf([storage]);
+    const ours = storedNamesOf(OWNERS[area]);
     const names = (await adapter.keys?.()) ?? [];
 
     const held = await Promise.all(
